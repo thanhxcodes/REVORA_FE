@@ -1,5 +1,6 @@
 import { useState, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import TopNavbar from './components/TopNavbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
@@ -38,23 +39,11 @@ export const AdminContext = createContext<AdminContextType>({
 
 export const useAdminContext = () => useContext(AdminContext);
 
-export interface User {
-  username: string;
-  name: string;
-  avatar: string;
-  role: 'user' | 'admin';
-}
-
-const DEFAULT_USER: User = {
-  username: 'user1',
-  name: 'Minh Anh',
-  avatar: 'M',
-  role: 'user',
-};
+// Định dạng User được quản lý tập trung thông qua AuthContext
 
 function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(DEFAULT_USER);
+  const { currentUser, logout, isLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -63,18 +52,26 @@ function AppContent() {
   const isLoginRoute = location.pathname === '/login';
   const isShortsRoute = location.pathname === '/shorts';
 
-  const handleLogout = () => {
-    setCurrentUser(null);
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
   const isForgotPasswordRoute = location.pathname === '/forgot-password';
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-12 h-12 border-4 border-[#2D5A3D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (isAdminRoute || isLoginRoute || isForgotPasswordRoute) {
     return (
       <AdminContext.Provider value={{ onLogout: handleLogout, currentUser }}>
         <Routes>
-          <Route path="/login" element={<LoginPage setCurrentUser={setCurrentUser} />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/revenue" element={<AdminRevenuePage />} />
@@ -135,7 +132,9 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
