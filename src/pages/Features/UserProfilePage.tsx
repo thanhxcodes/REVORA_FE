@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Star, MapPin, Calendar, Shield, Heart, Package, Award,
@@ -6,26 +6,15 @@ import {
   Bell, CreditCard, CheckCircle, AlertCircle, Zap,
   FileText, Clock, Mail, MessageSquare, User, UserPlus, Check, Trash2,
 } from 'lucide-react';
-import ProductCard from '../Products/components/ProductCard';
+import { useUserProfile } from '../../features/profile/hooks/useUserProfile';
+import { useUpdateProfile } from '../../features/profile/hooks/useUpdateProfile';
+import { UserProfile } from '../../features/profile/types';
+import { useMyProducts } from '../../features/products/hooks/useMyProducts';
+import ProfileTab, { ProfileData } from './Profile/components/ProfileTab';
+import SecurityTab from './Profile/components/SecurityTab';
+import ProductsTab from './Profile/components/ProductsTab';
+import WishlistTab, { WishlistProduct } from './Profile/components/WishlistTab';
 
-/* ─── mock data ─────────────────────────────────────────────────────────── */
-const userProducts = [
-  { id: 20, image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=400', title: 'Áo Khoác Da Vintage', price: 1890000, condition: 'Như Mới', seller: 'fashionista_22', views: 1234, isPremium: true },
-  { id: 21, image: 'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=400', title: 'Túi Xách Designer', price: 4500000, condition: 'Tuyệt Vời', seller: 'fashionista_22', views: 892 },
-  { id: 22, image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?w=400', title: 'Giày Thể Thao Cao Cổ', price: 1200000, condition: 'Tốt', seller: 'fashionista_22', views: 567 },
-  { id: 23, image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=400', title: 'Váy Hè', price: 750000, condition: 'Như Mới', seller: 'fashionista_22', views: 423 },
-];
-
-interface WishlistProduct {
-  id: number;
-  image: string;
-  title: string;
-  price: number;
-  condition: string;
-  seller: string;
-  views: number;
-  isPublic: boolean;
-}
 
 const INITIAL_WISHLIST: WishlistProduct[] = [
   { id: 30, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400', title: 'Áo Bomber Da Đen', price: 1650000, condition: 'Tốt', seller: 'vintage_co', views: 432, isPublic: true },
@@ -41,21 +30,6 @@ const VIETNAM_CITIES = [
   'Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ',
   'Nghệ An', 'Quảng Ninh', 'Bình Dương', 'Đồng Nai', 'Huế', 'Nha Trang', 'Đà Lạt',
 ];
-
-/* ─── types ──────────────────────────────────────────────────────────────── */
-interface ProfileData {
-  name: string;
-  username: string;
-  email: string;
-  phone: string;
-  zalo: string;
-  birthday: string;
-  gender: string;
-  address: string;
-  city: string;
-  bio: string;
-  avatarColor: string;
-}
 
 type TabKey = 'profile' | 'products' | 'wishlist' | 'security';
 
@@ -80,11 +54,56 @@ function initials(name: string) {
   return name.trim().split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
 }
 
+const mapProfileToUI = (profile: UserProfile): ProfileData => ({
+  name: profile.fullName,
+  username: profile.username,
+  email: profile.email,
+  phone: profile.phone ?? '',
+  birthday: profile.birthday ? profile.birthday.split('T')[0] : '',
+  gender: profile.gender?.toLowerCase() ?? '',
+  address: profile.address ?? '',
+  city: profile.city ?? '',
+  bio: profile.bio ?? '',
+  avatarColor: '#2D5A3D',
+});
+
 /* ─── component ──────────────────────────────────────────────────────────── */
 export default function UserProfilePage() {
   const [searchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as TabKey) || 'profile';
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+
+  const {
+    profile: userProfile,
+    isLoading,
+    error,
+    refetch,
+  } = useUserProfile();
+
+  const {
+    products: myProducts,
+    isLoading: isProductsLoading,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useMyProducts();
+
+  const { updateProfile, isUpdating, updateError } = useUpdateProfile();
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ name?: string; phone?: string; birthday?: string }>({});
+
+  const soldCount = userProfile?.soldCount ?? 156;
+  const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : myProducts.length;
+  const followerCount = userProfile?.followerCount ?? 2500;
+  const responseRate = userProfile?.responseRate ?? 98;
+
+  const formattedFollowers = followerCount >= 1000 
+    ? `${(followerCount / 1000).toFixed(1).replace('.0', '')}k`
+    : followerCount.toString();
+
+  const joinedDate = userProfile?.createdAt ? new Date(userProfile.createdAt) : null;
+  const joinedStr = joinedDate 
+    ? `Tham gia ${joinedDate.getMonth() + 1}/${joinedDate.getFullYear()}`
+    : 'Tham gia —';
 
   useEffect(() => {
     const t = searchParams.get('tab') as TabKey | null;
@@ -100,23 +119,31 @@ export default function UserProfilePage() {
   const [selectedBadge, setSelectedBadge] = useState('premium-gold');
   const [isOnline, setIsOnline] = useState(true);
   const [wishlistProducts, setWishlistProducts] = useState<WishlistProduct[]>(INITIAL_WISHLIST);
-  const [userRating, setUserRating] = useState<number | null>(null);
-  const [hoverRating, setHoverRating] = useState<number | null>(null);
 
-  const [profile, setProfile] = useState<ProfileData>({
-    name: 'Minh Anh',
-    username: 'fashionista_22',
-    email: 'minhanh@gmail.com',
-    phone: '0912 345 678',
-    zalo: '0912 345 678',
-    birthday: '1999-05-15',
-    gender: 'female',
-    address: '123 Đường Hoàng Hoa Thám, Quận Ba Đình',
-    city: 'Hà Nội',
-    bio: 'Đam mê thời trang và sưu tầm đồ vintage. Tuyển chọn những món đồ độc đáo với tình yêu và sự chăm sóc. Cam kết giao hàng nhanh và giao tiếp tốt!',
+  const DEFAULT_PROFILE: ProfileData = {
+    name: '',
+    username: '',
+    email: '',
+    phone: '',
+    birthday: '',
+    gender: '',
+    address: '',
+    city: '',
+    bio: '',
     avatarColor: '#2D5A3D',
-  });
-  const [draft, setDraft] = useState<ProfileData>(profile);
+  };
+
+  const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
+  const [draft, setDraft] = useState<ProfileData>(DEFAULT_PROFILE);
+
+  useEffect(() => {
+    if (!userProfile) return;
+
+    const mapped = mapProfileToUI(userProfile);
+
+    setProfile(mapped);
+    setDraft(mapped);
+  }, [userProfile]);
 
   // Password state
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -124,54 +151,167 @@ export default function UserProfilePage() {
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
 
-  const handleSave = () => {
-    setProfile(draft);
-    setIsEditing(false);
-    setAvatarPickerOpen(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3500);
-  };
+  // Khai báo refs cho các timeout để tránh memory leak
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pwTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleCancel = () => {
+  // Cleanup timeout khi component unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (pwTimeoutRef.current) clearTimeout(pwTimeoutRef.current);
+    };
+  }, []);
+
+  const clearError = useCallback((field: 'name' | 'phone' | 'birthday') => {
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setProfileError(null);
+    const newErrors: { name?: string; phone?: string; birthday?: string } = {};
+
+    // Validation
+    if (!draft.name.trim()) {
+      newErrors.name = 'Họ và Tên không được để trống.';
+    }
+
+    if (draft.phone) {
+      const phoneRegex = /^[0][0-9]{9}$/;
+      if (!phoneRegex.test(draft.phone)) {
+        newErrors.phone = 'Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số.';
+      }
+    }
+
+    if (draft.birthday) {
+      const today = new Date();
+      const birthDate = new Date(draft.birthday);
+      if (birthDate > today) {
+        newErrors.birthday = 'Ngày sinh không được ở tương lai.';
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
+
+    try {
+      await updateProfile({
+        fullName: draft.name,
+        phone: draft.phone || undefined,
+        birthday: draft.birthday || undefined,
+        gender: draft.gender || undefined,
+        address: draft.address || undefined,
+        city: draft.city || undefined,
+        bio: draft.bio || undefined,
+      });
+
+      setProfile(draft);
+      setIsEditing(false);
+      setAvatarPickerOpen(false);
+      setSaveSuccess(true);
+      
+      refetch();
+
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => setSaveSuccess(false), 3500);
+    } catch (err: any) {
+      console.error('Failed to update profile:', err);
+    }
+  }, [draft, updateProfile, refetch]);
+
+  const handleCancel = useCallback(() => {
     setDraft(profile);
+    setProfileError(null);
+    setErrors({});
     setIsEditing(false);
     setAvatarPickerOpen(false);
-  };
+  }, [profile]);
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = useCallback(() => {
     setPwError('');
-    if (!pwForm.current) { setPwError('Vui lòng nhập mật khẩu hiện tại'); return; }
-    if (pwForm.current !== '123') { setPwError('Mật khẩu hiện tại không đúng'); return; }
-    if (pwForm.next.length < 3) { setPwError('Mật khẩu mới phải có ít nhất 3 ký tự'); return; }
-    if (pwForm.next !== pwForm.confirm) { setPwError('Xác nhận mật khẩu không khớp'); return; }
+    
+    if (!pwForm.current) { 
+      setPwError('Vui lòng nhập mật khẩu hiện tại'); 
+      return; 
+    }
+    
+    // TODO: Phase B - Gọi API verify mật khẩu hiện tại
+    // const { verifyCurrentPassword } = useAuth();
+    // const isValid = await verifyCurrentPassword(pwForm.current);
+    // if (!isValid) {
+    //   setPwError('Mật khẩu hiện tại không đúng');
+    //   return;
+    // }
+    
+    if (pwForm.next.length < 3) { 
+      setPwError('Mật khẩu mới phải có ít nhất 3 ký tự'); 
+      return; 
+    }
+    
+    if (pwForm.next !== pwForm.confirm) { 
+      setPwError('Xác nhận mật khẩu không khớp'); 
+      return; 
+    }
+    
     setPwSuccess(true);
     setPwForm({ current: '', next: '', confirm: '' });
-    setTimeout(() => setPwSuccess(false), 4000);
-  };
+    
+    if (pwTimeoutRef.current) clearTimeout(pwTimeoutRef.current);
+    pwTimeoutRef.current = setTimeout(() => setPwSuccess(false), 4000);
+  }, [pwForm]);
 
-  const toggleWishlistPublic = (id: number) => {
-    setWishlistProducts(prev => prev.map(p => p.id === id ? { ...p, isPublic: !p.isPublic } : p));
-  };
-
-  const removeFromWishlist = (id: number) => {
-    setWishlistProducts(prev => prev.filter(p => p.id !== id));
-  };
-
-  const togglePublicView = () => {
-    setPublicViewMode(!publicViewMode);
-    setIsEditing(false);
-    // Switch to safe tab if current tab is private
-    if (!publicViewMode && activeTab === 'security') {
-      setActiveTab('profile');
-    }
-  };
+  const togglePublicView = useCallback(() => {
+    setPublicViewMode((prev) => {
+      const nextMode = !prev;
+      setIsEditing(false);
+      if (!nextMode && activeTab === 'security') {
+        setActiveTab('profile');
+      }
+      return nextMode;
+    });
+  }, [activeTab]);
 
   // Filter tabs based on public view mode
+  const dynamicTabs = [
+    { key: 'profile' as TabKey, label: 'Hồ Sơ', icon: <User className="w-4 h-4" /> },
+    { key: 'products' as TabKey, label: 'Đang Bán', icon: <Package className="w-4 h-4" />, badge: sellingCount.toString() },
+    { key: 'wishlist' as TabKey, label: 'Yêu Thích', icon: <Heart className="w-4 h-4" />, badge: '12' },
+    { key: 'security' as TabKey, label: 'Bảo Mật', icon: <Lock className="w-4 h-4" /> },
+  ];
+
   const visibleTabs = publicViewMode
-    ? TABS.filter(tab => ['profile', 'products', 'wishlist'].includes(tab.key))
-    : TABS;
+    ? dynamicTabs.filter(tab => ['profile', 'products', 'wishlist'].includes(tab.key))
+    : dynamicTabs;
 
   const currentBadge = AVAILABLE_BADGES.find(b => b.id === selectedBadge) || AVAILABLE_BADGES[0];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div>Loading profile...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <button
+            onClick={refetch}
+            className="px-4 py-2 bg-[#2D5A3D] text-white rounded cursor-pointer"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -195,6 +335,13 @@ export default function UserProfilePage() {
               <div className="mb-6 bg-green-50 border border-green-200 text-green-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5">
                 <CheckCircle className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium">Đã lưu thông tin thành công!</span>
+              </div>
+            )}
+
+            {(profileError || updateError) && (
+              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span className="font-medium">{profileError || updateError}</span>
               </div>
             )}
 
@@ -265,50 +412,15 @@ export default function UserProfilePage() {
                     <MapPin className="w-4 h-4 text-[#2D5A3D]" /> {profile.city}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-[#2D5A3D]" /> Tham gia 3/2023
+                    <Calendar className="w-4 h-4 text-[#2D5A3D]" /> {joinedStr}
                   </span>
                 </div>
                 <p className="text-gray-600 text-sm leading-relaxed max-w-2xl line-clamp-2 mb-3">{profile.bio}</p>
 
                 {/* Rating stars */}
                 <div className="flex items-center gap-2">
-                  {publicViewMode ? (
-                    /* Public view - allow voting */
-                    <>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((starValue) => (
-                          <button
-                            key={starValue}
-                            onClick={() => setUserRating(starValue)}
-                            onMouseEnter={() => setHoverRating(starValue)}
-                            onMouseLeave={() => setHoverRating(null)}
-                            className="transition-transform hover:scale-110"
-                          >
-                            <Star
-                              className={`w-5 h-5 transition-colors ${
-                                starValue <= (hoverRating || userRating || 0)
-                                  ? 'text-yellow-400 fill-yellow-400'
-                                  : 'text-gray-300'
-                              }`}
-                            />
-                          </button>
-                        ))}
-                      </div>
-                      {userRating && (
-                        <span className="text-xs text-[#2D5A3D] font-medium">
-                          Bạn đã đánh giá {userRating} sao
-                        </span>
-                      )}
-                      <span className="text-sm font-semibold text-gray-900 ml-2">4.9</span>
-                      <span className="text-sm text-gray-500">(234 đánh giá)</span>
-                    </>
-                  ) : (
-                    /* Private view - just display rating */
-                    <>
-                      <span className="text-sm font-semibold text-gray-900">⭐ 4.9</span>
-                      <span className="text-sm text-gray-500">(234 đánh giá)</span>
-                    </>
-                  )}
+                  <span className="text-sm font-semibold text-gray-900">⭐ 4.9</span>
+                  <span className="text-sm text-gray-500">(234 đánh giá)</span>
                 </div>
               </div>
 
@@ -318,13 +430,24 @@ export default function UserProfilePage() {
                   <>
                     <button
                       onClick={handleSave}
-                      className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white px-6 py-2.5 rounded-full hover:shadow-lg transition-all text-sm font-semibold"
+                      disabled={isUpdating}
+                      className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white px-6 py-2.5 rounded-full hover:shadow-lg transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Save className="w-4 h-4" /> Lưu Thay Đổi
+                      {isUpdating ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Đang lưu...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" /> Lưu Thay Đổi
+                        </>
+                      )}
                     </button>
                     <button
                       onClick={handleCancel}
-                      className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full hover:bg-gray-50 transition-colors text-sm font-medium"
+                      disabled={isUpdating}
+                      className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full hover:bg-gray-50 transition-colors text-sm font-medium disabled:opacity-50"
                     >
                       <X className="w-4 h-4" /> Hủy
                     </button>
@@ -372,10 +495,10 @@ export default function UserProfilePage() {
             {/* Stats */}
             <div className="grid grid-cols-4 gap-6 mt-6 pt-6 border-t border-gray-100">
               {[
-                { label: 'Đã Bán', value: '156' },
-                { label: 'Đang Bán', value: '42' },
-                { label: 'Người Theo Dõi', value: '2.5k' },
-                { label: 'Tỉ Lệ Phản Hồi', value: '98%' },
+                { label: 'Đã Bán', value: soldCount.toString() },
+                { label: 'Đang Bán', value: sellingCount.toString() },
+                { label: 'Người Theo Dõi', value: formattedFollowers },
+                { label: 'Tỉ Lệ Phản Hồi', value: `${responseRate}%` },
               ].map((s) => (
                 <div key={s.label} className="text-center">
                   <div className="text-2xl font-bold text-[#2D5A3D]">{s.value}</div>
@@ -417,287 +540,45 @@ export default function UserProfilePage() {
 
         {/* Tab Content */}
         <div className="pb-16">
-
-          {/* ── PROFILE TAB ── */}
           {activeTab === 'profile' && (
-            <div className="bg-white rounded-3xl shadow-sm p-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-7">Thông Tin Cá Nhân</h2>
-
-              {isEditing ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Name */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Họ và Tên</label>
-                    <input
-                      type="text"
-                      value={draft.name}
-                      onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    />
-                  </div>
-
-                  {/* Bio */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tiểu Sử</label>
-                    <textarea
-                      value={draft.bio}
-                      onChange={(e) => setDraft((p) => ({ ...p, bio: e.target.value }))}
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors resize-none text-gray-900"
-                    />
-                  </div>
-
-                  {/* Birthday */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Ngày Sinh</label>
-                    <input
-                      type="date"
-                      value={draft.birthday}
-                      onChange={(e) => setDraft((p) => ({ ...p, birthday: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    />
-                  </div>
-
-                  {/* Gender */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Giới Tính</label>
-                    <select
-                      value={draft.gender}
-                      onChange={(e) => setDraft((p) => ({ ...p, gender: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    >
-                      <option value="female">Nữ</option>
-                      <option value="male">Nam</option>
-                      <option value="other">Khác</option>
-                    </select>
-                  </div>
-
-                  {/* Phone */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Số Điện Thoại</label>
-                    <input
-                      type="tel"
-                      value={draft.phone}
-                      onChange={(e) => setDraft((p) => ({ ...p, phone: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    />
-                  </div>
-
-                  {/* Zalo */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Zalo</label>
-                    <input
-                      type="text"
-                      value={draft.zalo}
-                      onChange={(e) => setDraft((p) => ({ ...p, zalo: e.target.value }))}
-                      placeholder="Số Zalo hoặc link Zalo"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    />
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={draft.email}
-                      onChange={(e) => setDraft((p) => ({ ...p, email: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    />
-                  </div>
-
-                  {/* City */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tỉnh / Thành Phố</label>
-                    <select
-                      value={draft.city}
-                      onChange={(e) => setDraft((p) => ({ ...p, city: e.target.value }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    >
-                      {VIETNAM_CITIES.map((c) => <option key={c}>{c}</option>)}
-                    </select>
-                  </div>
-
-                  {/* Address */}
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Địa Chỉ</label>
-                    <input
-                      type="text"
-                      value={draft.address}
-                      onChange={(e) => setDraft((p) => ({ ...p, address: e.target.value }))}
-                      placeholder="Số nhà, đường, phường/xã..."
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* View mode */
-                <div className="divide-y divide-gray-50">
-                  {[
-                    { label: 'Họ và Tên', value: profile.name, icon: <User className="w-4 h-4" />, public: true },
-                    { label: 'Email', value: profile.email, icon: <Mail className="w-4 h-4" />, public: false },
-                    { label: 'Số Điện Thoại', value: profile.phone, icon: <Phone className="w-4 h-4" />, public: false },
-                    { label: 'Zalo', value: profile.zalo, icon: <MessageSquare className="w-4 h-4" />, public: false },
-                    {
-                      label: 'Ngày Sinh',
-                      value: (() => { try { return new Date(profile.birthday).toLocaleDateString('vi-VN'); } catch { return profile.birthday; } })(),
-                      icon: <Calendar className="w-4 h-4" />,
-                      public: true,
-                    },
-                    { label: 'Giới Tính', value: profile.gender === 'female' ? 'Nữ' : profile.gender === 'male' ? 'Nam' : 'Khác', icon: <User className="w-4 h-4" />, public: true },
-                    { label: 'Thành Phố', value: profile.city, icon: <MapPin className="w-4 h-4" />, public: true },
-                    { label: 'Địa Chỉ', value: profile.address, icon: <MapPin className="w-4 h-4" />, public: false },
-                  ]
-                    .filter(field => !publicViewMode || field.public)
-                    .map((field, i) => (
-                      <div key={i} className="flex items-start gap-4 py-4">
-                        <div className="w-9 h-9 bg-[#2D5A3D]/8 rounded-xl flex items-center justify-center text-[#2D5A3D] flex-shrink-0">
-                          {field.icon}
-                        </div>
-                        <div>
-                          <div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">{field.label}</div>
-                          <div className="text-gray-800 mt-0.5 font-medium">{field.value || '—'}</div>
-                        </div>
-                      </div>
-                    ))}
-                  <div className="py-4">
-                    <div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-2">Tiểu Sử</div>
-                    <p className="text-gray-700 leading-relaxed">{profile.bio}</p>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ProfileTab
+              profile={profile}
+              draft={draft}
+              isEditing={isEditing}
+              setDraft={setDraft}
+              publicViewMode={publicViewMode}
+              errors={errors}
+              clearError={clearError}
+            />
           )}
 
-          {/* ── PRODUCTS TAB ── */}
           {activeTab === 'products' && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Sản Phẩm Đang Bán (42)</h2>
-                <select className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-white">
-                  <option>Mới Nhất</option>
-                  <option>Giá: Thấp đến Cao</option>
-                  <option>Giá: Cao đến Thấp</option>
-                  <option>Phổ Biến Nhất</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {userProducts.map((p) => <ProductCard key={p.id} {...p} />)}
-              </div>
-            </div>
+            <ProductsTab
+              products={myProducts}
+              isLoading={isProductsLoading}
+              error={productsError}
+              onRetry={refetchProducts}
+            />
           )}
 
-          {/* ── WISHLIST TAB ── */}
           {activeTab === 'wishlist' && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Danh Sách Yêu Thích ({wishlistProducts.length})</h2>
-                <div className="text-sm text-gray-500">
-                  {wishlistProducts.filter(p => p.isPublic).length} công khai · {wishlistProducts.filter(p => !p.isPublic).length} riêng tư
-                </div>
-              </div>
-              {wishlistProducts.length === 0 ? (
-                <div className="bg-white rounded-3xl shadow-sm p-12 text-center">
-                  <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Chưa có sản phẩm yêu thích</h3>
-                  <p className="text-gray-500 text-sm">Khám phá và thêm sản phẩm vào danh sách yêu thích của bạn</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {wishlistProducts.map((product) => (
-                    <div key={product.id} className="relative group">
-                      <ProductCard {...product} />
-                      {/* Control buttons overlay */}
-                      {!publicViewMode && (
-                        <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => toggleWishlistPublic(product.id)}
-                            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all ${
-                              product.isPublic
-                                ? 'bg-green-500 hover:bg-green-600 text-white'
-                                : 'bg-gray-700 hover:bg-gray-800 text-white'
-                            }`}
-                            title={product.isPublic ? 'Công khai' : 'Riêng tư'}
-                          >
-                            {product.isPublic ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={() => removeFromWishlist(product.id)}
-                            className="w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg transition-all"
-                            title="Xóa khỏi yêu thích"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <WishlistTab
+              wishlistProducts={wishlistProducts}
+              publicViewMode={publicViewMode}
+              setWishlistProducts={setWishlistProducts}
+            />
           )}
 
-          {/* ── SECURITY TAB ── */}
           {activeTab === 'security' && (
-            <div className="space-y-6">
-              {/* Change password */}
-              <div className="bg-white rounded-3xl shadow-sm p-8">
-                <h3 className="font-bold text-gray-900 text-lg mb-6 flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-[#2D5A3D]" /> Đổi Mật Khẩu
-                </h3>
-
-                {pwSuccess && (
-                  <div className="mb-5 bg-green-50 border border-green-200 text-green-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5">
-                    <CheckCircle className="w-5 h-5 flex-shrink-0" /> Đổi mật khẩu thành công!
-                  </div>
-                )}
-
-                <div className="space-y-5 max-w-md">
-                  {(
-                    [
-                      { field: 'current' as const, label: 'Mật Khẩu Hiện Tại' },
-                      { field: 'next' as const, label: 'Mật Khẩu Mới' },
-                      { field: 'confirm' as const, label: 'Xác Nhận Mật Khẩu Mới' },
-                    ] as const
-                  ).map(({ field, label }) => (
-                    <div key={field}>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type={showPw[field] ? 'text' : 'password'}
-                          value={pwForm[field]}
-                          onChange={(e) => setPwForm((p) => ({ ...p, [field]: e.target.value }))}
-                          placeholder="••••••••"
-                          className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPw((p) => ({ ...p, [field]: !p[field] }))}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          {showPw[field] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {pwError && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" /> {pwError}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handlePasswordChange}
-                    className="bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white px-8 py-3 rounded-full hover:shadow-lg transition-all font-semibold"
-                  >
-                    Cập Nhật Mật Khẩu
-                  </button>
-                </div>
-              </div>
-
-            </div>
+            <SecurityTab
+              pwForm={pwForm}
+              setPwForm={setPwForm}
+              showPw={showPw}
+              setShowPw={setShowPw}
+              pwError={pwError}
+              pwSuccess={pwSuccess}
+              handlePasswordChange={handlePasswordChange}
+            />
           )}
         </div>
 
