@@ -1,0 +1,47 @@
+export interface CreateProductRequestDto {
+    categoryId: number;
+    title: string;
+    description: string;
+    price: number;
+    brand: string;
+    condition: string;
+    imageUrls: string[];
+    enableVideoUpload: boolean;
+    videoUrl: string | null;
+    enableBannerBoost: boolean;
+    bannerUrl: string | null;
+}
+
+// Trong src/features/products/types/index.ts
+export interface ProductResponseDto {
+    productId: number;
+    title: string;
+    price: number;
+    condition: string;
+    location: string;
+    imageUrl: string;
+    sellerName: string;
+    isPremium: boolean;
+    viewCount: number;
+    createdAt: string;
+}
+
+export interface PagedResult<T> {
+    items: T[];
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+}
+
+export interface ProductFilterParams {
+    keyword?: string;
+    categoryId?: number;
+    brand?: string;
+    condition?: string;
+    city?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    sortBy?: string;
+    pageNumber: number;
+    pageSize: number;
+}
