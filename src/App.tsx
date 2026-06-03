@@ -54,7 +54,7 @@ function GuestRoute() {
     if (from) {
       return <Navigate to={from} replace />;
     }
-    if (currentUser.role === 'admin') {
+    if (currentUser.role === 'Admin') {
       return <Navigate to="/admin/dashboard" replace />;
     }
     return <Navigate to="/" replace />;
@@ -100,7 +100,7 @@ function UserLayout() {
         </main>
       </div>
 
-      {isLoggedIn && currentUser?.role === 'user' && (
+      {isLoggedIn && currentUser?.role === 'User' && (
         <ChatBox currentUser={currentUser} />
       )}
     </div>
@@ -167,7 +167,7 @@ function AppContent() {
         <Route path="/error/403" element={<ErrorPage errorCode="403" />} />
 
         {/* Private routes (Yêu cầu đăng nhập: Role 'user' hoặc 'admin') */}
-        <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['User', 'Admin']} />}>
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/sell" element={<SellProductPage />} />
           <Route path="/manage-products" element={<ManageProductsPage />} />
@@ -180,7 +180,7 @@ function AppContent() {
       </Route>
 
       {/* C. Admin Portal Group Routes (Yêu cầu đăng nhập: Role 'admin' duy nhất) */}
-      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+      <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/revenue" element={<AdminRevenuePage />} />
