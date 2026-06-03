@@ -307,7 +307,7 @@ export default function SellProductPage() {
 
             {/* THÔNG TIN SẢN PHẨM */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-              <h2 className="text-xl text-gray-900 mb-6 font-semibold">Thông Tin Cơ Bản</h2>
+              <h2 className="text-xl text-gray-900 mb-6 font-semibold">Thông Tin Sản Phẩm</h2>
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm mb-2 text-gray-700 font-medium">Tên Sản Phẩm *</label>
@@ -499,7 +499,7 @@ export default function SellProductPage() {
           {/* SIDEBAR TÍNH TOÁN CREDIT BÊN PHẢI */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sticky top-24">
-              <h3 className="text-lg font-bold text-gray-900 mb-6">Ví Tài Nguyên</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-6">Credits Của Bạn</h3>
 
               {isLoadingData ? (
                 <div className="animate-pulse space-y-4 mb-8">
