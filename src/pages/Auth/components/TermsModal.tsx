@@ -1,5 +1,5 @@
 import BaseModal from './BaseModal';
-import { FileText } from 'lucide-react';
+import { FileText, Mail, Phone, MapPin } from 'lucide-react';
 import { TERMS_TXT } from '../constants/terms';
 
 export interface TermsModalProps {
@@ -25,11 +25,48 @@ export default function TermsModal({ isOpen, onClose }: TermsModalProps) {
               {section.content && <p className="text-gray-600 mb-4">{section.content}</p>}
               
               {section.bullets && section.bullets.length > 0 && (
-                <ul className="list-disc list-inside text-gray-600 mb-4 space-y-2">
+                <div className="space-y-3 mb-4">
                   {section.bullets.map((bullet, bIdx) => {
-                    return <li key={bIdx}>{bullet}</li>;
+                    const isEmail = bullet.includes('Email:');
+                    const isHotline = bullet.includes('Hotline:');
+                    const isAddress = bullet.includes('Địa chỉ:');
+                    
+                    if (isEmail || isHotline || isAddress) {
+                      let Icon = Mail;
+                      const cleanBullet = bullet.replace(/[📧📞🏢]/g, '').trim();
+                      const colonIdx = cleanBullet.indexOf(':');
+                      let label = '';
+                      let val = '';
+                      if (colonIdx > 0) {
+                        label = cleanBullet.substring(0, colonIdx + 1);
+                        val = cleanBullet.substring(colonIdx + 1).trim();
+                      }
+                      
+                      if (isEmail) Icon = Mail;
+                      if (isHotline) Icon = Phone;
+                      if (isAddress) Icon = MapPin;
+                      
+                      return (
+                        <div key={bIdx} className="flex items-center gap-3 text-gray-600 mt-2 pl-1">
+                          <div className="w-8 h-8 rounded-lg bg-brand-primary/10 flex items-center justify-center text-brand-primary flex-shrink-0">
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="text-sm">
+                            <strong className="text-gray-900 font-semibold">{label} </strong>
+                            <span className="text-gray-600">{val}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div key={bIdx} className="flex items-start gap-2 text-gray-600 pl-1">
+                        <span className="text-brand-primary mt-1.5 flex-shrink-0 text-[10px]">•</span>
+                        <span className="text-sm">{bullet}</span>
+                      </div>
+                    );
                   })}
-                </ul>
+                </div>
               )}
             </div>
           ))}

@@ -222,44 +222,42 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
         )}
 
         {/* Agree to Terms */}
-        <div className="flex items-start gap-2.5">
-          <label className="relative mt-0.5 cursor-pointer flex-shrink-0">
-            <input
-              type="checkbox"
-              checked={agree}
-              onChange={(e) => { setAgree(e.target.checked); setError(''); }}
-              className="sr-only"
-            />
-            <div
-              className={`w-[18px] h-[18px] rounded-[6px] border-2 flex items-center justify-center transition-all ${
-                agree ? 'bg-brand-primary border-brand-primary' : 'border-gray-300 bg-white group-hover:border-brand-primary/50'
-              }`}
-            >
-              {agree && (
-                <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </div>
-          </label>
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agree}
+            onChange={(e) => { setAgree(e.target.checked); setError(''); }}
+            className="sr-only"
+          />
+          <div
+            className={`w-[18px] h-[18px] rounded-[6px] border-2 flex items-center justify-center transition-all mt-0.5 flex-shrink-0 ${
+              agree ? 'bg-brand-primary border-brand-primary' : 'border-gray-300 bg-white group-hover:border-brand-primary/50'
+            }`}
+          >
+            {agree && (
+              <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
           <span className="text-xs text-gray-500 leading-relaxed select-none">
             {REGISTER_TXT.agreeTerms}
             <span
-              onClick={() => setShowTerms(true)}
+              onClick={(e) => { e.stopPropagation(); setShowTerms(true); }}
               className="text-brand-primary font-semibold hover:underline cursor-pointer text-xs"
             >
               {REGISTER_TXT.termsOfUse}
             </span>
             {REGISTER_TXT.and}
             <span
-              onClick={() => setShowPrivacy(true)}
+              onClick={(e) => { e.stopPropagation(); setShowPrivacy(true); }}
               className="text-brand-primary font-semibold hover:underline cursor-pointer text-xs"
             >
               {REGISTER_TXT.privacyPolicy}
             </span>
             {REGISTER_TXT.ofRevora}
           </span>
-        </div>
+        </label>
 
         {/* Terms Modal */}
         <TermsModal isOpen={showTerms} onClose={() => setShowTerms(false)} />

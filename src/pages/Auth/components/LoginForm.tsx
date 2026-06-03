@@ -12,8 +12,8 @@ const REGISTER_MODE = 'register';
 const ADMIN_DASHBOARD = '/admin/dashboard';
 
 export enum UserRole {
-   ADMIN = 'admin',
-   USER = 'user'
+   ADMIN = 'Admin',
+   USER = 'User'
 }
 
 interface LoginFormProps {
@@ -129,6 +129,7 @@ export default function LoginForm({
           </div>
         )}
 
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={isSubmitting}
