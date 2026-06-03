@@ -42,13 +42,18 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // 3. Kiểm tra phân quyền (Role Guarding)
-  if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
-    return (
-      <Navigate
-        to="/error/403"
-        replace
-      />
+  if (allowedRoles) {
+    const hasRole = allowedRoles.some(
+      (role) => role.toLowerCase() === currentUser.role.toLowerCase()
     );
+    if (!hasRole) {
+      return (
+        <Navigate
+          to="/error/403"
+          replace
+        />
+      );
+    }
   }
 
   // 4. Nếu thỏa mãn tất cả điều kiện, render children hoặc Outlet

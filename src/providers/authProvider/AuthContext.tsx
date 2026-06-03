@@ -99,6 +99,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async (): Promise<void> => {
     try {
       await logoutAPI();
+    } catch (error) {
+      console.error('Lỗi khi gọi API đăng xuất:', error);
     } finally {
       // Đảm bảo luôn dọn dẹp state ở Client kể cả khi API logout gặp lỗi mạng
       setCurrentUser(null);
