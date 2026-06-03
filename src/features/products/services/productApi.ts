@@ -1,4 +1,5 @@
 import authClient from '../../../providers/authProvider/authService';
+import { ProductFilterParams, PagedResult, ProductResponseDto } from '../types';
 import { CreateProductRequestDto } from '../types';
 
 // API Upload nhiều ảnh
@@ -14,9 +15,28 @@ export const uploadProductImagesAPI = async (files: File[]) => {
             'Content-Type': 'multipart/form-data'
         }
     });
-    
-    return response.data; 
+
+    return response.data;
 };
+
+// Thêm hàm này vào file productApi.ts
+export const uploadProductVideoAPI = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file); // Gọi API upload video (chỉ 1 file)
+
+    const response = await authClient.post('/Media/upload-video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data; // Trả về { success, message, url: "..." }
+};
+
+// Thêm vào cuối file productApi.ts
+export const getCategoriesAPI = async () => {
+    // skipAuthRefresh: true vì API này là AllowAnonymous, không cần token
+    const response = await authClient.get('/Categories', { skipAuthRefresh: true });
+    return response.data;
+};
+
 
 // API Tạo sản phẩm (Giữ nguyên)
 export const createProductAPI = async (data: CreateProductRequestDto) => {
@@ -47,5 +67,15 @@ export const getNewestProductsAPI = async (limit = 10) => {
 // API lấy sản phẩm được yêu thích
 export const getLovedProductsAPI = async (limit = 10) => {
     const response = await authClient.get(`/Products/loved?limit=${limit}`, { skipAuthRefresh: true });
+    return response.data;
+};
+
+export const getFilteredProductsAPI = async (params: ProductFilterParams): Promise<{ success: boolean, data: PagedResult<ProductResponseDto> }> => {
+    // Dùng authClient.get và truyền params vào config
+    // (skipAuthRefresh: true để guest cũng xem được mà không bị đá ra trang login)
+    const response = await authClient.get('/Products', {
+        params: params,
+        skipAuthRefresh: true
+    });
     return response.data;
 };
