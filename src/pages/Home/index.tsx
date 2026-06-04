@@ -47,11 +47,47 @@ export default function HomePage() {
     fetchHomeData();
   }, []);
 
+  // Tạo danh sách banner từ dữ liệu thật
+  const banners = featuredProducts
+    .filter(p => p.isPremium && p.bannerUrl)
+    .map((p, index) => {
+      const colors = [
+        'from-[#1E4029]/75 to-[#2D5A3D]/60',
+        'from-[#C4603A]/75 to-[#2D5A3D]/60',
+        'from-[#2D5A3D]/75 to-[#3D7054]/60',
+        'from-[#1E4029]/80 to-[#C4603A]/60',
+      ];
+      return {
+        id: p.productId,
+        title: p.title,
+        subtitle: 'Sản phẩm nổi bật',
+        image: p.bannerUrl!,
+        color: colors[index % colors.length],
+        link: `/product/${p.productId}`
+      };
+    });
+
+  const displayBanners = banners.length > 0 ? banners : [
+    {
+      id: -1,
+      title: 'Chào mừng đến với REVORA',
+      subtitle: 'Khám phá những sản phẩm tuyệt vời nhất',
+      image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200',
+      color: 'from-[#1E4029]/75 to-[#2D5A3D]/60',
+      link: '/all-products'
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-[#fafaf7]">
       {/* Banner Carousel */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mb-8">
-        <BannerCarousel />
+        {!isLoading && <BannerCarousel banners={displayBanners} />}
+        {isLoading && (
+          <div className="w-full h-[500px] rounded-3xl bg-gray-200 animate-pulse flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-[#2D5A3D]/20 border-t-[#2D5A3D] rounded-full animate-spin"></div>
+          </div>
+        )}
       </section>
 
       {/* Categories */}

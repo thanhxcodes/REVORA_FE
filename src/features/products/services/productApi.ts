@@ -101,3 +101,28 @@ export const toggleLikeCommentAPI = async (productId: string | number, commentId
     const response = await authClient.post(`/Products/${productId}/comments/${commentId}/like`);
     return response.data;
 };
+
+// ================= SHORTS API =================
+// 1. Lấy danh sách Video Shorts (cho phép lướt)
+export const getFeedShortsAPI = async () => {
+    const response = await authClient.get('/Shorts', { skipAuthRefresh: true });
+    return response.data;
+};
+
+// 2. Lấy bình luận của 1 video cụ thể
+export const getShortCommentsAPI = async (shortId: string | number) => {
+    const response = await authClient.get(`/Shorts/${shortId}/comments`, { skipAuthRefresh: true });
+    return response.data;
+};
+
+// 3. Gửi bình luận mới vào video
+export const addShortCommentAPI = async (shortId: string | number, content: string) => {
+    const response = await authClient.post(`/Shorts/${shortId}/comments`, { content });
+    return response.data;
+};
+
+// 4. Thả tim (hoặc bỏ tim) video
+export const toggleLikeShortAPI = async (shortId: string | number) => {
+    const response = await authClient.post(`/Shorts/${shortId}/like`);
+    return response.data;
+};
