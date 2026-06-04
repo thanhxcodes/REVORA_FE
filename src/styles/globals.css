@@ -12,3 +12,9 @@
 .animate-shimmer {
   animation: shimmer 3s ease-in-out infinite;
 }
+
+/* Ẩn nút xem mật khẩu mặc định của trình duyệt Edge */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

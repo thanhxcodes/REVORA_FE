@@ -46,6 +46,7 @@
   --terracotta: #C4603A;
   --soft-terracotta: #EBC9A8;
   --cream: #F5EDD8;
+  --deep-green: #152E20;
 }
 
 .dark {
@@ -86,6 +87,12 @@
 }
 
 @theme inline {
+  --color-brand-primary: var(--forest-green);
+  --color-brand-secondary: var(--medium-green);
+  --color-brand-accent: var(--terracotta);
+  --color-brand-dark: var(--dark-green);
+  --color-brand-deep: var(--deep-green);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
