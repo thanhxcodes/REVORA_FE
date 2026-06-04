@@ -1,382 +1,362 @@
-import { useState } from 'react';
-import { Heart, Share2, Flag, MessageCircle, Star, Shield, Package, Clock, Send, ThumbsUp } from 'lucide-react';
-import { useParams } from 'react-router-dom';
-import ProductCard from './components/ProductCard';
+import { useState, useEffect } from 'react';
+import { Heart, Flag, MessageCircle, Star, Shield, Package, Send, ThumbsUp } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
+import { 
+  getProductDetailAPI, 
+  getProductCommentsAPI, 
+  addProductCommentAPI, 
+  toggleLikeCommentAPI 
+} from '../../features/products/services/productApi';
+import { ProductDetailResponseDto } from '../../features/products/types';
 
-interface Comment {
-  id: number;
-  user: string;
-  avatar: string;
-  avatarColor: string;
-  comment: string;
-  date: string;
-  likes: number;
-  isLiked: boolean;
-  badge?: { icon: string; gradient: string } | null;
-}
-
-const MOCK_COMMENTS: Comment[] = [
-  {
-    id: 1,
-    user: 'thu_shopaholic',
-    avatar: 'T',
-    avatarColor: '#2D5A3D',
-    comment: 'Áo này còn không bạn? Mình muốn xem thêm ảnh chi tiết phần cổ áo được không?',
-    date: '2 giờ trước',
-    likes: 5,
-    isLiked: false,
-    badge: { icon: '💎', gradient: 'from-purple-500 to-pink-500' },
-  },
-  {
-    id: 2,
-    user: 'minh_style',
-    avatar: 'M',
-    avatarColor: '#0f3460',
-    comment: 'Chất lượng da như thế nào bạn? Có bị bong tróc không?',
-    date: '5 giờ trước',
-    likes: 3,
-    isLiked: true,
-    badge: { icon: '✓', gradient: 'from-blue-500 to-blue-600' },
-  },
-  {
-    id: 3,
-    user: 'linh_trendy',
-    avatar: 'L',
-    avatarColor: '#533483',
-    comment: 'Áo đẹp quá! Giao hàng tận nơi được không bạn?',
-    date: '1 ngày trước',
-    likes: 8,
-    isLiked: false,
-    badge: null,
-  },
-  {
-    id: 4,
-    user: 'nam_vintage',
-    avatar: 'N',
-    avatarColor: '#2d6a4f',
-    comment: 'Mình cao 1m75 nặng 65kg mặc size này vừa không nhỉ?',
-    date: '1 ngày trước',
-    likes: 2,
-    isLiked: false,
-    badge: { icon: '🏆', gradient: 'from-orange-500 to-red-500' },
-  },
-  {
-    id: 5,
-    user: 'phuong_collector',
-    avatar: 'P',
-    avatarColor: '#b5451b',
-    comment: 'Áo vintage đúng chuẩn! Mình đã mua đồ của bạn nhiều lần rồi, rất uy tín 👍',
-    date: '2 ngày trước',
-    likes: 12,
-    isLiked: true,
-    badge: { icon: '⭐', gradient: 'from-[#2D5A3D] to-[#3D7054]' },
-  },
-];
-
-// Mock seller info — backend sẽ trả về kèm product
-const SELLER_INFO = {
-  username: 'fashionista_22',
-  name: 'fashionista_22',
-  avatar: 'F',
-  phone: '0912345678',
-  zaloPhone: '0912345678',
+// Hàm helper tính thời gian đăng bình luận
+const timeAgo = (dateStr: string) => {
+  const diff = new Date().getTime() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Vừa xong';
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  return `${Math.floor(hours / 24)} ngày trước`;
 };
 
 export default function ProductDetailPage() {
   const { id } = useParams();
-  const productInfo = {
-    id: id || '1',
-    name: 'Áo Khoác Da Vintage Cao Cấp',
-    price: '1.890.000đ',
-    image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=400',
-    seller: SELLER_INFO,
+  const navigate = useNavigate();
+  
+  // States Sản Phẩm
+  const [productDetail, setProductDetail] = useState<ProductDetailResponseDto | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState(0);
+
+  // States Bình Luận
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  // FETCH DỮ LIỆU TỪ BACKEND
+  useEffect(() => {
+    window.scrollTo(0, 0); 
+
+    const fetchData = async () => {
+      if (!id) {
+        setIsLoading(false);
+        setProductDetail(null);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setProductDetail(null); 
+        
+        // Gọi API song song để tối ưu tốc độ
+        const [productRes, commentsRes] = await Promise.all([
+          getProductDetailAPI(id),
+          getProductCommentsAPI(id).catch(() => ({ success: false, data: [] })) // Fallback nếu lỗi comment
+        ]);
+        
+        if (productRes && productRes.success && productRes.data) {
+          setProductDetail(productRes.data);
+        } else if (productRes && productRes.productId) {
+          setProductDetail(productRes);
+        } else {
+          setProductDetail(null);
+        }
+
+        if (commentsRes && commentsRes.success) {
+          setComments(commentsRes.data);
+        }
+
+      } catch (error) {
+        console.error('Lỗi lấy dữ liệu:', error);
+        toast.error('Không thể tải thông tin sản phẩm.');
+        setProductDetail(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
+
+  // LOGIC NHÚNG ZALO & CHAT NỘI BỘ
+  const openZaloChat = () => {
+    if (!productDetail?.sellerPhone) {
+      return toast.error('Người bán chưa cập nhật số điện thoại Zalo.');
+    }
+    
+    let phone = productDetail.sellerPhone.replace(/\s+/g, '');
+    if (phone.startsWith('+84')) phone = '0' + phone.slice(3);
+
+    window.open(`https://zalo.me/${phone}`, '_blank');
   };
 
-  const openSellerChat = (viaZalo: boolean) => {
-    const message = `Chào shop! Sản phẩm "${productInfo.name}" (${productInfo.price}) còn hàng không ạ?`;
+  const openInternalChat = () => {
+    if (!productDetail) return;
+    const formattedPrice = Number(productDetail.price || 0).toLocaleString('vi-VN') + 'đ';
+    const message = `Chào shop! Sản phẩm "${productDetail.title}" (${formattedPrice}) còn hàng không ạ?`;
+    
     window.dispatchEvent(
       new CustomEvent('revora:openChat', {
         detail: {
-          seller: productInfo.seller,
-          product: {
-            id: productInfo.id,
-            name: productInfo.name,
-            price: productInfo.price,
-            image: productInfo.image,
+          seller: { 
+            username: productDetail.sellerUsername, 
+            name: productDetail.sellerName, 
+            avatar: productDetail.sellerAvatar 
+          },
+          product: { 
+            id: productDetail.productId, 
+            name: productDetail.title, 
+            price: formattedPrice, 
+            image: productDetail.imageUrls && productDetail.imageUrls.length > 0 ? productDetail.imageUrls[0] : ''
           },
           prefilledMessage: message,
-          autoSend: viaZalo,
-          source: viaZalo ? 'zalo' : 'chat',
+          autoSend: false,
+          source: 'chat',
         },
       })
     );
   };
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [comments, setComments] = useState<Comment[]>(MOCK_COMMENTS);
-  const [newComment, setNewComment] = useState('');
 
-  const handleLikeComment = (commentId: number) => {
-    setComments(comments.map(comment =>
-      comment.id === commentId
-        ? { ...comment, isLiked: !comment.isLiked, likes: comment.isLiked ? comment.likes - 1 : comment.likes + 1 }
-        : comment
-    ));
-  };
-
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      const newCommentObj: Comment = {
-        id: comments.length + 1,
-        user: 'user_current',
-        avatar: 'U',
-        avatarColor: '#2D5A3D',
-        comment: newComment,
-        date: 'Vừa xong',
-        likes: 0,
-        isLiked: false,
-      };
-      setComments([newCommentObj, ...comments]);
-      setNewComment('');
+  // THÊM BÌNH LUẬN
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !id) return;
+    
+    try {
+      setIsSubmittingComment(true);
+      const res = await addProductCommentAPI(id, newComment);
+      if (res.success) {
+        setComments([res.data, ...comments]); // Đẩy bình luận mới lên đầu
+        setNewComment('');
+        toast.success('Đã gửi bình luận!');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Vui lòng đăng nhập để bình luận.');
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
-  const images = [
-    'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=800',
-    'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800',
-    'https://images.unsplash.com/photo-1520975954732-35dd22299614?w=800',
-    'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800',
-  ];
+  // LIKE BÌNH LUẬN (Optimistic UI Update)
+  const handleLikeComment = async (commentId: number) => {
+    if (!id) return;
 
-  const relatedProducts = [
-    {
-      id: 10,
-      image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400',
-      title: 'Áo Bomber Da Đen',
-      price: 1650000,
-      condition: 'Tốt',
-      seller: 'vintage_co',
-      views: 432,
-    },
-    {
-      id: 11,
-      image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?w=400',
-      title: 'Áo Khoác Da Lộn Nâu',
-      price: 2100000,
-      condition: 'Tuyệt Vời',
-      seller: 'retro_finds',
-      views: 678,
-    },
-    {
-      id: 12,
-      image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400',
-      title: 'Áo Khoác Denim Vintage',
-      price: 950000,
-      condition: 'Như Mới',
-      seller: 'jean_collector',
-      views: 234,
-    },
-    {
-      id: 13,
-      image: 'https://images.unsplash.com/photo-1548126032-079b-6c6b2b5b?w=400',
-      title: 'Áo Khoác Phong Cách Quân Đội',
-      price: 1400000,
-      condition: 'Tốt',
-      seller: 'army_surplus',
-      views: 321,
-    },
-  ];
+    // Cập nhật UI trước cho mượt
+    setComments(comments.map(c => 
+      c.commentId === commentId 
+        ? { ...c, isLikedByCurrentUser: !c.isLikedByCurrentUser, likeCount: c.isLikedByCurrentUser ? c.likeCount - 1 : c.likeCount + 1 } 
+        : c
+    ));
+
+    try {
+      await toggleLikeCommentAPI(id, commentId);
+    } catch (error) {
+      toast.error('Vui lòng đăng nhập để thích bình luận.');
+      // Hoàn tác UI nếu lỗi
+      setComments(comments.map(c => 
+        c.commentId === commentId 
+          ? { ...c, isLikedByCurrentUser: !c.isLikedByCurrentUser, likeCount: !c.isLikedByCurrentUser ? c.likeCount - 1 : c.likeCount + 1 } 
+          : c
+      ));
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-32">
+        <div className="w-12 h-12 border-4 border-[#2D5A3D]/20 border-t-[#2D5A3D] rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!productDetail) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-32">
+        <div className="text-6xl mb-4 opacity-50">📦</div>
+        <h2 className="text-2xl text-gray-900 font-bold mb-2">Sản phẩm không tồn tại</h2>
+        <p className="text-gray-500 mb-6">Sản phẩm này có thể đã bị xóa hoặc không còn trên hệ thống.</p>
+        <button onClick={() => navigate('/all-products')} className="px-6 py-2 bg-[#2D5A3D] text-white rounded-full">
+          Quay lại danh sách
+        </button>
+      </div>
+    );
+  }
+
+  const images = productDetail.imageUrls && productDetail.imageUrls.length > 0 
+    ? productDetail.imageUrls 
+    : ['https://via.placeholder.com/800x1000?text=Chưa+Có+Ảnh'];
+
+  const formattedPrice = Number(productDetail.price || 0).toLocaleString('vi-VN') + 'đ';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
+      <Toaster position="top-right" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-          {/* Image Gallery */}
+          {/* CỘT TRÁI: HÌNH ẢNH & VIDEO */}
           <div>
-            <div className="bg-white rounded-3xl overflow-hidden shadow-lg mb-4">
-              <div className="aspect-[4/5] bg-gray-100">
+            <div className="bg-white rounded-3xl overflow-hidden shadow-lg mb-4 border border-gray-100">
+              <div className="aspect-[4/5] bg-gray-100 relative">
                 <img
                   src={images[selectedImage]}
-                  alt="Product"
+                  alt={productDetail.title}
                   className="w-full h-full object-cover"
                 />
+                {productDetail.isPremium && (
+                  <div className="absolute top-4 left-4 bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white text-sm px-4 py-2 rounded-full shadow-lg font-semibold flex items-center gap-1.5 animate-pulse">
+                    <span>✨ Premium</span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-4">
-              {images.map((img, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`aspect-square rounded-2xl overflow-hidden ${
-                    selectedImage === index ? 'ring-4 ring-[#2D5A3D]' : ''
-                  }`}
-                >
-                  <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+            
+            {/* Thumbnails nhỏ */}
+            {images.length > 1 && (
+              <div className="grid grid-cols-5 gap-3">
+                {images.map((img, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                      selectedImage === index ? 'border-[#2D5A3D]' : 'border-transparent hover:border-gray-300'
+                    }`}
+                  >
+                    <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* Video Preview */}
-            <div className="mt-6 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] rounded-2xl p-6 text-white">
-              <div className="flex items-center space-x-3 mb-2">
-                <Shield className="w-5 h-5 text-[#C4603A]" />
-                <span className="font-medium">Video Premium</span>
+            {/* Video Shorts */}
+            {productDetail.videoUrl && (
+              <div className="mt-6 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] rounded-2xl p-6 text-white shadow-lg">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Shield className="w-5 h-5 text-[#C4603A]" />
+                  <span className="font-medium text-lg">Video Premium Shorts</span>
+                </div>
+                <video 
+                  src={productDetail.videoUrl} 
+                  controls 
+                  className="w-full rounded-xl aspect-video object-contain bg-black mb-4 shadow-md" 
+                />
               </div>
-              <p className="text-sm text-white/80 mb-4">Xem video review chi tiết và tips phối đồ từ người bán</p>
-              <button className="bg-white text-[#2D5A3D] px-6 py-2 rounded-full text-sm hover:shadow-lg transition-all">
-                Xem Video
-              </button>
-            </div>
+            )}
           </div>
 
-          {/* Product Info */}
+          {/* CỘT PHẢI: THÔNG TIN SP & NGƯỜI BÁN */}
           <div>
-            <div className="bg-white rounded-3xl shadow-lg p-8">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
               <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h1 className="text-3xl text-gray-900 mb-2">Áo Khoác Da Vintage Cao Cấp</h1>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full">Like New</span>
-                    <span className="text-xs bg-purple-100 text-purple-800 px-3 py-1 rounded-full">Premium</span>
+                <div className="pr-4">
+                  <h1 className="text-3xl text-gray-900 font-bold mb-3">{productDetail.title}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold bg-green-100 text-green-800 px-3 py-1.5 rounded-full">
+                      {productDetail.condition}
+                    </span>
+                    <span className="text-xs font-semibold bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full">
+                      {productDetail.categoryName}
+                    </span>
                   </div>
                 </div>
-                <button className="p-3 rounded-full hover:bg-gray-100 transition-colors">
-                  <Heart className="w-6 h-6 text-[#2D5A3D]" />
+                <button className="p-3 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0 text-gray-400">
+                  <Heart className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="text-4xl text-[#2D5A3D] mb-6">1.890.000đ</div>
+              <div className="text-4xl font-bold text-[#2D5A3D] mb-8">{formattedPrice}</div>
 
-              {/* Product Details */}
-              <div className="space-y-4 mb-8 pb-8 border-b border-gray-200">
+              {/* Chi tiết kĩ thuật */}
+              <div className="space-y-4 mb-8 pb-8 border-b border-gray-100">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Danh Mục</span>
-                  <span className="text-gray-900">Áo Khoác</span>
+                  <span className="text-gray-500 font-medium">Thương Hiệu</span>
+                  <span className="text-gray-900 font-semibold">{productDetail.brand || 'Chưa cập nhật'}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Kích Thước</span>
-                  <span className="text-gray-900">M</span>
+                  <span className="text-gray-500 font-medium">Đăng ngày</span>
+                  <span className="text-gray-900">{productDetail.createdAt ? new Date(productDetail.createdAt).toLocaleDateString('vi-VN') : 'Không rõ'}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Thương Hiệu</span>
-                  <span className="text-gray-900">Vintage Collection</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Tình Trạng</span>
-                  <span className="text-gray-900">Như Mới (9/10)</span>
+                  <span className="text-gray-500 font-medium">Lượt xem</span>
+                  <span className="text-gray-900">{productDetail.viewCount} lượt</span>
                 </div>
               </div>
 
-              {/* Style Tags */}
-              <div className="mb-8">
-                <h3 className="text-sm text-gray-600 mb-3">Thẻ Phong Cách</h3>
-                <div className="flex flex-wrap gap-2">
-                  {['Vintage', 'Da', 'Cổ Điển', 'Mùa Đông', 'Streetwear'].map((tag) => (
-                    <span key={tag} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-full text-sm">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Seller Card */}
-              <div className="bg-gray-50 rounded-2xl p-6 mb-6">
+              {/* Box Người bán */}
+              <div className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-100">
                 <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-xl">
-                    FA
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-xl overflow-hidden shadow-sm">
+                    {productDetail.sellerAvatar && productDetail.sellerAvatar.length > 1 ? (
+                      <img src={productDetail.sellerAvatar} alt={productDetail.sellerName} className="w-full h-full object-cover" />
+                    ) : (
+                      productDetail.sellerName ? productDetail.sellerName.charAt(0).toUpperCase() : 'U'
+                    )}
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-gray-900">fashionista_22</h3>
-                      <div
-                        className="w-6 h-6 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-xs"
-                        title="Premium Gold"
-                      >
-                        ⭐
-                      </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-gray-900 text-lg">{productDetail.sellerName}</h3>
+                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px]" title="Đã xác thực">✓</div>
                     </div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <div className="flex items-center">
-                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                        <span className="text-sm text-gray-600 ml-1">4.9 (234 đánh giá)</span>
-                      </div>
-                    </div>
+                    <div className="text-sm text-gray-500 mb-2">@{productDetail.sellerUsername}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 text-center mb-4">
-                  <div>
-                    <div className="text-lg text-gray-900">156</div>
-                    <div className="text-xs text-gray-500">Đã Bán</div>
-                  </div>
-                  <div>
-                    <div className="text-lg text-gray-900">98%</div>
-                    <div className="text-xs text-gray-500">Đánh Giá</div>
-                  </div>
-                  <div>
-                    <div className="text-lg text-gray-900">2.5k</div>
-                    <div className="text-xs text-gray-500">Người Theo Dõi</div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <button
-                  onClick={() => openSellerChat(true)}
-                  className="w-full bg-[#25D366] text-white py-4 rounded-full hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center space-x-2"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Liên hệ qua Zalo</span>
-                </button>
-                <button
-                  onClick={() => openSellerChat(false)}
-                  className="w-full bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white py-4 rounded-full hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center space-x-2"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Chat với người bán</span>
-                </button>
+                {/* Các nút liên hệ */}
+                <div className="grid grid-cols-2 gap-3 mt-6">
+                  <button
+                    onClick={openZaloChat}
+                    className="w-full bg-[#0068FF] text-white py-3.5 rounded-xl hover:bg-[#0055D4] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Chat Zalo
+                  </button>
+                  <button
+                    onClick={openInternalChat}
+                    className="w-full bg-[#2D5A3D] text-white py-3.5 rounded-xl hover:bg-[#234830] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Chat Nội Bộ
+                  </button>
+                </div>
               </div>
 
               {/* Trust Indicators */}
-              <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t border-gray-200">
+              <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-100">
                 <div className="text-center">
-                  <Shield className="w-6 h-6 text-[#2D5A3D] mx-auto mb-2" />
-                  <div className="text-xs text-gray-600">Người Bán Uy Tín</div>
+                  <Shield className="w-6 h-6 text-[#2D5A3D] mx-auto mb-2 opacity-80" />
+                  <div className="text-xs text-gray-600 font-medium">Bảo Vệ Người Mua</div>
                 </div>
                 <div className="text-center">
-                  <Package className="w-6 h-6 text-[#2D5A3D] mx-auto mb-2" />
-                  <div className="text-xs text-gray-600">Giao Hàng An Toàn</div>
+                  <Package className="w-6 h-6 text-[#2D5A3D] mx-auto mb-2 opacity-80" />
+                  <div className="text-xs text-gray-600 font-medium">Giao Dịch An Toàn</div>
                 </div>
                 <div className="text-center">
-                  <Clock className="w-6 h-6 text-[#2D5A3D] mx-auto mb-2" />
-                  <div className="text-xs text-gray-600">Phản Hồi Nhanh</div>
+                  <Flag className="w-6 h-6 text-gray-400 hover:text-red-500 transition-colors cursor-pointer mx-auto mb-2" />
+                  <div className="text-xs text-gray-600 font-medium">Báo Cáo Vi Phạm</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Description */}
-        <div className="bg-white rounded-3xl shadow-lg p-8 mb-8">
-          <h2 className="text-2xl text-gray-900 mb-4">Mô Tả Sản Phẩm</h2>
-          <p className="text-gray-600 leading-relaxed">
-            Áo khoác da vintage tuyệt đẹp trong tình trạng xuất sắc. Làm từ da thật chất lượng cao với thiết kế
-            cổ điển không bao giờ lỗi mốt. Hoàn hảo cho cả dịp thường ngày và bán trang trọng. Áo khoác có form
-            thoải mái với túi bên trong và khóa kéo kim loại cao cấp. Dấu hiệu sử dụng nhẹ tạo nên nét vintage
-            đích thực. Đã được giặt khô chuyên nghiệp và bảo quản cẩn thận. Đây là món đồ vượt thời gian sẽ nâng
-            tầm tủ đồ của bạn!
-          </p>
+        {/* MÔ TẢ CHI TIẾT */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Mô Tả Sản Phẩm</h2>
+          <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+            {productDetail.description}
+          </div>
         </div>
 
-        {/* Comments Section */}
-        <div className="bg-white rounded-3xl shadow-lg p-8 mb-16">
+        {/* BÌNH LUẬN (Real Data) */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-16">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl text-gray-900 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <MessageCircle className="w-6 h-6 text-[#2D5A3D]" />
-              Bình Luận ({comments.length})
+              Hỏi Đáp & Đánh Giá ({comments.length})
             </h2>
           </div>
 
-          {/* Comment Input */}
           <div className="mb-8">
             <div className="flex gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -386,90 +366,68 @@ export default function ProductDetailPage() {
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Viết bình luận của bạn..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 resize-none"
+                  placeholder="Bạn có thắc mắc gì về sản phẩm này?"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 resize-none bg-gray-50 focus:bg-white"
                   rows={3}
                 />
                 <div className="flex justify-end mt-2">
                   <button
                     onClick={handleAddComment}
-                    disabled={!newComment.trim()}
-                    className="flex items-center gap-2 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white px-6 py-2 rounded-full hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!newComment.trim() || isSubmittingComment}
+                    className="flex items-center gap-2 bg-[#2D5A3D] text-white px-6 py-2.5 rounded-full hover:bg-[#234830] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     <Send className="w-4 h-4" />
-                    <span>Gửi</span>
+                    <span>{isSubmittingComment ? 'Đang gửi...' : 'Gửi câu hỏi'}</span>
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Comments List */}
           <div className="space-y-6">
             {comments.map((comment) => (
-              <div key={comment.id} className="flex gap-3">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                  style={{ backgroundColor: comment.avatarColor }}
-                >
-                  {comment.avatar}
+              <div key={comment.commentId} className="flex gap-3">
+                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-bold text-sm flex-shrink-0 overflow-hidden">
+                  {comment.avatarUrl && comment.avatarUrl.length > 1 ? (
+                     <img src={comment.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                     (comment.fullName || 'U').charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="flex-1">
-                  <div className="bg-gray-50 rounded-2xl px-4 py-3">
+                  <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 text-sm">@{comment.user}</span>
-                        {comment.badge && (
-                          <div
-                            className={`w-5 h-5 bg-gradient-to-r ${comment.badge.gradient} rounded-full flex items-center justify-center text-white text-[10px]`}
-                            title="Badge"
-                          >
-                            {comment.badge.icon}
-                          </div>
-                        )}
+                        <span className="font-bold text-gray-900 text-sm">{comment.fullName}</span>
                       </div>
-                      <span className="text-xs text-gray-400">{comment.date}</span>
+                      <span className="text-xs text-gray-400 font-medium">{timeAgo(comment.createdAt)}</span>
                     </div>
-                    <p className="text-gray-700 text-sm leading-relaxed">{comment.comment}</p>
+                    <p className="text-gray-700 text-sm leading-relaxed">{comment.content}</p>
                   </div>
                   <div className="flex items-center gap-4 mt-2 ml-2">
                     <button
-                      onClick={() => handleLikeComment(comment.id)}
-                      className={`flex items-center gap-1 text-xs transition-colors ${
-                        comment.isLiked
-                          ? 'text-[#2D5A3D] font-semibold'
-                          : 'text-gray-500 hover:text-[#2D5A3D]'
+                      onClick={() => handleLikeComment(comment.commentId)}
+                      className={`flex items-center gap-1.5 text-xs transition-colors font-medium ${
+                        comment.isLikedByCurrentUser ? 'text-[#2D5A3D]' : 'text-gray-500 hover:text-[#2D5A3D]'
                       }`}
                     >
-                      <ThumbsUp className={`w-4 h-4 ${comment.isLiked ? 'fill-[#2D5A3D]' : ''}`} />
-                      <span>{comment.likes}</span>
-                    </button>
-                    <button className="text-xs text-gray-500 hover:text-[#2D5A3D] transition-colors">
-                      Trả lời
+                      <ThumbsUp className={`w-3.5 h-3.5 ${comment.isLikedByCurrentUser ? 'fill-[#2D5A3D]' : ''}`} />
+                      <span>{comment.likeCount > 0 ? comment.likeCount : 'Hữu ích'}</span>
                     </button>
                   </div>
                 </div>
               </div>
             ))}
-          </div>
 
-          {comments.length === 0 && (
-            <div className="text-center py-12">
-              <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
-            </div>
-          )}
-        </div>
-
-        {/* Related Products */}
-        <div>
-          <h2 className="text-3xl text-gray-900 mb-8">Sản Phẩm Tương Tự</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {relatedProducts.map((product) => (
-              <ProductCard key={product.id} {...product} />
-            ))}
+            {comments.length === 0 && (
+              <div className="text-center py-12">
+                <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
+              </div>
+            )}
           </div>
         </div>
+
       </div>
     </div>
   );

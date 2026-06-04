@@ -1,20 +1,10 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import ProductCard from './ProductCard';
-
-interface Product {
-  id: number;
-  image: string;
-  title: string;
-  price: number;
-  condition: string;
-  seller: string;
-  views: number;
-  isPremium?: boolean;
-}
+import { ProductResponseDto } from '../../features/products/types'; // Import DTO chuẩn
 
 interface ProductCarouselProps {
-  products: Product[];
+  products: ProductResponseDto[]; // Đổi sang dùng DTO thật
   itemsToShow?: number;
 }
 
@@ -24,13 +14,8 @@ export default function ProductCarousel({ products, itemsToShow = 5 }: ProductCa
 
   const maxIndex = Math.max(0, products.length - itemsToShow);
 
-  const handlePrev = () => {
-    setCurrentIndex((prev) => Math.max(0, prev - 1));
-  };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => Math.min(maxIndex, prev + 1));
-  };
+  const handlePrev = () => setCurrentIndex((prev) => Math.max(0, prev - 1));
+  const handleNext = () => setCurrentIndex((prev) => Math.min(maxIndex, prev + 1));
 
   useEffect(() => {
     if (containerRef.current) {
@@ -47,7 +32,6 @@ export default function ProductCarousel({ products, itemsToShow = 5 }: ProductCa
 
   return (
     <div className="relative group">
-      {/* Previous Button */}
       {canGoPrev && (
         <button
           onClick={handlePrev}
@@ -57,7 +41,6 @@ export default function ProductCarousel({ products, itemsToShow = 5 }: ProductCa
         </button>
       )}
 
-      {/* Carousel Container */}
       <div
         ref={containerRef}
         className="flex gap-6 overflow-hidden scroll-smooth"
@@ -65,7 +48,7 @@ export default function ProductCarousel({ products, itemsToShow = 5 }: ProductCa
       >
         {products.map((product) => (
           <div
-            key={product.id}
+            key={product.productId} // QUAN TRỌNG: Sửa từ id thành productId
             className="flex-shrink-0"
             style={{ width: `calc((100% - ${(itemsToShow - 1) * 24}px) / ${itemsToShow})` }}
           >
@@ -74,7 +57,6 @@ export default function ProductCarousel({ products, itemsToShow = 5 }: ProductCa
         ))}
       </div>
 
-      {/* Next Button */}
       {canGoNext && (
         <button
           onClick={handleNext}

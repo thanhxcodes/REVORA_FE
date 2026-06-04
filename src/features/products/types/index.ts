@@ -60,3 +60,22 @@ export interface ProductFilterParams {
     pageNumber: number;
     pageSize: number;
 }
+
+export interface ProductDetailResponseDto {
+    productId: number;
+    title: string;
+    description: string;
+    price: number;
+    brand: string;
+    condition: string;
+    categoryName: string;
+    imageUrls: string[];
+    videoUrl?: string;
+    isPremium: boolean;
+    viewCount: number;
+    createdAt: string;
+    sellerName: string;
+    sellerUsername: string;
+    sellerAvatar: string;
+    sellerPhone: string;
+}
