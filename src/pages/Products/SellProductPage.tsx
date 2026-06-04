@@ -248,11 +248,11 @@ export default function SellProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.title.trim().length < 10) return toast.error('Tên sản phẩm phải có ít nhất 10 ký tự.');
+    if (!formData.title.trim()) return toast.error('Vui lòng nhập Tên sản phẩm.');
     if (formData.categoryId === 0) return toast.error('Vui lòng chọn Danh mục.');
     if (!formData.condition) return toast.error('Vui lòng chọn Tình trạng sản phẩm.');
     if (formData.price < 1000) return toast.error('Giá sản phẩm tối thiểu là 1,000 VNĐ.');
-    if (formData.description.trim().length < 20) return toast.error('Mô tả sản phẩm quá ngắn (tối thiểu 20 ký tự).');
+    if (!formData.description.trim()) return toast.error('Vui lòng nhập Mô tả sản phẩm.');
     if (uploadedImages.length === 0) return toast.error('Vui lòng tải lên ít nhất 1 hình ảnh.');
     if (postingCredits < 1) return toast.error('Bạn đã hết Credit Đăng Tin.');
     if (enableVideoUpload && !uploadedVideo) return toast.error('Vui lòng chọn file Video Shorts.');

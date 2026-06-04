@@ -8,6 +8,7 @@ export interface ProductResponse {
   imageUrl: string;
   sellerName: string;
   isPremium: boolean;
+  bannerUrl?: string;
   viewCount: number;
   createdAt: string;
 }
@@ -27,7 +28,6 @@ export interface CreateProductRequestDto {
     bannerUrl: string | null;
 }
 
-// Trong src/features/products/types/index.ts
 export interface ProductResponseDto {
     productId: number;
     title: string;
@@ -37,6 +37,7 @@ export interface ProductResponseDto {
     imageUrl: string;
     sellerName: string;
     isPremium: boolean;
+    bannerUrl?: string;
     viewCount: number;
     createdAt: string;
 }
