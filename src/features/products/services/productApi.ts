@@ -79,3 +79,25 @@ export const getFilteredProductsAPI = async (params: ProductFilterParams): Promi
     });
     return response.data;
 };
+
+// Lấy chi tiết 1 sản phẩm
+export const getProductDetailAPI = async (id: string | number) => {
+    const response = await authClient.get(`/Products/${id}`, { skipAuthRefresh: true });
+    return response.data;
+};
+
+
+export const getProductCommentsAPI = async (productId: string | number) => {
+    const response = await authClient.get(`/Products/${productId}/comments`, { skipAuthRefresh: true });
+    return response.data;
+};
+
+export const addProductCommentAPI = async (productId: string | number, content: string) => {
+    const response = await authClient.post(`/Products/${productId}/comments`, { content });
+    return response.data;
+};
+
+export const toggleLikeCommentAPI = async (productId: string | number, commentId: number) => {
+    const response = await authClient.post(`/Products/${productId}/comments/${commentId}/like`);
+    return response.data;
+};

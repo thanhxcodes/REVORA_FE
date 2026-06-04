@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 interface ProductCardProps {
   productId: number;
-  imageUrl: string;
+  imageUrls: string[];
   title: string;
   price: number;
   condition: string;
@@ -13,11 +13,13 @@ interface ProductCardProps {
   viewMode?: 'grid' | 'list';
   sellerBadge?: { icon: string; gradient: string } | null;
   location?: string;
+  imageUrl?: string;
 }
 
 export default function ProductCard({
   productId,
-  imageUrl,
+  imageUrls,
+  imageUrl: propImageUrl,
   title,
   price,
   condition,
@@ -29,6 +31,8 @@ export default function ProductCard({
   location,
 }: ProductCardProps) {
 
+  const finalImageUrl = propImageUrl || (imageUrls && imageUrls.length > 0 ? imageUrls[0] : undefined);
+
   // Fake badge for demo
   const badge = sellerBadge || (() => {
     if (sellerName === 'admin') return { icon: '⭐', gradient: 'from-[#2D5A3D] to-[#3D7054]' };
@@ -38,7 +42,7 @@ export default function ProductCard({
 
   // CÁC ĐOẠN DƯỚI NÀY GIỮ NGUYÊN HOÀN TOÀN, CHỈ SỬA BIẾN:
   // - id -> productId
-  // - image -> imageUrl
+  // - image -> imageUrls
   // - seller -> sellerName
   // - views -> viewCount
 
@@ -57,7 +61,7 @@ export default function ProductCard({
           <div className="flex gap-4 p-4">
             <div className="relative w-40 h-40 flex-shrink-0 overflow-hidden bg-gray-100 rounded-xl">
               <img
-                src={imageUrl || 'https://via.placeholder.com/400'} // Fallback nếu SP k có ảnh
+                src={finalImageUrl || 'https://via.placeholder.com/400'}
                 alt={title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
@@ -125,7 +129,7 @@ export default function ProductCard({
 
         <div className="relative aspect-[3/4] overflow-hidden bg-gray-100">
           <img
-            src={imageUrl || 'https://via.placeholder.com/400'}
+            src={finalImageUrl || 'https://via.placeholder.com/400'}
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
