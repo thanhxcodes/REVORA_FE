@@ -78,13 +78,57 @@ function ShortVideoPlayer({ src, isActive }: { src: string; isActive: boolean })
   );
 }
 
+const CommentInput = ({ 
+  currentUser, inputText, setInputText, sendComment, isSubmittingComment, 
+  editingCommentId, replyingToName, cancelReplyOrEdit, autoFocus = false 
+}: any) => {
+  return (
+    <div className="flex gap-3 w-full">
+      <div className="w-8 h-8 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+        {(currentUser?.fullName || 'U').charAt(0).toUpperCase()}
+      </div>
+      <div className="flex-1 bg-white border border-gray-200 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-[#2D5A3D]/30 focus-within:border-transparent transition-all">
+        {(replyingToName || editingCommentId) && (
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-600 flex items-center gap-2">
+              {editingCommentId ? <Edit2 className="w-3 h-3" /> : <MessageCircle className="w-3 h-3" />}
+              {editingCommentId ? 'Đang sửa bình luận' : `Đang trả lời ${replyingToName}`}
+            </span>
+            <button onClick={cancelReplyOrEdit} className="p-1 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+        <textarea
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder={editingCommentId ? "Sửa bình luận..." : replyingToName ? `Trả lời ${replyingToName}...` : "Bạn có thắc mắc gì về sản phẩm này?"}
+          className="w-full px-4 py-2.5 focus:outline-none resize-none bg-transparent text-sm"
+          rows={2}
+          autoFocus={autoFocus}
+        />
+        <div className="flex justify-end px-3 pb-2.5">
+          <button
+            onClick={sendComment}
+            disabled={!inputText.trim() || isSubmittingComment}
+            className="flex items-center gap-1.5 bg-[#2D5A3D] text-white px-4 py-1.5 rounded-xl hover:bg-[#234830] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
+          >
+            <Send className="w-3 h-3" />
+            <span>{isSubmittingComment ? 'Đang gửi...' : (editingCommentId ? 'Cập nhật' : 'Gửi')}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // -------------------------------------------------------------
 // COMPONENT RENDER BÌNH LUẬN (CHUYỂN RA NGOÀI ĐỂ TRÁNH RE-RENDER MẤT SCROLL)
 // -------------------------------------------------------------
 const CommentItem = ({ 
   comment, isReply, parentComment, 
   currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId,
-  startEdit, executeDelete, handleLike, startReply
+  startEdit, executeDelete, handleLike, startReply, inputProps
 }: any) => {
   const isOwner = currentUser?.id === comment.userId;
   const parentName = parentComment && parentComment.commentId !== comment.parentId ? parentComment.fullName : ''; 
@@ -171,6 +215,13 @@ const CommentItem = ({
               Trả lời
           </button>
         </div>
+        
+        {/* Render CommentInput trực tiếp bên dưới nếu đang Trả lời hoặc Sửa bình luận này */}
+        {inputProps && ((inputProps.replyingToCommentId === comment.commentId) || (inputProps.editingCommentId === comment.commentId)) && (
+          <div className="mt-3">
+             <CommentInput {...inputProps} autoFocus={true} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -179,7 +230,7 @@ const CommentItem = ({
 const CommentThread = ({ 
   rootComment, allComments, 
   currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId,
-  startEdit, executeDelete, handleLike, startReply
+  startEdit, executeDelete, handleLike, startReply, inputProps
 }: any) => {
   const [visibleCount, setVisibleCount] = useState(2);
   
@@ -197,7 +248,7 @@ const CommentThread = ({
   const visibleReplies = descendants.slice(0, visibleCount);
   const remaining = descendants.length - visibleCount;
 
-  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply };
+  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply, inputProps };
 
   return (
     <div key={rootComment.commentId}>
@@ -352,8 +403,20 @@ function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => vo
     setOpenDropdownId(null);
   };
 
+  const inputProps = { 
+    currentUser, 
+    inputText, 
+    setInputText, 
+    sendComment, 
+    isSubmittingComment: isSubmitting, 
+    editingCommentId: editingComment?.id, 
+    replyingToName: replyingTo?.name, 
+    replyingToCommentId: replyingTo?.id,
+    cancelReplyOrEdit: cancelAction 
+  };
+
   const rootComments = comments.filter(c => !c.parentId);
-  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply, allComments: comments };
+  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply, allComments: comments, inputProps };
 
   return (
     <div 
@@ -382,33 +445,30 @@ function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => vo
           <div ref={listEndRef} />
         </div>
 
-        <div className="px-4 py-3 border-t border-gray-100 flex flex-col gap-2 flex-shrink-0 bg-white">
-          {(replyingTo || editingComment) && (
-            <div className="flex items-center justify-between px-2 text-xs text-gray-500">
-              <span>{replyingTo ? `Đang trả lời @${replyingTo.name}` : 'Đang sửa bình luận'}</span>
-              <button onClick={cancelAction} className="text-red-500 font-medium">Hủy</button>
+        {/* NHẬP BÌNH LUẬN GỐC (Chỉ hiển thị nếu KHÔNG ĐANG SỬA VÀ KHÔNG ĐANG TRẢ LỜI) */}
+        {!editingComment && !replyingTo && (
+          <div className="px-4 py-3 border-t border-gray-100 flex flex-col gap-2 flex-shrink-0 bg-white">
+            <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendComment()}
+                placeholder="Thêm bình luận..."
+                className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                disabled={isSubmitting}
+              />
+              <button
+                onClick={sendComment}
+                disabled={!inputText.trim() || isSubmitting}
+                className="text-[#2D5A3D] disabled:text-gray-300 transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
-          )}
-          <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendComment()}
-              placeholder={replyingTo ? `Trả lời @${replyingTo.name}...` : "Thêm bình luận..."}
-              className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-              disabled={isSubmitting}
-            />
-            <button
-              onClick={sendComment}
-              disabled={!inputText.trim() || isSubmitting}
-              className="text-[#2D5A3D] disabled:text-gray-300 transition-colors"
-            >
-              <Send className="w-4 h-4" />
-            </button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

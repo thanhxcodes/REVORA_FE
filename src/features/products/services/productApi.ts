@@ -92,8 +92,20 @@ export const getProductCommentsAPI = async (productId: string | number) => {
     return response.data;
 };
 
-export const addProductCommentAPI = async (productId: string | number, content: string) => {
-    const response = await authClient.post(`/Products/${productId}/comments`, { content });
+export const addProductCommentAPI = async (productId: string | number, content: string, parentId?: number) => {
+    const response = await authClient.post(`/Products/${productId}/comments`, { content, parentId });
+    return response.data;
+};
+
+// Sửa bình luận
+export const editProductCommentAPI = async (productId: string | number, commentId: number, content: string) => {
+    const response = await authClient.put(`/Products/${productId}/comments/${commentId}`, { content });
+    return response.data;
+};
+
+// Xóa bình luận
+export const deleteProductCommentAPI = async (productId: string | number, commentId: number) => {
+    const response = await authClient.delete(`/Products/${productId}/comments/${commentId}`);
     return response.data;
 };
 
