@@ -76,6 +76,7 @@ export interface ProductDetailResponseDto {
     viewCount: number;
     createdAt: string;
     sellerName: string;
+    sellerId: number;
     sellerUsername: string;
     sellerAvatar: string;
     sellerPhone: string;

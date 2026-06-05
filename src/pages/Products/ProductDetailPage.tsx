@@ -315,6 +315,7 @@ export default function ProductDetailPage() {
       new CustomEvent('revora:openChat', {
         detail: {
           seller: { 
+            id: productDetail.sellerId,
             username: productDetail.sellerUsername, 
             name: productDetail.sellerName, 
             avatar: productDetail.sellerAvatar 
