@@ -1,5 +1,5 @@
 import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCircle, Star, Zap, ListChecks, Heart, Plus, History, BellRing } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import type { User as UserType } from '../../features/auth/types';
 import NavbarCreditBadge from './NavbarCreditBadge';
@@ -97,6 +97,8 @@ export default function TopNavbar({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -121,6 +123,14 @@ export default function TopNavbar({
     setShowNotifications(false);
   };
 
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/all-products?search=${encodeURIComponent(searchQuery.trim())}`);
+      closeAll();
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#2D5A3D] shadow-lg">
       <div className="flex items-center justify-between h-16 px-4">
@@ -143,14 +153,18 @@ export default function TopNavbar({
 
         {/* Center: Search */}
         <div className="flex-1 max-w-2xl mx-8 hidden md:block">
-          <div className="relative">
+          <form onSubmit={handleSearch} className="relative">
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm sản phẩm thời trang..."
               className="w-full px-4 py-2 pl-10 rounded-full bg-white/10 backdrop-blur-sm text-white placeholder-white/70 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 w-5 h-5" />
-          </div>
+            <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors">
+              <Search className="w-5 h-5" />
+            </button>
+          </form>
         </div>
 
         {/* Right: Actions */}

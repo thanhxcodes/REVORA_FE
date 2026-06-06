@@ -3,7 +3,7 @@ import { ChevronRight, Sparkles, TrendingUp, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProductCarousel from '../Products/components/ProductCarousel';
 import BannerCarousel from './components/BannerCarousel';
-import { getFeaturedProductsAPI, getNewestProductsAPI, getLovedProductsAPI } from '../../features/products/services/productApi';
+import { getFeaturedProductsAPI, getNewestProductsAPI, getLovedProductsAPI, getCategoriesAPI } from '../../features/products/services/productApi';
 import { ProductResponseDto } from '../../features/products/types';
 
 const categories = [
@@ -20,6 +20,7 @@ export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<ProductResponseDto[]>([]);
   const [bestSellers, setBestSellers] = useState<ProductResponseDto[]>([]);
   const [newestProducts, setNewestProducts] = useState<ProductResponseDto[]>([]);
+  const [apiCategories, setApiCategories] = useState<{categoryId: number, name: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Gọi API lấy dữ liệu trang chủ
@@ -27,16 +28,18 @@ export default function HomePage() {
     const fetchHomeData = async () => {
       try {
         setIsLoading(true);
-        // Chạy đồng thời cả 3 request để tăng tốc độ tải trang
-        const [featuredRes, lovedRes, newestRes] = await Promise.all([
+        // Chạy đồng thời cả 4 request để tăng tốc độ tải trang
+        const [featuredRes, lovedRes, newestRes, catRes] = await Promise.all([
           getFeaturedProductsAPI(10),
           getLovedProductsAPI(10),
-          getNewestProductsAPI(10)
+          getNewestProductsAPI(10),
+          getCategoriesAPI()
         ]);
 
         if (featuredRes.success) setFeaturedProducts(featuredRes.data);
         if (lovedRes.success) setBestSellers(lovedRes.data);
         if (newestRes.success) setNewestProducts(newestRes.data);
+        if (catRes.success) setApiCategories(catRes.data);
       } catch (error) {
         console.error("Lỗi tải dữ liệu trang chủ: ", error);
       } finally {
@@ -94,18 +97,22 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
         <div className="bg-white rounded-3xl shadow-lg p-8">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-6">
-            {categories.map((category) => (
-              <Link
-                key={category.name}
-                to="/all-products"
-                className="flex flex-col items-center space-y-3 group"
-              >
-                <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md group-hover:shadow-xl transition-all group-hover:scale-105">
-                  <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
-                </div>
-                <span className="text-sm text-gray-700 font-medium group-hover:text-[#2D5A3D] transition-colors">{category.name}</span>
-              </Link>
-            ))}
+            {categories.map((category) => {
+              const matchedCat = apiCategories.find(c => c.name.toLowerCase() === category.name.toLowerCase());
+              const catId = matchedCat ? matchedCat.categoryId : '';
+              return (
+                <Link
+                  key={category.name}
+                  to={`/all-products${catId ? `?category=${catId}` : ''}`}
+                  className="flex flex-col items-center space-y-3 group"
+                >
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md group-hover:shadow-xl transition-all group-hover:scale-105">
+                    <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-sm text-gray-700 font-medium group-hover:text-[#2D5A3D] transition-colors">{category.name}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
