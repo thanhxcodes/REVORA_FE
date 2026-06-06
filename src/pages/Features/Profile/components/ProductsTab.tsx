@@ -115,13 +115,14 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
         {sortedProducts.map((p) => (
           <ProductCard
             key={p.productId}
-            id={p.productId}
-            image={p.imageUrl}
+            productId={p.productId}
+            imageUrl={p.imageUrl}
+            imageUrls={[p.imageUrl]}
             title={p.title}
             price={p.price}
             condition={p.condition}
-            seller={p.sellerName}
-            views={p.viewCount}
+            sellerName={p.sellerName}
+            viewCount={p.viewCount}
             isPremium={p.isPremium}
             location={p.location}
           />

@@ -53,7 +53,16 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {wishlistProducts.map((product) => (
             <div key={product.id} className="relative group">
-              <ProductCard {...product} />
+              <ProductCard
+                productId={product.id}
+                imageUrl={product.image}
+                imageUrls={[product.image]}
+                title={product.title}
+                price={product.price}
+                condition={product.condition}
+                sellerName={product.seller}
+                viewCount={product.views}
+              />
               {/* Control buttons overlay */}
               {!publicViewMode && (
                 <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
