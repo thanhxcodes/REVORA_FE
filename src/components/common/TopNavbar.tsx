@@ -2,6 +2,7 @@ import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCirc
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import type { User as UserType } from '../../features/auth/types';
+import { useUserCreditBatches } from '../../features/credits/hooks/useUserCreditBatches';
 import NavbarCreditBadge from './NavbarCreditBadge';
 import logoImg from '../../assets/images/logo1.jpg';
 
@@ -76,17 +77,6 @@ interface TopNavbarProps {
   setIsLoggedIn?: (value: boolean) => void;
 }
 
-const userCreditBatches = {
-  posting: [
-    { credits: 5, expiresDate: '22/05/2026', expiresIn: 3, packageName: 'Posting Day' },
-    { credits: 30, expiresDate: '28/05/2026', expiresIn: 9, packageName: 'Posting Week' },
-  ],
-  featured: [
-    { credits: 3, expiresDate: '24/05/2026', expiresIn: 5, packageName: 'Featured Day' },
-    { credits: 15, expiresDate: '01/06/2026', expiresIn: 13, packageName: 'Featured Week' },
-  ],
-};
-
 export default function TopNavbar({
   onMenuToggle,
   isLoggedIn = true,
@@ -94,6 +84,7 @@ export default function TopNavbar({
   currentUser,
   setIsLoggedIn,
 }: TopNavbarProps) {
+  const { batches: userCreditBatches } = useUserCreditBatches(isLoggedIn);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);

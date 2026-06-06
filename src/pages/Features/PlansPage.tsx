@@ -1,40 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sparkles, Image, Check, X, QrCode, History, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import CreditDisplay from '../../components/common/CreditDisplay';
 import { authClient } from '../../providers/authProvider/authService';
 import type { ApiResponse } from '../../features/auth/types';
-
-interface CreditBatch {
-  credits: number;
-  expiresDate: string;
-  expiresIn?: number;
-  packageName?: string;
-}
-
-interface UserCreditBatchItemApi {
-  userCreditBatchId: number;
-  creditTypeId: number;
-  creditTypeName: string;
-  remainingCredits: number;
-  expiresAt: string;
-  isPaid: boolean;
-  packageId: number;
-  packageName: string;
-}
-
-interface UserCreditSummaryApi {
-  creditTypeId: number;
-  creditTypeName: string;
-  totalRemainingCredits: number;
-  paidRemainingCredits: number;
-  freeRemainingCredits: number;
-  hasActivePaidCredits: boolean;
-  hasPendingPaidOrder: boolean;
-  pendingPaidPackageId: number | null;
-  canPurchasePaidPackage: boolean;
-  purchaseBlockReason: string | null;
-  batches: UserCreditBatchItemApi[];
-}
+import {
+  fetchFeaturedCreditSummary,
+  fetchPostingCreditSummary,
+  mapCreditBatches,
+} from '../../features/credits/services/creditPackageService';
+import type { CreditBatch, UserCreditBatchItemApi, UserCreditSummaryApi } from '../../features/credits/types';
 
 interface RewardBadgeApi {
   badgeId: number;
@@ -57,24 +31,6 @@ interface CreditPackageApi {
   rewardBadge?: RewardBadgeApi | null;
   isActive: boolean;
 }
-
-const formatDate = (expiresAt: string) =>
-  new Intl.DateTimeFormat('vi-VN').format(new Date(expiresAt));
-
-const getDaysUntilExpiry = (expiresAt: string) => {
-  const now = new Date();
-  const expiry = new Date(expiresAt);
-  const diffInMs = expiry.getTime() - now.getTime();
-  return Math.max(0, Math.ceil(diffInMs / (1000 * 60 * 60 * 24)));
-};
-
-const mapCreditBatches = (batches: UserCreditBatchItemApi[]): CreditBatch[] =>
-  batches.map((batch) => ({
-    credits: batch.remainingCredits,
-    expiresDate: formatDate(batch.expiresAt),
-    expiresIn: getDaysUntilExpiry(batch.expiresAt),
-    packageName: batch.packageName,
-  }));
 
 const formatTransactionDateTime = (isoDate: string) => {
   const date = new Date(isoDate);
@@ -215,13 +171,15 @@ const resolveActivePackageId = (
   packages: Package[],
   creditType: CreditType
 ): string | null => {
-  if (batch.isPaid) {
-    const matchedByPaidId = packages.find(
-      (pkg) => pkg.paidCreditPackageId === batch.packageId
-    );
-    if (matchedByPaidId) {
-      return matchedByPaidId.id;
-    }
+  if (!batch.isPaid || batch.remainingCredits <= 0) {
+    return null;
+  }
+
+  const matchedByPaidId = packages.find(
+    (pkg) => pkg.paidCreditPackageId === batch.packageId
+  );
+  if (matchedByPaidId) {
+    return matchedByPaidId.id;
   }
 
   const normalizedName = batch.packageName.trim().toLowerCase();
@@ -248,8 +206,24 @@ const computeCreditTypePurchaseStatus = (
   packages: Package[],
   creditType: CreditType
 ): CreditTypePurchaseStatus => {
-  if (!summary || summary.canPurchasePaidPackage) {
+  if (!summary) {
     return { isTypeLocked: false, activePackageId: null };
+  }
+
+  // Không còn paid credits và không có đơn chờ → mở khóa toàn bộ gói paid
+  if (!summary.hasActivePaidCredits && !summary.hasPendingPaidOrder) {
+    return { isTypeLocked: false, activePackageId: null };
+  }
+
+  if (summary.hasPendingPaidOrder && summary.pendingPaidPackageId != null) {
+    const pendingPackage = packages.find(
+      (pkg) => pkg.paidCreditPackageId === summary.pendingPaidPackageId
+    );
+
+    return {
+      isTypeLocked: true,
+      activePackageId: pendingPackage?.id ?? null,
+    };
   }
 
   const activePaidBatch = summary.batches.find(
@@ -263,17 +237,8 @@ const computeCreditTypePurchaseStatus = (
     };
   }
 
-  if (summary.pendingPaidPackageId != null) {
-    const pendingPackage = packages.find(
-      (pkg) => pkg.paidCreditPackageId === summary.pendingPaidPackageId
-    );
-    return {
-      isTypeLocked: true,
-      activePackageId: pendingPackage?.id ?? null,
-    };
-  }
-
-  return { isTypeLocked: true, activePackageId: null };
+  // Backend báo còn paid nhưng không có batch khớp — không khóa nhầm UI
+  return { isTypeLocked: false, activePackageId: null };
 };
 
 const getPackagePurchaseState = (
@@ -527,53 +492,43 @@ export default function PlansPage() {
   const [isTransactionsLoading, setIsTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
 
+  const loadCreditBatches = useCallback(async () => {
+    setIsCreditLoading(true);
+    setCreditError(null);
+
+    const [postingResult, featuredResult] = await Promise.allSettled([
+      fetchPostingCreditSummary(),
+      fetchFeaturedCreditSummary(),
+    ]);
+
+    const postingSummary =
+      postingResult.status === 'fulfilled' ? postingResult.value.data.data ?? null : null;
+    const featuredSummary =
+      featuredResult.status === 'fulfilled' ? featuredResult.value.data.data ?? null : null;
+
+    setCreditSummaries({
+      posting: postingSummary,
+      featured: featuredSummary,
+    });
+    setUserCreditBatches({
+      posting: postingSummary ? mapCreditBatches(postingSummary.batches) : [],
+      featured: featuredSummary ? mapCreditBatches(featuredSummary.batches) : [],
+    });
+
+    if (postingResult.status === 'rejected' || featuredResult.status === 'rejected') {
+      setCreditError('Không tải được một số credit hiện tại.');
+    }
+
+    setIsCreditLoading(false);
+  }, []);
+
   useEffect(() => {
-    let isMounted = true;
-
-    const loadCreditBatches = async () => {
-      setIsCreditLoading(true);
-      setCreditError(null);
-
-      const [postingResult, featuredResult] = await Promise.allSettled([
-        authClient.get<ApiResponse<UserCreditSummaryApi>>(
-          'https://localhost:7015/api/CreditPackages/my-posting-credits'
-        ),
-        authClient.get<ApiResponse<UserCreditSummaryApi>>(
-          'https://localhost:7015/api/CreditPackages/my-featured-credits'
-        ),
-      ]);
-
-      if (!isMounted) {
-        return;
-      }
-
-      const postingSummary =
-        postingResult.status === 'fulfilled' ? postingResult.value.data.data ?? null : null;
-      const featuredSummary =
-        featuredResult.status === 'fulfilled' ? featuredResult.value.data.data ?? null : null;
-
-      setCreditSummaries({
-        posting: postingSummary,
-        featured: featuredSummary,
-      });
-      setUserCreditBatches({
-        posting: postingSummary ? mapCreditBatches(postingSummary.batches) : [],
-        featured: featuredSummary ? mapCreditBatches(featuredSummary.batches) : [],
-      });
-
-      if (postingResult.status === 'rejected' || featuredResult.status === 'rejected') {
-        setCreditError('Không tải được một số credit hiện tại.');
-      }
-
-      setIsCreditLoading(false);
-    };
+    if (activeTab !== 'packages') {
+      return;
+    }
 
     void loadCreditBatches();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  }, [activeTab, loadCreditBatches]);
 
   useEffect(() => {
     if (activeTab !== 'history') {
