@@ -10,6 +10,7 @@ import { useUserProfile } from '../../features/profile/hooks/useUserProfile';
 import { useUpdateProfile } from '../../features/profile/hooks/useUpdateProfile';
 import { UserProfile } from '../../features/profile/types';
 import { useMyProducts } from '../../features/products/hooks/useMyProducts';
+import { useAuth } from '../../providers/authProvider/AuthContext';
 import ProfileTab, { ProfileData } from './Profile/components/ProfileTab';
 import SecurityTab from './Profile/components/SecurityTab';
 import ProductsTab from './Profile/components/ProductsTab';
@@ -54,6 +55,37 @@ function initials(name: string) {
   return name.trim().split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
 }
 
+// ─── Password Validation (pure, reusable) ────────────────────────────────────
+export function validateNewPassword(
+  password: string,
+  username?: string,
+  email?: string
+): string | null {
+  if (password.length < 8)
+    return 'Mật khẩu mới phải có ít nhất 8 ký tự';
+  if (!/[A-Z]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 chữ hoa (A-Z)';
+  if (!/[a-z]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 chữ thường (a-z)';
+  if (!/[0-9]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 chữ số (0-9)';
+  if (!/[@#$!%*?&]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (@, #, $, !, %, *, ?, &)';
+
+  const lower = password.toLowerCase();
+  if (username && username.length >= 3 && lower.includes(username.toLowerCase()))
+    return 'Mật khẩu không được chứa tên đăng nhập của bạn';
+
+  if (email) {
+    const emailLocal = email.split('@')[0].toLowerCase();
+    if (emailLocal.length >= 4 && lower.includes(emailLocal))
+      return 'Mật khẩu không được chứa thông tin email của bạn';
+  }
+
+  return null;
+}
+
+
 const mapProfileToUI = (profile: UserProfile): ProfileData => ({
   name: profile.fullName,
   username: profile.username,
@@ -87,9 +119,11 @@ export default function UserProfilePage() {
     refetch: refetchProducts,
   } = useMyProducts();
 
+  const { changePassword } = useAuth();
   const { updateProfile, isUpdating, updateError } = useUpdateProfile();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string; phone?: string; birthday?: string }>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const soldCount = userProfile?.soldCount ?? 156;
   const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : myProducts.length;
@@ -150,6 +184,7 @@ export default function UserProfilePage() {
   const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   // Khai báo refs cho các timeout để tránh memory leak
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,38 +266,40 @@ export default function UserProfilePage() {
     setAvatarPickerOpen(false);
   }, [profile]);
 
-  const handlePasswordChange = useCallback(() => {
+  const handlePasswordChange = useCallback(async () => {
     setPwError('');
-    
-    if (!pwForm.current) { 
-      setPwError('Vui lòng nhập mật khẩu hiện tại'); 
-      return; 
+    setPwSuccess(false);
+    setHasAttemptedSubmit(true);
+
+    const hasEmpty = !pwForm.current || !pwForm.next || !pwForm.confirm;
+    const complexityError = validateNewPassword(pwForm.next, profile.username, profile.email);
+    const isMismatch = pwForm.next !== pwForm.confirm;
+
+    if (hasEmpty || complexityError || isMismatch) {
+      return;
     }
-    
-    // TODO: Phase B - Gọi API verify mật khẩu hiện tại
-    // const { verifyCurrentPassword } = useAuth();
-    // const isValid = await verifyCurrentPassword(pwForm.current);
-    // if (!isValid) {
-    //   setPwError('Mật khẩu hiện tại không đúng');
-    //   return;
-    // }
-    
-    if (pwForm.next.length < 3) { 
-      setPwError('Mật khẩu mới phải có ít nhất 3 ký tự'); 
-      return; 
+
+    try {
+      setIsChangingPassword(true);
+      await changePassword({
+        currentPassword: pwForm.current,
+        newPassword: pwForm.next,
+        confirmPassword: pwForm.confirm
+      });
+      setPwSuccess(true);
+      setPwForm({ current: '', next: '', confirm: '' });
+      setHasAttemptedSubmit(false);
+
+      if (pwTimeoutRef.current) clearTimeout(pwTimeoutRef.current);
+      pwTimeoutRef.current = setTimeout(() => setPwSuccess(false), 4000);
+    } catch (err: any) {
+      console.error('Lỗi khi đổi mật khẩu:', err);
+      setPwError(err.response?.data?.detail || 'Có lỗi xảy ra khi đổi mật khẩu.');
+    } finally {
+      setIsChangingPassword(false);
     }
-    
-    if (pwForm.next !== pwForm.confirm) { 
-      setPwError('Xác nhận mật khẩu không khớp'); 
-      return; 
-    }
-    
-    setPwSuccess(true);
-    setPwForm({ current: '', next: '', confirm: '' });
-    
-    if (pwTimeoutRef.current) clearTimeout(pwTimeoutRef.current);
-    pwTimeoutRef.current = setTimeout(() => setPwSuccess(false), 4000);
-  }, [pwForm]);
+  }, [pwForm, changePassword, profile.username, profile.email]);
+
 
   const togglePublicView = useCallback(() => {
     setPublicViewMode((prev) => {
@@ -578,6 +615,11 @@ export default function UserProfilePage() {
               pwError={pwError}
               pwSuccess={pwSuccess}
               handlePasswordChange={handlePasswordChange}
+              isSubmitting={isChangingPassword}
+              username={profile.username}
+              email={profile.email}
+              hasAttemptedSubmit={hasAttemptedSubmit}
+              setHasAttemptedSubmit={setHasAttemptedSubmit}
             />
           )}
         </div>
