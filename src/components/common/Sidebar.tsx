@@ -1,6 +1,6 @@
-import { Home, Video, ChevronDown, ChevronUp, Flame, Trophy, Grid3x3 } from 'lucide-react';
+import { Home, Video, ChevronDown, ChevronUp, Flame, Trophy, Grid3x3, Users, Package } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -29,6 +29,48 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
 
   const visibleFollowing = showAllFollowing ? followedUsers : followedUsers.slice(0, 7);
 
+  // Synchronized virtual stats from localStorage and custom events
+  const [participants, setParticipants] = useState(() => {
+    return Number(localStorage.getItem('revora_match_participants')) || 982;
+  });
+  const [products, setProducts] = useState(() => {
+    return Number(localStorage.getItem('revora_match_products')) || 2516;
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setParticipants(Number(localStorage.getItem('revora_match_participants')) || 982);
+      setProducts(Number(localStorage.getItem('revora_match_products')) || 2516);
+    };
+    window.addEventListener('revora_match_stats_updated', handleUpdate);
+
+    // Initial load
+    handleUpdate();
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+    if (location.pathname !== '/match') {
+      timer = setInterval(() => {
+        setParticipants((prev) => {
+          const delta = Math.floor(Math.random() * 5) - 2;
+          const nextVal = Math.max(10, prev + delta);
+          localStorage.setItem('revora_match_participants', String(nextVal));
+          return nextVal;
+        });
+        setProducts((prev) => {
+          const delta = Math.floor(Math.random() * 7) - 3;
+          const nextVal = Math.max(10, prev + delta);
+          localStorage.setItem('revora_match_products', String(nextVal));
+          return nextVal;
+        });
+      }, 3500);
+    }
+
+    return () => {
+      window.removeEventListener('revora_match_stats_updated', handleUpdate);
+      if (timer) clearInterval(timer);
+    };
+  }, [location.pathname]);
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -41,32 +83,29 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white z-50 transition-all duration-300 shadow-lg overflow-y-auto ${
-          isOpen ? 'w-64' : 'w-20'
-        }`}
+        className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white z-50 transition-all duration-300 shadow-lg overflow-y-auto ${isOpen ? 'w-64' : 'w-20'
+          }`}
       >
         <div className="flex flex-col">
           {/* Group 1: Home + Shorts + All Products + Ranking + Match */}
           <nav className="py-4 border-b border-gray-200">
             <Link
               to="/"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${
-                isActive('/')
-                  ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${isActive('/')
+                ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
+                : 'text-gray-700 hover:bg-gray-100'
+                }`}
             >
               <Home className="w-6 h-6 flex-shrink-0" />
               {isOpen && <span>Trang Chủ</span>}
             </Link>
-            
+
             <Link
               to="/all-products"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${
-                isActive('/all-products')
-                  ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${isActive('/all-products')
+                ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
+                : 'text-gray-700 hover:bg-gray-100'
+                }`}
             >
               <Grid3x3 className="w-6 h-6 flex-shrink-0" />
               {isOpen && <span>Khám Phá</span>}
@@ -74,22 +113,20 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
 
             <Link
               to="/shorts"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${
-                isActive('/shorts')
-                  ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
+              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${isActive('/shorts')
+                ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
+                : 'text-gray-700 hover:bg-gray-100'
+                }`}
             >
               <Video className="w-6 h-6 flex-shrink-0" />
               {isOpen && <span>Shorts</span>}
             </Link>
             <Link
               to="/ranking"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative group ${
-                isActive('/ranking')
-                  ? 'bg-gradient-to-r from-[#C4603A]/10 to-[#2D5A3D]/10 text-[#C4603A] border-l-4 border-[#C4603A]'
-                  : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#C4603A]/5 hover:to-[#2D5A3D]/5'
-              }`}
+              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative group ${isActive('/ranking')
+                ? 'bg-gradient-to-r from-[#C4603A]/10 to-[#2D5A3D]/10 text-[#C4603A] border-l-4 border-[#C4603A]'
+                : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#C4603A]/5 hover:to-[#2D5A3D]/5'
+                }`}
             >
               <Trophy className={`w-6 h-6 flex-shrink-0 ${isActive('/ranking') ? 'text-[#C4603A] animate-pulse' : 'group-hover:text-[#C4603A]'}`} />
               {isOpen && (
@@ -98,29 +135,42 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
                 </span>
               )}
               {isOpen && !isActive('/ranking') && (
-                <span className="ml-auto text-xs bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] text-white px-2 py-0.5 rounded-full animate-pulse">
-                  HOT
+                <span className="text-[10px] font-bold bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] text-white px-1.5 py-0.5 rounded-full animate-pulse">
+                  NEW
                 </span>
               )}
             </Link>
             <Link
               to="/match"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative group ${
-                isActive('/match')
-                  ? 'bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-600 border-l-4 border-orange-500'
-                  : 'text-gray-700 hover:bg-gradient-to-r hover:from-orange-500/5 hover:to-red-500/5'
-              }`}
+              className={`flex items-start space-x-4 px-6 py-3 transition-colors relative group ${isActive('/match')
+                ? 'bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-600 border-l-4 border-orange-500'
+                : 'text-gray-700 hover:bg-gradient-to-r hover:from-orange-500/5 hover:to-red-500/5'
+                }`}
             >
-              <Flame className={`w-6 h-6 flex-shrink-0 ${isActive('/match') ? 'text-orange-500 animate-pulse' : 'group-hover:text-orange-500'}`} />
+              <Flame className={`w-6 h-6 flex-shrink-0 mt-0.5 ${isActive('/match') ? 'text-orange-500 animate-pulse' : 'group-hover:text-orange-500'}`} />
               {isOpen && (
-                <span className={`${isActive('/match') ? 'bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent font-semibold' : ''}`}>
-                  REVORA MATCH
-                </span>
-              )}
-              {isOpen && !isActive('/match') && (
-                <span className="ml-auto text-xs bg-gradient-to-r from-orange-400 to-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">
-                  COMING SOON
-                </span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className={`font-semibold ${isActive('/match') ? 'bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent' : ''}`}>
+                      REVORA MATCH
+                    </span>
+                    {!isActive('/match') && (
+                      <span className="text-[10px] font-bold bg-gradient-to-r from-orange-400 to-red-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">
+                        HOT
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-500">
+                    <div className="flex items-center gap-1 animate-fade-in">
+                      <Users className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                      <span>{participants.toLocaleString('vi-VN')}</span>
+                    </div>
+                    <div className="flex items-center gap-1 animate-fade-in">
+                      <Package className="w-3.5 h-3.5 text-pink-400 flex-shrink-0" />
+                      <span>{products.toLocaleString('vi-VN')}</span>
+                    </div>
+                  </div>
+                </div>
               )}
             </Link>
           </nav>
