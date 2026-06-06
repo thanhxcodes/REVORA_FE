@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Search, Eye, Edit2, Trash2, AlertTriangle, X, Check, Filter, Image, Tag, User, Calendar, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Eye, Trash2, AlertTriangle, X, Check, Image, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import AdminLayout from '../../components/common/AdminLayout';
+import { getAllProductsForAdminAPI, updateProductStatusAPI } from '../../features/admin/services/adminApi';
+import toast from 'react-hot-toast';
 
-type PostStatus = 'active' | 'deleted' | 'violated' | 'pending';
+type PostStatus = 'Public' | 'Private' | 'Expired' | 'Deleted' | 'Violated';
 
 interface Post {
   id: string;
@@ -22,27 +24,38 @@ interface Post {
   brand: string;
 }
 
-const mockPosts: Post[] = [
-  { id: 'P001', title: 'Áo len vintage Zara size M', description: 'Áo len cổ tròn màu kem vintage, còn mới 95%, mặc 2 lần. Form dáng basic dễ phối đồ. Không có hà tì gì.', price: 180000, category: 'Áo', images: ['https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=200'], owner: { username: 'fashionista_22', email: 'fashionista@example.com', avatar: 'FA' }, createdAt: '28/05/2024', status: 'active', views: 342, contactCount: 12, isFeatured: true, condition: 'Gần như mới', size: 'M', brand: 'Zara' },
-  { id: 'P002', title: 'Quần jeans baggy high waist', description: 'Quần jeans ống rộng cạp cao vintage wash, size 27. Mua ở thị trường Mỹ về. Chưa mặc lần nào còn tag.', price: 250000, category: 'Quần', images: ['https://images.unsplash.com/photo-1542272604-787c3835535d?w=200'], owner: { username: 'vintage_style', email: 'vintage@example.com', avatar: 'VS' }, createdAt: '25/05/2024', status: 'active', views: 198, contactCount: 8, isFeatured: false, condition: 'Mới', size: '27', brand: 'Levi\'s' },
-  { id: 'P003', title: 'Giày sneaker Nike Air Force 1', description: 'Nike AF1 trắng size 40, mặc khoảng 10 lần. Còn hộp đầy đủ. Độ bền tốt, đế còn nguyên.', price: 650000, category: 'Giày', images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200'], owner: { username: 'sneaker_head', email: 'sneakers@example.com', avatar: 'SH' }, createdAt: '22/05/2024', status: 'active', views: 520, contactCount: 25, isFeatured: true, condition: 'Đã qua sử dụng', size: '40', brand: 'Nike' },
-  { id: 'P004', title: 'Túi da thật Coach size nhỡ', description: 'Túi Coach da bò thật màu nâu caramel, hàng auth mua tại Mỹ. Còn receipt đầy đủ.', price: 1200000, category: 'Túi', images: ['https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200'], owner: { username: 'luxury_deals', email: 'luxury@example.com', avatar: 'LD' }, createdAt: '20/05/2024', status: 'active', views: 867, contactCount: 41, isFeatured: true, condition: 'Gần như mới', size: 'One size', brand: 'Coach' },
-  { id: 'P005', title: 'Váy hoa babydoll cotton', description: 'Váy hoa nhí cotton mỏng nhẹ thoáng mát, màu trắng nền hoa vàng. Size S form dáng oversize.', price: 120000, category: 'Váy', images: ['https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=200'], owner: { username: 'thrift_queen', email: 'thrift@example.com', avatar: 'TQ' }, createdAt: '15/05/2024', status: 'violated', views: 89, contactCount: 3, isFeatured: false, condition: 'Đã qua sử dụng', size: 'S', brand: 'Không rõ' },
-  { id: 'P006', title: 'Áo khoác bomber đen basic', description: 'Áo khoác bomber đen form regular, chất liệu poly cao cấp. Size L fit chuẩn. Ít mặc còn mới.', price: 320000, category: 'Áo khoác', images: ['https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=200'], owner: { username: 'fashionista_22', email: 'fashionista@example.com', avatar: 'FA' }, createdAt: '10/05/2024', status: 'deleted', views: 156, contactCount: 5, isFeatured: false, condition: 'Gần như mới', size: 'L', brand: 'H&M' },
-];
+// Xóa mockPosts
 
 const statusConfig: Record<PostStatus, { label: string; color: string; bg: string }> = {
-  active: { label: 'Đang hiển thị', color: 'text-green-700', bg: 'bg-green-100' },
-  deleted: { label: 'Đã xóa', color: 'text-gray-600', bg: 'bg-gray-100' },
-  violated: { label: 'Vi phạm', color: 'text-red-700', bg: 'bg-red-100' },
-  pending: { label: 'Chờ duyệt', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  Public: { label: 'Đang hiển thị', color: 'text-green-700', bg: 'bg-green-100' },
+  Private: { label: 'Chờ duyệt', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  Expired: { label: 'Hết hạn', color: 'text-gray-700', bg: 'bg-gray-200' },
+  Deleted: { label: 'Đã xóa', color: 'text-gray-600', bg: 'bg-gray-100' },
+  Violated: { label: 'Vi phạm', color: 'text-red-700', bg: 'bg-red-100' },
 };
 
+function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: { isOpen: boolean, title: string, message: string, onConfirm: () => void, onCancel: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col p-6 border border-gray-100">
+        <div className="w-12 h-12 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center mb-4">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h3 className="font-bold text-lg text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-600 text-sm mb-6">{message}</p>
+        <div className="flex space-x-3">
+          <button onClick={onCancel} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Hủy</button>
+          <button onClick={onConfirm} className="flex-1 py-2.5 bg-[#2D5A3D] text-white rounded-xl text-sm font-medium hover:bg-[#1E4029] transition-colors">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClose: () => void; onUpdateStatus: (id: string, status: PostStatus, note?: string) => void }) {
-  const [editMode, setEditMode] = useState(false);
   const [violationNote, setViolationNote] = useState('');
   const [showViolationForm, setShowViolationForm] = useState(false);
-  const [editForm, setEditForm] = useState({ title: post.title, description: post.description, price: post.price });
 
   const statusInfo = statusConfig[post.status];
 
@@ -67,21 +80,6 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
               <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1">
-              {editMode ? (
-                <div className="space-y-2">
-                  <input
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm font-medium"
-                  />
-                  <input
-                    type="number"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm({ ...editForm, price: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm"
-                  />
-                </div>
-              ) : (
                 <>
                   <h4 className="font-bold text-gray-900 text-base leading-snug">{post.title}</h4>
                   <div className="text-lg font-bold text-[#C4603A] mt-1">{post.price.toLocaleString('vi-VN')}đ</div>
@@ -92,23 +90,13 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
                     {post.isFeatured && <span className="text-xs bg-orange-100 text-[#C4603A] px-2 py-0.5 rounded-md font-medium">Nổi bật</span>}
                   </div>
                 </>
-              )}
             </div>
           </div>
 
           {/* Description */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Mô tả</label>
-            {editMode ? (
-              <textarea
-                rows={3}
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm resize-none"
-              />
-            ) : (
-              <p className="text-sm text-gray-600 bg-gray-50 rounded-xl p-3 leading-relaxed">{post.description}</p>
-            )}
+            <p className="text-sm text-gray-600 bg-gray-50 rounded-xl p-3 leading-relaxed">{post.description}</p>
           </div>
 
           {/* Owner + Stats */}
@@ -175,7 +163,11 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
               <div className="flex space-x-2 mt-2">
                 <button
                   onClick={() => {
-                    onUpdateStatus(post.id, 'violated', violationNote);
+                    if (!violationNote.trim()) {
+                      toast.error('Vui lòng nhập lý do vi phạm');
+                      return;
+                    }
+                    onUpdateStatus(post.id, 'Violated', violationNote);
                     setShowViolationForm(false);
                     onClose();
                   }}
@@ -194,15 +186,8 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
         {/* Actions */}
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
           <div className="flex space-x-2">
-            {!editMode && post.status !== 'deleted' && (
+            {post.status !== 'Deleted' && (
               <>
-                <button
-                  onClick={() => setEditMode(true)}
-                  className="flex items-center space-x-1.5 px-3 py-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors text-sm font-medium"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  <span>Sửa</span>
-                </button>
                 <button
                   onClick={() => setShowViolationForm(true)}
                   className="flex items-center space-x-1.5 px-3 py-2 bg-yellow-50 text-yellow-700 rounded-xl hover:bg-yellow-100 transition-colors text-sm font-medium"
@@ -211,7 +196,7 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
                   <span>Vi phạm</span>
                 </button>
                 <button
-                  onClick={() => { onUpdateStatus(post.id, 'deleted'); onClose(); }}
+                  onClick={() => { onUpdateStatus(post.id, 'Deleted'); }}
                   className="flex items-center space-x-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-sm font-medium"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -219,26 +204,9 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
                 </button>
               </>
             )}
-            {editMode && (
-              <>
-                <button
-                  onClick={() => setEditMode(false)}
-                  className="flex items-center space-x-1.5 px-4 py-2 bg-[#2D5A3D] text-white rounded-xl hover:bg-[#1E4029] transition-colors text-sm font-medium"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Lưu</span>
-                </button>
-                <button
-                  onClick={() => setEditMode(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  Huỷ
-                </button>
-              </>
-            )}
-            {post.status === 'deleted' && (
+            {post.status === 'Deleted' && (
               <button
-                onClick={() => { onUpdateStatus(post.id, 'active'); onClose(); }}
+                onClick={() => { onUpdateStatus(post.id, 'Public'); }}
                 className="flex items-center space-x-1.5 px-3 py-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors text-sm font-medium"
               >
                 <Check className="w-4 h-4" />
@@ -256,13 +224,41 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
 }
 
 export default function AdminPostsPage() {
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PostStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const categories = ['all', ...Array.from(new Set(mockPosts.map(p => p.category)))];
+  // Phân trang
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Modal Xác nhận
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, action: () => void }>({ isOpen: false, title: '', message: '', action: () => {} });
+
+  const confirmAction = (title: string, message: string, action: () => void) => {
+    setConfirmModal({ isOpen: true, title, message, action });
+  };
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const res = await getAllProductsForAdminAPI();
+        if (res.success) {
+          setPosts(res.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch posts', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPosts();
+  }, []);
+
+  const categories = ['all', ...Array.from(new Set(posts.map(p => p.category)))];
 
   const filtered = posts.filter((p) => {
     const matchSearch = p.title.toLowerCase().includes(search.toLowerCase()) || p.owner.username.toLowerCase().includes(search.toLowerCase());
@@ -271,20 +267,59 @@ export default function AdminPostsPage() {
     return matchSearch && matchStatus && matchCat;
   });
 
-  const handleUpdateStatus = (id: string, status: PostStatus, note?: string) => {
-    setPosts(posts.map(p => p.id === id ? { ...p, status } : p));
-    if (selectedPost?.id === id) setSelectedPost(prev => prev ? { ...prev, status } : null);
+  const handleUpdateStatus = async (id: string, status: PostStatus, note?: string) => {
+    const doUpdate = async () => {
+      try {
+        const res = await updateProductStatusAPI(id, status, note);
+        if (res.success) {
+          setPosts(posts.map(p => p.id === id ? { ...p, status } : p));
+          if (selectedPost?.id === id) setSelectedPost(prev => prev ? { ...prev, status } : null);
+          toast.success(status === 'Violated' ? 'Đã gửi cảnh báo vi phạm thành công!' : 'Cập nhật trạng thái thành công!');
+        } else {
+          toast.error('Cập nhật trạng thái thất bại');
+        }
+      } catch (error) {
+        toast.error('Có lỗi xảy ra khi cập nhật trạng thái');
+      } finally {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    };
+
+    if (status === 'Deleted') {
+      confirmAction('Xác nhận xóa bài đăng', 'Bạn có chắc chắn muốn xóa mềm bài đăng này? Bài đăng sẽ bị gỡ khỏi ứng dụng nhưng không mất dữ liệu gốc.', doUpdate);
+    } else if (status === 'Public') {
+      confirmAction('Xác nhận khôi phục', 'Bạn có chắc chắn muốn khôi phục bài đăng này? Người dùng sẽ xem lại được bài đăng này trên ứng dụng.', doUpdate);
+    } else {
+      doUpdate();
+    }
   };
 
   const stats = {
     total: posts.length,
-    active: posts.filter(p => p.status === 'active').length,
-    violated: posts.filter(p => p.status === 'violated').length,
-    deleted: posts.filter(p => p.status === 'deleted').length,
+    active: posts.filter(p => p.status === 'Public').length,
+    violated: posts.filter(p => p.status === 'Violated').length,
+    deleted: posts.filter(p => p.status === 'Deleted').length,
   };
+
+  // Tính toán phân trang
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const currentItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Đổi trang hoặc filter reset về trang 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, categoryFilter, itemsPerPage]);
 
   return (
     <AdminLayout>
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.action}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
       {selectedPost && (
         <PostDetailModal
           post={selectedPost}
@@ -332,10 +367,11 @@ export default function AdminPostsPage() {
             className="px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm"
           >
             <option value="all">Tất cả trạng thái</option>
-            <option value="active">Đang hiển thị</option>
-            <option value="violated">Vi phạm</option>
-            <option value="deleted">Đã xóa</option>
-            <option value="pending">Chờ duyệt</option>
+            <option value="Public">Đang hiển thị</option>
+            <option value="Private">Chờ duyệt</option>
+            <option value="Expired">Hết hạn</option>
+            <option value="Violated">Vi phạm</option>
+            <option value="Deleted">Đã xóa</option>
           </select>
           <select
             value={categoryFilter}
@@ -363,8 +399,8 @@ export default function AdminPostsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((post) => {
-                const si = statusConfig[post.status];
+              {currentItems.map((post) => {
+                const si = statusConfig[post.status] || { label: 'Không xác định', bg: 'bg-gray-100', color: 'text-gray-600' };
                 return (
                   <tr key={post.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedPost(post)}>
                     <td className="py-4 px-5">
@@ -404,17 +440,10 @@ export default function AdminPostsPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        {post.status !== 'deleted' && (
+                        {post.status !== 'Deleted' && (
                           <>
                             <button
-                              onClick={(e) => { e.stopPropagation(); setSelectedPost(post); }}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Chỉnh sửa"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(post.id, 'deleted'); }}
+                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(post.id, 'Deleted'); }}
                               className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                               title="Xóa mềm"
                             >
@@ -431,21 +460,68 @@ export default function AdminPostsPage() {
           </table>
         </div>
 
-        {filtered.length === 0 && (
+        {filtered.length === 0 && !isLoading && (
           <div className="text-center py-16 text-gray-400">
             <Image className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Không tìm thấy bài đăng nào</p>
           </div>
         )}
 
-        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-200">
-          <div className="text-sm text-gray-500">Hiển thị {filtered.length} trong {posts.length} bài đăng</div>
-          <div className="flex items-center space-x-2">
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Trước</button>
-            <button className="px-4 py-2 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-lg text-sm">1</button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Sau</button>
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between px-5 py-4 border-t border-gray-200">
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-500">
+                Hiển thị {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filtered.length)} trong {filtered.length} bài đăng
+              </div>
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <span>Số dòng:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#2D5A3D]"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={20}>20</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-2 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              
+              {/* Simple page numbers */}
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === i + 1 
+                      ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white' 
+                      : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="p-2 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </AdminLayout>
   );
