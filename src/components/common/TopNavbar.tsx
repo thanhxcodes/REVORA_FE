@@ -71,6 +71,8 @@ const NOTIF_ICONS: Record<string, { icon: React.ReactNode; bg: string }> = {
   view: { icon: <Sparkles className="w-4 h-4 text-green-600" />, bg: 'bg-green-50' },
 };
 
+import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
+
 interface TopNavbarProps {
   onMenuToggle: () => void;
   isLoggedIn?: boolean;
@@ -88,6 +90,7 @@ export default function TopNavbar({
   setIsLoggedIn,
 }: TopNavbarProps) {
   const { batches: userCreditBatches } = useUserCreditBatches(isLoggedIn);
+  const { wishlistIds } = useWishlist();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
@@ -268,9 +271,11 @@ export default function TopNavbar({
               onClick={closeAll}
             >
               <Heart className="w-6 h-6" />
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#C4603A] rounded-full text-[10px] flex items-center justify-center text-[#2D5A3D] font-bold px-0.5">
-                12
-              </span>
+              {wishlistIds.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#C4603A] rounded-full text-[10px] flex items-center justify-center text-white font-bold px-0.5 shadow-sm">
+                  {wishlistIds.length}
+                </span>
+              )}
             </Link>
             
             {/* Bell / Notifications */}
@@ -378,9 +383,15 @@ export default function TopNavbar({
                   setShowUserMenu(!showUserMenu);
                   setShowNotifications(false);
                 }}
-                className="w-9 h-9 bg-white/25 rounded-full flex items-center justify-center text-white hover:bg-white/35 transition-colors font-semibold text-sm"
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors font-semibold text-sm overflow-hidden border border-white/20 ${
+                  currentUser?.avatarUrl ? 'bg-transparent' : 'bg-white/25 hover:bg-white/35'
+                }`}
               >
-                {currentUser?.avatar ?? 'U'}
+                {currentUser?.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  currentUser?.avatar ?? 'U'
+                )}
               </button>
 
               {showUserMenu && (
@@ -390,8 +401,14 @@ export default function TopNavbar({
                     {/* User info header */}
                     <div className="px-4 py-4 bg-gradient-to-r from-[#2D5A3D]/8 to-[#3D7054]/8 border-b border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-sm">
-                          {currentUser?.avatar ?? 'U'}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden ${
+                          currentUser?.avatarUrl ? 'bg-transparent' : 'bg-gradient-to-br from-[#2D5A3D] to-[#3D7054]'
+                        }`}>
+                          {currentUser?.avatarUrl ? (
+                            <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            currentUser?.avatar ?? 'U'
+                          )}
                         </div>
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">

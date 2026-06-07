@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Heart, Flag, MessageCircle, Star, Shield, Package, Send, ThumbsUp, MoreHorizontal, Edit2, Trash2, ChevronDown, X } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
   getProductDetailAPI, 
@@ -12,6 +12,7 @@ import {
 } from '../../features/products/services/productApi';
 import { ProductDetailResponseDto } from '../../features/products/types';
 import { useAuth } from '../../providers/authProvider/AuthContext';
+import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
 
 // Hàm helper tính thời gian đăng bình luận
 const timeAgo = (dateStr: string) => {
@@ -248,6 +249,9 @@ export default function ProductDetailPage() {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
   const [replyingToName, setReplyingToName] = useState<string>('');
+
+  // Wishlist Context
+  const { wishlistIds, toggleWishlist, isWishlisted } = useWishlist();
 
   // FETCH DỮ LIỆU TỪ BACKEND
   useEffect(() => {
@@ -536,8 +540,15 @@ export default function ProductDetailPage() {
                     </span>
                   </div>
                 </div>
-                <button className="p-3 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0 text-gray-400">
-                  <Heart className="w-6 h-6" />
+                <button 
+                  onClick={() => productDetail && toggleWishlist(productDetail.productId)}
+                  className={`p-3 rounded-full transition-colors flex-shrink-0 ${
+                    productDetail && isWishlisted(productDetail.productId)
+                      ? 'bg-red-50 text-red-500'
+                      : 'hover:bg-red-50 hover:text-red-500 text-gray-400'
+                  }`}
+                >
+                  <Heart className={`w-6 h-6 ${productDetail && isWishlisted(productDetail.productId) ? 'fill-current' : ''}`} />
                 </button>
               </div>
 
@@ -579,21 +590,33 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* Các nút liên hệ */}
-                <div className="grid grid-cols-2 gap-3 mt-6">
-                  <button
-                    onClick={openZaloChat}
-                    className="w-full bg-[#0068FF] text-white py-3.5 rounded-xl hover:bg-[#0055D4] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Chat Zalo
-                  </button>
-                  <button
-                    onClick={openInternalChat}
-                    className="w-full bg-[#2D5A3D] text-white py-3.5 rounded-xl hover:bg-[#234830] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Chat Nội Bộ
-                  </button>
+                <div className="mt-6">
+                  {currentUser?.id === productDetail.sellerId ? (
+                    <Link
+                      to="/manage-products"
+                      className="w-full bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white py-3.5 rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all font-semibold flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                      Đây là Sản phẩm của bạn (Quản lý)
+                    </Link>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={openZaloChat}
+                        className="w-full bg-[#0068FF] text-white py-3.5 rounded-xl hover:bg-[#0055D4] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        Chat Zalo
+                      </button>
+                      <button
+                        onClick={openInternalChat}
+                        className="w-full bg-[#2D5A3D] text-white py-3.5 rounded-xl hover:bg-[#234830] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        Chat Nội Bộ
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

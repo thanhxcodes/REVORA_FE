@@ -2,6 +2,7 @@ import { useState, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './providers/authProvider/AuthContext';
+import { WishlistProvider } from './providers/wishlistProvider/WishlistContext';
 import { User } from './features/auth/types';
 import TopNavbar from './components/common/TopNavbar';
 import Sidebar from './components/common/Sidebar';
@@ -193,8 +194,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster position="top-right" />
-        <AppContent />
+        <WishlistProvider>
+          <Toaster position="top-right" />
+          <AppContent />
+        </WishlistProvider>
       </AuthProvider>
     </BrowserRouter>
   );

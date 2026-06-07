@@ -1,5 +1,6 @@
 import { Heart, Eye, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useWishlist } from '../../../providers/wishlistProvider/WishlistContext';
 
 interface ProductCardProps {
   productId: number;
@@ -30,6 +31,15 @@ export default function ProductCard({
   sellerBadge,
   location,
 }: ProductCardProps) {
+
+  const { wishlistIds, toggleWishlist, isWishlisted } = useWishlist();
+  const wishlisted = isWishlisted(productId);
+
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Ngăn Link trigger
+    e.stopPropagation();
+    toggleWishlist(productId);
+  };
 
   const finalImageUrl = propImageUrl || (imageUrls && imageUrls.length > 0 ? imageUrls[0] : undefined);
 
@@ -98,16 +108,23 @@ export default function ProductCard({
                 </div>
                 {viewCount !== undefined && (
                   <div className="flex items-center space-x-1">
-                    <Eye className="w-4 h-4" />
-                    <span>{viewCount.toLocaleString()} lượt xem</span>
+                    <Heart className="w-4 h-4 text-[#C4603A]" />
+                    <span>{viewCount.toLocaleString()} lượt thích</span>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="flex items-center">
-              <button className="bg-white/90 backdrop-blur-sm p-3 rounded-full border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#2D5A3D] hover:border-[#2D5A3D] hover:text-white">
-                <Heart className="w-5 h-5" />
+              <button 
+                onClick={handleWishlistClick}
+                className={`p-3 rounded-full border transition-all ${
+                  wishlisted 
+                    ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' 
+                    : 'bg-white/90 backdrop-blur-sm border-gray-200 opacity-0 group-hover:opacity-100 hover:bg-[#2D5A3D] hover:border-[#2D5A3D] hover:text-white'
+                }`}
+              >
+                <Heart className={`w-5 h-5 ${wishlisted ? 'fill-current' : ''}`} />
               </button>
             </div>
           </div>
@@ -139,8 +156,15 @@ export default function ProductCard({
               <span>Premium</span>
             </div>
           )}
-          <button className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-            <Heart className="w-4 h-4 text-[#2D5A3D]" />
+          <button 
+            onClick={handleWishlistClick}
+            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${
+              wishlisted
+                ? 'bg-red-50 text-red-500'
+                : 'bg-white/90 backdrop-blur-sm opacity-0 group-hover:opacity-100 text-[#2D5A3D] hover:bg-[#2D5A3D] hover:text-white'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${wishlisted ? 'fill-current' : ''}`} />
           </button>
         </div>
 
@@ -170,7 +194,7 @@ export default function ProductCard({
             </div>
             {viewCount !== undefined && (
               <div className="flex items-center space-x-1">
-                <Eye className="w-3 h-3" />
+                <Heart className="w-3 h-3 text-[#C4603A]" />
                 <span className="text-xs">{viewCount}</span>
               </div>
             )}
