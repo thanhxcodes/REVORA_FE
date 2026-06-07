@@ -12,6 +12,16 @@ export const getMyProfileAPI = async (signal?: AbortSignal): Promise<ApiResponse
 };
 
 /**
+ * Fetch a specific user's profile
+ * @param userId ID of the user
+ * @param signal AbortSignal to cancel pending requests
+ */
+export const getUserProfileAPI = async (userId: number, signal?: AbortSignal): Promise<ApiResponse<UserProfile>> => {
+  const response = await authClient.get<ApiResponse<UserProfile>>(`/users/${userId}`, { signal });
+  return response.data;
+};
+
+/**
  * Update the currently authenticated user's profile
  * @param data profile update data DTO
  */

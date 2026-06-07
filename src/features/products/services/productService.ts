@@ -23,3 +23,17 @@ export const getMyProductsAPI = async (
   );
   return response.data;
 };
+
+export const getUserProductsAPI = async (
+  sellerId: number,
+  pageNumber: number = 1,
+  pageSize: number = 100
+): Promise<{ success: boolean; data: PagedResult<ProductResponse> }> => {
+  const response = await authClient.get<{ success: boolean; data: PagedResult<ProductResponse> }>(
+    `/products/seller/${sellerId}`,
+    {
+      params: { pageNumber, pageSize },
+    }
+  );
+  return response.data;
+};
