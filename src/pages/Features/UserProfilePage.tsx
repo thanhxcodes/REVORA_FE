@@ -8,9 +8,11 @@ import {
 } from 'lucide-react';
 import { useUserProfile } from '../../features/profile/hooks/useUserProfile';
 import { useUpdateProfile } from '../../features/profile/hooks/useUpdateProfile';
+import { uploadAvatarAPI } from '../../features/profile/services/profileService';
 import { UserProfile } from '../../features/profile/types';
 import { useMyProducts } from '../../features/products/hooks/useMyProducts';
 import { useAuth } from '../../providers/authProvider/AuthContext';
+import toast from 'react-hot-toast';
 import ProfileTab, { ProfileData } from './Profile/components/ProfileTab';
 import SecurityTab from './Profile/components/SecurityTab';
 import ProductsTab from './Profile/components/ProductsTab';
@@ -97,6 +99,7 @@ const mapProfileToUI = (profile: UserProfile): ProfileData => ({
   city: profile.city ?? '',
   bio: profile.bio ?? '',
   avatarColor: '#2D5A3D',
+  avatarUrl: profile.avatarUrl ?? '',
 });
 
 /* ─── component ──────────────────────────────────────────────────────────── */
@@ -152,6 +155,7 @@ export default function UserProfilePage() {
   const [showBadgeSelector, setShowBadgeSelector] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState('premium-gold');
   const [isOnline, setIsOnline] = useState(true);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [wishlistProducts, setWishlistProducts] = useState<WishlistProduct[]>(INITIAL_WISHLIST);
 
   const DEFAULT_PROFILE: ProfileData = {
@@ -165,6 +169,7 @@ export default function UserProfilePage() {
     city: '',
     bio: '',
     avatarColor: '#2D5A3D',
+    avatarUrl: '',
   };
 
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
@@ -242,6 +247,7 @@ export default function UserProfilePage() {
         address: draft.address || undefined,
         city: draft.city || undefined,
         bio: draft.bio || undefined,
+        avatarUrl: draft.avatarUrl || undefined,
       });
 
       setProfile(draft);
@@ -265,6 +271,32 @@ export default function UserProfilePage() {
     setIsEditing(false);
     setAvatarPickerOpen(false);
   }, [profile]);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ảnh vượt quá giới hạn 5MB.');
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+      const res = await uploadAvatarAPI(file);
+      if (res.success && res.url) {
+        setDraft((prev) => ({ ...prev, avatarUrl: res.url }));
+        toast.success('Đã tải ảnh lên thành công. Vui lòng nhấn Lưu thay đổi để hoàn tất!');
+        // Update the current profile to show the image immediately in UI preview
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi tải ảnh lên.');
+    } finally {
+      setIsUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
 
   const handlePasswordChange = useCallback(async () => {
     setPwError('');
@@ -386,10 +418,13 @@ export default function UserProfilePage() {
               {/* Avatar */}
               <div className="relative flex-shrink-0">
                 <div
-                  className="w-32 h-32 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg select-none"
-                  style={{ backgroundColor: isEditing ? draft.avatarColor : profile.avatarColor }}
+                  className="w-32 h-32 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg select-none bg-cover bg-center overflow-hidden"
+                  style={{ 
+                    backgroundColor: isEditing ? draft.avatarColor : profile.avatarColor,
+                    backgroundImage: (isEditing ? draft.avatarUrl : profile.avatarUrl) ? `url(${isEditing ? draft.avatarUrl : profile.avatarUrl})` : 'none'
+                  }}
                 >
-                  {initials(isEditing ? draft.name : profile.name)}
+                  {!(isEditing ? draft.avatarUrl : profile.avatarUrl) && initials(isEditing ? draft.name : profile.name)}
                   {isEditing && (
                     <button
                       onClick={() => setAvatarPickerOpen(!avatarPickerOpen)}
@@ -409,19 +444,31 @@ export default function UserProfilePage() {
                   </div>
                 </div>
 
-                {/* Color picker */}
+                {/* Color/Image picker */}
                 {avatarPickerOpen && isEditing && (
-                  <div className="absolute top-36 left-0 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-20">
-                    <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Màu avatar</p>
+                  <div className="absolute top-36 left-0 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-20 min-w-[200px]">
+                    <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Ảnh đại diện</p>
+                    <div className="mb-4 flex flex-col gap-2">
+                        <input type="file" id="avatarUpload" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploadingAvatar} />
+                        <label htmlFor="avatarUpload" className={`flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-sm font-medium rounded-lg transition-colors border border-gray-200 justify-center ${isUploadingAvatar ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                            {isUploadingAvatar ? (
+                                <div className="w-4 h-4 border-2 border-[#2D5A3D] border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                                <Camera className="w-4 h-4" />
+                            )}
+                            {isUploadingAvatar ? 'Đang tải lên...' : 'Tải ảnh lên'}
+                        </label>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Hoặc chọn màu</p>
                     <div className="grid grid-cols-4 gap-2">
                       {AVATAR_COLORS.map((color) => (
                         <button
                           key={color}
-                          onClick={() => setDraft((p) => ({ ...p, avatarColor: color }))}
+                          onClick={() => setDraft((p) => ({ ...p, avatarColor: color, avatarUrl: '' }))}
                           className={`w-10 h-10 rounded-full transition-transform hover:scale-110 ${
-                            draft.avatarColor === color ? 'ring-3 ring-offset-2 ring-gray-800 scale-110' : ''
+                            draft.avatarColor === color && !draft.avatarUrl ? 'ring-3 ring-offset-2 ring-gray-800 scale-110' : ''
                           }`}
-                          style={{ backgroundColor: color, outline: draft.avatarColor === color ? '2px solid #374151' : 'none', outlineOffset: '2px' }}
+                          style={{ backgroundColor: color, outline: draft.avatarColor === color && !draft.avatarUrl ? '2px solid #374151' : 'none', outlineOffset: '2px' }}
                         />
                       ))}
                     </div>

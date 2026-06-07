@@ -293,7 +293,6 @@ export default function SellProductPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
-      <Toaster position="top-right" reverseOrder={false} />
 
       <form onSubmit={handleSubmit} className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
