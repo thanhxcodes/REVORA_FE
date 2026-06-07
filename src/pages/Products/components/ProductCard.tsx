@@ -15,6 +15,8 @@ interface ProductCardProps {
   sellerBadge?: { icon: string; gradient: string } | null;
   location?: string;
   imageUrl?: string;
+  sellerFullName?: string;
+  createdAt?: string;
 }
 
 export default function ProductCard({
@@ -30,6 +32,8 @@ export default function ProductCard({
   viewMode = 'grid',
   sellerBadge,
   location,
+  sellerFullName,
+  createdAt,
 }: ProductCardProps) {
 
   const { wishlistIds, toggleWishlist, isWishlisted } = useWishlist();
@@ -58,7 +62,7 @@ export default function ProductCard({
 
   if (viewMode === 'list') {
     return (
-      <Link to={`/product/${productId}`}>
+      <Link to={`/product/${productId}`} className="block">
         <div className={`group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 ${isPremium ? 'ring-2 ring-[#C4603A] shadow-[0_0_20px_rgba(196,96,58,0.3)] hover:shadow-[0_0_30px_rgba(196,96,58,0.5)]' : ''
           }`}>
           {isPremium && (
@@ -98,12 +102,17 @@ export default function ProductCard({
                 )}
               </div>
               <div className="flex items-center justify-between text-sm text-gray-500">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="truncate">Bởi {sellerName}</span>
-                  {badge && (
-                    <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
-                      {badge.icon}
-                    </div>
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate">Bởi {sellerFullName || sellerName}</span>
+                    {badge && (
+                      <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
+                        {badge.icon}
+                      </div>
+                    )}
+                  </div>
+                  {createdAt && (
+                    <span className="text-xs text-gray-400">Đăng ngày {new Date(createdAt).toLocaleDateString('vi-VN')}</span>
                   )}
                 </div>
                 {viewCount !== undefined && (
@@ -134,7 +143,7 @@ export default function ProductCard({
   }
 
   return (
-    <Link to={`/product/${productId}`}>
+    <Link to={`/product/${productId}`} className="block h-full">
       <div className={`group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full flex flex-col ${isPremium ? 'ring-2 ring-[#C4603A] shadow-[0_0_20px_rgba(196,96,58,0.3)] hover:shadow-[0_0_30px_rgba(196,96,58,0.5)]' : ''
         }`}>
         {isPremium && (
@@ -184,12 +193,17 @@ export default function ProductCard({
           </div>
 
           <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="truncate">{sellerName}</span>
-              {badge && (
-                <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
-                  {badge.icon}
-                </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate">{sellerFullName || sellerName}</span>
+                {badge && (
+                  <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
+                    {badge.icon}
+                  </div>
+                )}
+              </div>
+              {createdAt && (
+                <span className="text-[10px] text-gray-400">Ngày đăng: {new Date(createdAt).toLocaleDateString('vi-VN')}</span>
               )}
             </div>
             {viewCount !== undefined && (

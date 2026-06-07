@@ -81,6 +81,8 @@ interface NextProductDto {
   sellerName: string;
   sellerCity: string;
   isMatchSeed: boolean;
+  brand?: string;
+  hasBadge?: boolean;
 }
 
 interface MatchLikedProductDto {
@@ -1164,7 +1166,9 @@ export default function RevoraMatchPage() {
                             <a href={`/profile?userId=${currentSwipeCard.sellerId}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
                               <p className="text-white text-sm font-bold truncate">@{currentSwipeCard.sellerName}</p>
                               {currentSwipeCard.hasBadge && (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" title="Tài khoản uy tín" />
+                                <span title="Tài khoản uy tín">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                                </span>
                               )}
                             </a>
                             <p className="text-white/60 text-xs flex items-center gap-1 mt-0.5">

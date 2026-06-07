@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Package, RefreshCw } from 'lucide-react';
 import ProductCard from '../../../Products/components/ProductCard';
-import { ProductResponse } from '../../../../features/products/types';
+import { ProductResponseDto } from '../../../../features/products/types';
 
 interface ProductsTabProps {
-  products: ProductResponse[];
+  products: ProductResponseDto[];
   isLoading: boolean;
   error: string | null;
   onRetry?: () => void;

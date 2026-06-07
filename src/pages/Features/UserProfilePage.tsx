@@ -124,8 +124,10 @@ export default function UserProfilePage() {
   const [errors, setErrors] = useState<{ name?: string; phone?: string; birthday?: string }>({});
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  const publicProducts = myProducts.filter(p => p.productStatus === 'Public');
+
   const soldCount = userProfile?.soldCount ?? 156;
-  const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : myProducts.length;
+  const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : publicProducts.length;
   const followerCount = userProfile?.followerCount ?? 2500;
   const responseRate = userProfile?.responseRate ?? 98;
 
@@ -633,7 +635,7 @@ export default function UserProfilePage() {
 
           {activeTab === 'products' && (
             <ProductsTab
-              products={myProducts}
+              products={publicProducts}
               isLoading={isProductsLoading}
               error={productsError}
               onRetry={refetchProducts}
