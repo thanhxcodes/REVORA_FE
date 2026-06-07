@@ -77,7 +77,7 @@ const CommentItem = ({
   startEdit, executeDelete, handleLike, startReply, inputProps
 }: any) => {
   const isOwner = currentUser?.id === comment.userId;
-  const showParentName = isReply && parentComment && parentComment.parentId != null; 
+  const showParentName = isReply && parentComment; 
 
   return (
     <div className={`flex gap-3 ${isReply ? 'mt-3' : 'mt-5'}`}>

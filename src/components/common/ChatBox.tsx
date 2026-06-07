@@ -23,6 +23,7 @@ interface ProductRef {
 interface Message {
   id: number;
   senderId: number;
+  receiverId?: number;
   text: string | null;
   time: string;
   read?: boolean;
@@ -201,21 +202,26 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
         
         newConnection.on('ReceiveMessage', (msg: Message) => {
           const currentChat = activeChatRef.current;
-          if (currentChat && msg.senderId === currentChat.partner.userId) {
+          if (currentChat && (
+              msg.senderId === currentChat.partner.userId || 
+              (msg.senderId === currentUser.id && msg.receiverId === currentChat.partner.userId)
+          )) {
             setMessages(prev => {
                 if (!prev.find(m => m.id === msg.id)) {
                     return [...prev, msg];
                 }
                 return prev;
             });
-            markAsRead(msg.senderId);
+            if (msg.senderId !== currentUser.id) {
+                markAsRead(msg.senderId);
+            }
           }
           fetchConversations();
         });
 
         newConnection.on('MessageEdited', (msg: Message) => {
           const currentChat = activeChatRef.current;
-          if (currentChat && msg.senderId === currentChat.partner.userId) {
+          if (currentChat && (msg.senderId === currentChat.partner.userId || (msg.senderId === currentUser.id && msg.receiverId === currentChat.partner.userId))) {
             setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
           }
           fetchConversations();
@@ -223,7 +229,7 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
 
         newConnection.on('MessageRevoked', (msg: Message) => {
           const currentChat = activeChatRef.current;
-          if (currentChat && msg.senderId === currentChat.partner.userId) {
+          if (currentChat && (msg.senderId === currentChat.partner.userId || (msg.senderId === currentUser.id && msg.receiverId === currentChat.partner.userId))) {
             setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
           }
           fetchConversations();
@@ -306,7 +312,12 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
         });
 
         if (res.data.success) {
-           setMessages(prev => [...prev, res.data.data]);
+           setMessages(prev => {
+               if (!prev.find(m => m.id === res.data.data.id)) {
+                   return [...prev, res.data.data];
+               }
+               return prev;
+           });
         }
         fetchConversations();
       }
@@ -356,7 +367,12 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
         productRefId: productId,
       });
       if (res.data.success) {
-        setMessages(prev => [...prev, res.data.data]);
+        setMessages(prev => {
+            if (!prev.find(m => m.id === res.data.data.id)) {
+                return [...prev, res.data.data];
+            }
+            return prev;
+        });
       }
       fetchConversations();
     } catch (err) {
