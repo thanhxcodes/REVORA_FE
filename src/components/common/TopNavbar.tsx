@@ -1,6 +1,9 @@
 import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCircle, Star, Zap, ListChecks, Heart, Plus, History, BellRing } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as signalR from '@microsoft/signalr';
+import authClient from '../../providers/authProvider/authService';
+import { getAccessToken } from '../../features/auth/services/tokenService';
 import type { User as UserType } from '../../features/auth/types';
 import { useUserCreditBatches } from '../../features/credits/hooks/useUserCreditBatches';
 import NavbarCreditBadge from './NavbarCreditBadge';
@@ -90,6 +93,78 @@ export default function TopNavbar({
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  // --- Real-time Notifications Fetching & SignalR ---
+  const fetchInterestInbox = async () => {
+    try {
+      const res = await authClient.get('/match-trade/interest-inbox');
+      if (res.data.success && Array.isArray(res.data.data)) {
+        const mappedNotifs: Notification[] = res.data.data.map((item: any) => ({
+          id: item.notificationId || Math.random(),
+          type: 'like',
+          message: `${item.interestedUserName || 'Ai đó'} đã thả tym sản phẩm của bạn`,
+          time: new Date(item.createdAt).toLocaleString('vi-VN'),
+          read: item.isRead
+        }));
+        // Merge with mock or replace. Let's just replace the MOCK entirely with real data for 'like' type, 
+        // or prepend to MOCK. We'll prepend for demo.
+        setNotifications((prev) => {
+          const others = prev.filter(p => p.type !== 'like');
+          return [...mappedNotifs, ...others];
+        });
+      }
+    } catch (e) {
+      console.error('Failed to fetch interest inbox', e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    // Initial fetch
+    fetchInterestInbox();
+
+    // Listen to custom window event if triggered locally
+    const handleLocalInterest = () => fetchInterestInbox();
+    window.addEventListener('revora_match_interest_received', handleLocalInterest);
+
+    // Global SignalR Connection for the Header (if they aren't on MatchPage)
+    const token = getAccessToken();
+    let hubConnection: signalR.HubConnection | null = null;
+    
+    if (token) {
+      const hostUrl = (import.meta.env.VITE_API_BASE_URL || 'https://localhost:7015/api/v1').replace('/api/v1', '');
+      hubConnection = new signalR.HubConnectionBuilder()
+        .withUrl(`${hostUrl}/chatHub?access_token=${token}`)
+        .withAutomaticReconnect()
+        .build();
+
+      hubConnection.start()
+        .then(() => {
+          hubConnection!.on('InterestNotificationReceived', () => {
+            fetchInterestInbox();
+          });
+          hubConnection!.on('MatchPoolUpdated', () => {
+            window.dispatchEvent(new Event('revora_match_pool_updated'));
+          });
+          hubConnection!.on('ProductsRemoved', (productIds: number[]) => {
+            window.dispatchEvent(new CustomEvent('revora_match_products_removed', { detail: productIds }));
+          });
+          hubConnection!.on('MutualMatchCreated', (matchSummary: any) => {
+            window.dispatchEvent(new CustomEvent('revora_mutual_match_created', { detail: matchSummary }));
+          });
+        })
+        .catch(err => console.error('SignalR Header connection failure: ', err));
+    }
+
+    return () => {
+      window.removeEventListener('revora_match_interest_received', handleLocalInterest);
+      if (hubConnection) {
+        hubConnection.stop();
+      }
+    };
+  }, [isLoggedIn]);
+  // ------------------------------------------------
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

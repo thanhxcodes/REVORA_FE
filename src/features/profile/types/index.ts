@@ -25,6 +25,7 @@ export interface UpdateProfileDto {
   address?: string;
   city?: string;
   bio?: string;
+  avatarUrl?: string;
 }
 
 

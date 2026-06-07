@@ -20,3 +20,19 @@ export const updateMyProfileAPI = async (data: UpdateProfileDto): Promise<ApiRes
   return response.data;
 };
 
+/**
+ * Upload user's avatar image
+ * @param file image file
+ */
+export const uploadAvatarAPI = async (file: File): Promise<{ success: boolean; message: string; url?: string }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await authClient.post('/media/upload-avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+

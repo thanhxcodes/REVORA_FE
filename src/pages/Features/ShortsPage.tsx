@@ -669,7 +669,6 @@ export default function ShortsPage() {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <Toaster position="top-right" />
       
       {/* THÔNG TIN VIDEO (Desktop) - Hiển thị ở góc dưới bên trái màn hình như cũ */}
       <div className="hidden sm:block absolute bottom-8 left-8 w-[300px] md:w-[350px] pointer-events-auto z-10">
