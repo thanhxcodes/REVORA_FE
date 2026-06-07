@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 
 export interface Banner {
   id: number;
@@ -57,15 +58,19 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
               alt={banner.title}
               className="w-full h-full object-cover"
             />
-            <div className={`absolute inset-0 bg-gradient-to-r ${banner.color}`} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-white text-center px-8">
-              <div className="transform transition-transform duration-700 translate-y-0 scale-100">
-                <h2 className="text-5xl font-bold mb-4 drop-shadow-lg">{banner.title}</h2>
-                <p className="text-2xl drop-shadow-lg opacity-90 mb-8">{banner.subtitle}</p>
-                <Link to={banner.link} className="inline-block bg-white text-gray-900 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition-colors shadow-lg">
+            <div className={`absolute inset-0 bg-gradient-to-l ${banner.color}`} />
+            <div className="absolute inset-0 flex flex-col items-end justify-center text-white text-right px-12 md:px-24">
+              <motion.div 
+                className="max-w-xl"
+                animate={index === currentIndex ? { y: [0, -8, 0] } : {}}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <h2 className="text-5xl md:text-6xl font-extrabold mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] tracking-tight text-white">{banner.title}</h2>
+                <p className="text-xl md:text-2xl drop-shadow-md opacity-95 mb-8 font-medium text-gray-100">{banner.subtitle}</p>
+                <Link to={banner.link} className="inline-flex items-center justify-center bg-white/20 backdrop-blur-md border border-white/30 text-white px-10 py-3.5 rounded-full font-bold hover:bg-white/30 transition-all shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]">
                   Xem Ngay
                 </Link>
-              </div>
+              </motion.div>
             </div>
           </div>
         ))}

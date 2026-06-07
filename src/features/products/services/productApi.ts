@@ -50,6 +50,32 @@ export const getMyCreditsAPI = async () => {
     return response.data;
 };
 
+// Quản lý tin đăng
+export const getMyProductsAPI = async () => {
+    const response = await authClient.get('/Products/me');
+    return response.data;
+};
+
+export const getMyDeletedProductsAPI = async () => {
+    const response = await authClient.get('/Products/me/deleted');
+    return response.data;
+};
+
+export const updateProductAPI = async (id: string | number, data: CreateProductRequestDto) => {
+    const response = await authClient.put(`/Products/${id}`, data);
+    return response.data;
+};
+
+export const toggleProductStatusAPI = async (id: string | number, status: string) => {
+    const response = await authClient.patch(`/Products/${id}/status`, { status });
+    return response.data;
+};
+
+export const deleteProductAPI = async (id: string | number) => {
+    const response = await authClient.delete(`/Products/${id}`);
+    return response.data;
+};
+
 // API lấy sản phẩm nổi bật
 export const getFeaturedProductsAPI = async (limit = 10) => {
     // Lưu ý: Các API Get public (không cần token) thì bạn có thể dùng axios bình thường 
