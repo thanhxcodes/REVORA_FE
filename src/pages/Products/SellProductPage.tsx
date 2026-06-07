@@ -316,7 +316,7 @@ export default function SellProductPage() {
                     value={formData.title}
                     onChange={handleChange}
                     type="text"
-                    placeholder="Ví dụ: Áo Khoác Da Vintage (Tối thiểu 10 ký tự)"
+                    placeholder="Ví dụ: Áo Khoác Da Vintage"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors"
                   />
                 </div>
@@ -360,7 +360,7 @@ export default function SellProductPage() {
 
                 <div>
                   <label className="block text-sm mb-2 text-gray-700 font-medium">Mô Tả *</label>
-                  <textarea name="description" value={formData.description} onChange={handleChange} rows={5} placeholder="Mô tả chi tiết sản phẩm của bạn (Tối thiểu 20 ký tự)..." className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors resize-none" />
+                  <textarea name="description" value={formData.description} onChange={handleChange} rows={5} placeholder="Mô tả chi tiết sản phẩm của bạn..." className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors resize-none" />
                 </div>
               </div>
             </div>
