@@ -1,47 +1,60 @@
-import React, { useCallback } from 'react';
-import { Heart, Eye, EyeOff, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Heart, Trash2 } from 'lucide-react';
 import ProductCard from '../../../Products/components/ProductCard';
-
-export interface WishlistProduct {
-  id: number;
-  image: string;
-  title: string;
-  price: number;
-  condition: string;
-  seller: string;
-  views: number;
-  isPublic: boolean;
-}
+import { getMyWishlistAPI } from '../../../../features/products/services/wishlistApi';
+import { ProductResponseDto } from '../../../../features/products/types';
+import { useWishlist } from '../../../../providers/wishlistProvider/WishlistContext';
 
 interface WishlistTabProps {
-  wishlistProducts: WishlistProduct[];
   publicViewMode: boolean;
-  setWishlistProducts: React.Dispatch<React.SetStateAction<WishlistProduct[]>>;
 }
 
 export const WishlistTab: React.FC<WishlistTabProps> = ({
-  wishlistProducts,
   publicViewMode,
-  setWishlistProducts,
 }) => {
-  const toggleWishlistPublic = useCallback((id: number) => {
-    setWishlistProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isPublic: !p.isPublic } : p))
-    );
-  }, [setWishlistProducts]);
+  const [wishlistProducts, setWishlistProducts] = useState<ProductResponseDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toggleWishlist, wishlistIds } = useWishlist();
 
-  const removeFromWishlist = useCallback((id: number) => {
-    setWishlistProducts((prev) => prev.filter((p) => p.id !== id));
-  }, [setWishlistProducts]);
+  useEffect(() => {
+    fetchWishlist();
+  }, []);
+
+  // Update local list when global wishlistIds changes (e.g. removed from ProductCard)
+  useEffect(() => {
+    setWishlistProducts(prev => prev.filter(p => wishlistIds.includes(p.productId)));
+  }, [wishlistIds]);
+
+  const fetchWishlist = async () => {
+    try {
+      setIsLoading(true);
+      const res = await getMyWishlistAPI();
+      if (res.success && res.data) {
+        setWishlistProducts(res.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch wishlist', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const removeFromWishlist = async (id: number) => {
+    await toggleWishlist(id);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <div className="w-8 h-8 border-4 border-[#2D5A3D] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">Danh Sách Yêu Thích ({wishlistProducts.length})</h2>
-        <div className="text-sm text-gray-500">
-          {wishlistProducts.filter((p) => p.isPublic).length} công khai ·{' '}
-          {wishlistProducts.filter((p) => !p.isPublic).length} riêng tư
-        </div>
       </div>
       {wishlistProducts.length === 0 ? (
         <div className="bg-white rounded-3xl shadow-sm p-12 text-center">
@@ -52,33 +65,24 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {wishlistProducts.map((product) => (
-            <div key={product.id} className="relative group">
+            <div key={product.productId} className="relative group">
               <ProductCard
-                productId={product.id}
-                imageUrl={product.image}
-                imageUrls={[product.image]}
+                productId={product.productId}
+                imageUrl={product.imageUrl}
+                imageUrls={product.imageUrl ? [product.imageUrl] : []}
                 title={product.title}
                 price={product.price}
-                condition={product.condition}
-                sellerName={product.seller}
-                viewCount={product.views}
+                condition={product.condition || 'Chưa phân loại'}
+                sellerName={product.sellerName}
+                viewCount={product.viewCount}
+                isPremium={product.isPremium}
+                location={product.location}
               />
               {/* Control buttons overlay */}
               {!publicViewMode && (
                 <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => toggleWishlistPublic(product.id)}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all ${
-                      product.isPublic
-                        ? 'bg-green-500 hover:bg-green-600 text-white'
-                        : 'bg-gray-700 hover:bg-gray-800 text-white'
-                    }`}
-                    title={product.isPublic ? 'Công khai' : 'Riêng tư'}
-                  >
-                    {product.isPublic ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => removeFromWishlist(product.id)}
+                    onClick={() => removeFromWishlist(product.productId)}
                     className="w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg transition-all"
                     title="Xóa khỏi yêu thích"
                   >

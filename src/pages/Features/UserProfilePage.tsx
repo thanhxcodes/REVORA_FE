@@ -12,18 +12,13 @@ import { uploadAvatarAPI } from '../../features/profile/services/profileService'
 import { UserProfile } from '../../features/profile/types';
 import { useMyProducts } from '../../features/products/hooks/useMyProducts';
 import { useAuth } from '../../providers/authProvider/AuthContext';
+import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
 import toast from 'react-hot-toast';
 import ProfileTab, { ProfileData } from './Profile/components/ProfileTab';
 import SecurityTab from './Profile/components/SecurityTab';
 import ProductsTab from './Profile/components/ProductsTab';
-import WishlistTab, { WishlistProduct } from './Profile/components/WishlistTab';
+import WishlistTab from './Profile/components/WishlistTab';
 
-
-const INITIAL_WISHLIST: WishlistProduct[] = [
-  { id: 30, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400', title: 'Áo Bomber Da Đen', price: 1650000, condition: 'Tốt', seller: 'vintage_co', views: 432, isPublic: true },
-  { id: 31, image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?w=400', title: 'Áo Da Lộn Nâu', price: 2100000, condition: 'Tuyệt Vời', seller: 'retro_finds', views: 678, isPublic: false },
-  { id: 32, image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400', title: 'Áo Khoác Denim Vintage', price: 950000, condition: 'Như Mới', seller: 'jean_collector', views: 234, isPublic: true },
-];
 
 const AVATAR_COLORS = [
   '#2D5A3D', '#1a1a2e', '#0f3460', '#533483', '#2d6a4f', '#b5451b', '#774936', '#374151',
@@ -122,6 +117,7 @@ export default function UserProfilePage() {
     refetch: refetchProducts,
   } = useMyProducts();
 
+  const { wishlistIds } = useWishlist();
   const { changePassword } = useAuth();
   const { updateProfile, isUpdating, updateError } = useUpdateProfile();
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -156,7 +152,6 @@ export default function UserProfilePage() {
   const [selectedBadge, setSelectedBadge] = useState('premium-gold');
   const [isOnline, setIsOnline] = useState(true);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [wishlistProducts, setWishlistProducts] = useState<WishlistProduct[]>(INITIAL_WISHLIST);
 
   const DEFAULT_PROFILE: ProfileData = {
     name: '',
@@ -348,7 +343,7 @@ export default function UserProfilePage() {
   const dynamicTabs = [
     { key: 'profile' as TabKey, label: 'Hồ Sơ', icon: <User className="w-4 h-4" /> },
     { key: 'products' as TabKey, label: 'Đang Bán', icon: <Package className="w-4 h-4" />, badge: sellingCount.toString() },
-    { key: 'wishlist' as TabKey, label: 'Yêu Thích', icon: <Heart className="w-4 h-4" />, badge: '12' },
+    { key: 'wishlist' as TabKey, label: 'Yêu Thích', icon: <Heart className="w-4 h-4" />, badge: wishlistIds.length.toString() },
     { key: 'security' as TabKey, label: 'Bảo Mật', icon: <Lock className="w-4 h-4" /> },
   ];
 
@@ -647,9 +642,7 @@ export default function UserProfilePage() {
 
           {activeTab === 'wishlist' && (
             <WishlistTab
-              wishlistProducts={wishlistProducts}
               publicViewMode={publicViewMode}
-              setWishlistProducts={setWishlistProducts}
             />
           )}
 
