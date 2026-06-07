@@ -1,19 +1,10 @@
-import { useState } from 'react';
-import { Eye, EyeOff, Edit2, Trash2, X, CreditCard, TrendingUp, Clock, ArrowDownLeft, Package, Star, RefreshCw, Image, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Eye, EyeOff, Edit2, Trash2, X, CreditCard, TrendingUp, Clock, ArrowDownLeft, Package, Star, RefreshCw, Image, Sparkles, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
-interface Product {
-  id: string;
-  name: string;
-  image: string;
-  price: string;
-  category: string;
-  description: string;
-  isPublic: boolean;
-  views: number;
-  likes: number;
-  createdAt: string;
-}
+import { getMyProductsAPI, toggleProductStatusAPI, deleteProductAPI, getMyDeletedProductsAPI } from '../../features/products/services/productApi';
+import { ProductResponseDto } from '../../features/products/types';
+import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 type CreditType = 'posting' | 'featured';
 type CreditAction = 'post_new' | 'renew' | 'boost_featured' | 'extend_featured';
@@ -29,69 +20,6 @@ interface CreditUsage {
   productId: string;
   balanceAfter: number;
 }
-
-const MOCK_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'Áo Khoác Da Vintage',
-    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400',
-    price: '350.000đ',
-    category: 'Quần Áo',
-    description: 'Áo khoác da vintage chất lượng cao, size M',
-    isPublic: true,
-    views: 234,
-    likes: 45,
-    createdAt: '15/05/2026',
-  },
-  {
-    id: '2',
-    name: 'Giày Nike Air Force 1',
-    image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400',
-    price: '450.000đ',
-    category: 'Giày Dép',
-    description: 'Nike Air Force 1 trắng, size 42, đã qua sử dụng nhẹ',
-    isPublic: true,
-    views: 456,
-    likes: 89,
-    createdAt: '18/05/2026',
-  },
-  {
-    id: '3',
-    name: 'Túi Xách Da Cao Cấp',
-    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400',
-    price: '800.000đ',
-    category: 'Túi Xách',
-    description: 'Túi xách da thật, màu nâu, còn mới 95%',
-    isPublic: false,
-    views: 123,
-    likes: 34,
-    createdAt: '20/05/2026',
-  },
-  {
-    id: '4',
-    name: 'Áo Hoodie Supreme',
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400',
-    price: '650.000đ',
-    category: 'Quần Áo',
-    description: 'Supreme Box Logo Hoodie, size L, authentic',
-    isPublic: true,
-    views: 678,
-    likes: 156,
-    createdAt: '21/05/2026',
-  },
-  {
-    id: '5',
-    name: 'Giày Converse Chuck 70',
-    image: 'https://images.unsplash.com/photo-1607522370275-f14206abe5d3?w=400',
-    price: '280.000đ',
-    category: 'Giày Dép',
-    description: 'Converse Chuck 70 High, màu đen, size 40',
-    isPublic: false,
-    views: 89,
-    likes: 23,
-    createdAt: '22/05/2026',
-  },
-];
 
 const MOCK_CREDIT_HISTORY: CreditUsage[] = [
   { id: 'CU001', date: '22/05/2026', time: '14:32', action: 'post_new', creditType: 'posting', amount: 1, productName: 'Giày Converse Chuck 70', productId: '5', balanceAfter: 34 },
@@ -115,51 +43,98 @@ const actionConfig: Record<CreditAction, { label: string; icon: typeof Package; 
 };
 
 export default function ManageProductsPage() {
-  const [activeTab, setActiveTab] = useState<'products' | 'credits'>('products');
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'products' | 'credits' | 'trash'>('products');
+  const [products, setProducts] = useState<ProductResponseDto[]>([]);
+  const [deletedProducts, setDeletedProducts] = useState<ProductResponseDto[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<ProductResponseDto | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', price: '', description: '' });
   const [creditTypeFilter, setCreditTypeFilter] = useState<CreditType | 'all'>('all');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const togglePublic = (id: string) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, isPublic: !p.isPublic } : p)));
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setIsLoading(true);
+      const [res, delRes] = await Promise.all([
+        getMyProductsAPI(),
+        getMyDeletedProductsAPI()
+      ]);
+      
+      if (res.success) {
+        setProducts(res.data.items || []);
+      }
+      if (delRes.success) {
+        setDeletedProducts(delRes.data.items || []);
+      }
+    } catch (error: any) {
+      toast.error('Không thể tải danh sách tin đăng.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleEdit = (product: Product) => {
-    setSelectedProduct(product);
-    setEditForm({ name: product.name, price: product.price, description: product.description });
-    setShowEditModal(true);
+  const togglePublic = async (id: number, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'Public' ? 'Private' : 'Public';
+      const toastId = toast.loading('Đang cập nhật trạng thái...');
+      const res = await toggleProductStatusAPI(id, newStatus);
+      if (res.success) {
+        toast.success('Cập nhật trạng thái thành công!', { id: toastId });
+        setProducts((prev) => prev.map((p) => (p.productId === id ? { ...p, productStatus: newStatus } : p)));
+      }
+    } catch (error) {
+      toast.error('Lỗi khi cập nhật trạng thái.');
+    }
   };
 
-  const handleDelete = (product: Product) => {
+  const handleRestore = async (product: ProductResponseDto) => {
+    try {
+      const toastId = toast.loading('Đang khôi phục sản phẩm...');
+      const res = await toggleProductStatusAPI(product.productId, 'Private'); // Restore as private
+      if (res.success) {
+        toast.success('Khôi phục thành công!', { id: toastId });
+        setDeletedProducts((prev) => prev.filter(p => p.productId !== product.productId));
+        setProducts((prev) => [{...product, productStatus: 'Private'}, ...prev]);
+      }
+    } catch (error) {
+      toast.error('Lỗi khi khôi phục sản phẩm.');
+    }
+  };
+
+  const handleEdit = (product: ProductResponseDto) => {
+    navigate(`/sell?edit=${product.productId}`);
+  };
+
+  const handleDelete = (product: ProductResponseDto) => {
     setSelectedProduct(product);
     setShowDeleteModal(true);
   };
 
-  const confirmEdit = () => {
+  const confirmDelete = async () => {
     if (!selectedProduct) return;
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === selectedProduct.id
-          ? { ...p, name: editForm.name, price: editForm.price, description: editForm.description }
-          : p
-      )
-    );
-    setShowEditModal(false);
-    setSelectedProduct(null);
+    try {
+      const toastId = toast.loading('Đang xóa sản phẩm...');
+      const res = await deleteProductAPI(selectedProduct.productId);
+      if (res.success) {
+        toast.success('Xóa sản phẩm thành công!', { id: toastId });
+        setProducts((prev) => prev.filter((p) => p.productId !== selectedProduct.productId));
+        setDeletedProducts((prev) => [{...selectedProduct, productStatus: 'Deleted'}, ...prev]);
+      }
+    } catch (error) {
+      toast.error('Lỗi khi xóa sản phẩm.');
+    } finally {
+      setShowDeleteModal(false);
+      setSelectedProduct(null);
+    }
   };
 
-  const confirmDelete = () => {
-    if (!selectedProduct) return;
-    setProducts((prev) => prev.filter((p) => p.id !== selectedProduct.id));
-    setShowDeleteModal(false);
-    setSelectedProduct(null);
-  };
-
-  const publicProducts = products.filter((p) => p.isPublic);
-  const privateProducts = products.filter((p) => !p.isPublic);
+  const publicProducts = products.filter((p) => p.productStatus === 'Public');
+  const privateProducts = products.filter((p) => p.productStatus !== 'Public');
 
   const filteredHistory = MOCK_CREDIT_HISTORY.filter(
     (h) => creditTypeFilter === 'all' || h.creditType === creditTypeFilter
@@ -200,6 +175,17 @@ export default function ManageProductsPage() {
               <CreditCard className="w-4 h-4" />
               <span>Lịch Sử Credit</span>
             </button>
+            <button
+              onClick={() => setActiveTab('trash')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'trash'
+                  ? 'bg-red-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Thùng Rác ({deletedProducts.length})</span>
+            </button>
           </div>
         </div>
       </div>
@@ -232,17 +218,31 @@ export default function ManageProductsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {products.map((product) => (
                 <motion.div
-                  key={product.id}
+                  key={product.productId}
                   layout
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                  className={`relative bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-all ${
+                    product.isPremium ? 'ring-2 ring-[#C4603A] border-transparent shadow-[0_0_20px_rgba(196,96,58,0.3)]' : 'border-gray-200'
+                  }`}
                 >
+                  {product.isPremium && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#C4603A]/10 to-transparent animate-[shimmer_3s_ease-in-out_infinite]"
+                        style={{ backgroundSize: '200% 100%' }} />
+                    </div>
+                  )}
                   <div className="relative">
-                    <img src={product.image} alt={product.name} className="w-full h-48 object-cover" />
+                    <img src={product.imageUrl || 'https://via.placeholder.com/400'} alt={product.title} className="w-full h-48 object-cover" />
+                    {product.isPremium && (
+                      <div className="absolute top-2 left-2 bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white text-xs px-3 py-1.5 rounded-full shadow-lg font-semibold flex items-center gap-1.5 animate-pulse">
+                        <span className="text-sm">✨</span>
+                        <span>Premium</span>
+                      </div>
+                    )}
                     <div className="absolute top-2 right-2">
-                      {product.isPublic ? (
+                      {product.productStatus === 'Public' ? (
                         <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center space-x-1">
                           <Eye className="w-3 h-3" />
                           <span>Công khai</span>
@@ -257,26 +257,26 @@ export default function ManageProductsPage() {
                   </div>
 
                   <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">{product.name}</h3>
-                    <p className="text-[#2D5A3D] font-bold text-lg mb-2">{product.price}</p>
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+                    <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">{product.title}</h3>
+                    <p className="text-[#2D5A3D] font-bold text-lg mb-2">{product.price.toLocaleString()}đ</p>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.condition || 'Chưa cập nhật'}</p>
                     <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                      <span className="bg-gray-100 px-2 py-1 rounded">{product.category}</span>
-                      <span>{product.createdAt}</span>
+                      <span className="bg-gray-100 px-2 py-1 rounded">{product.location || 'Chưa cập nhật'}</span>
+                      <span>{new Date(product.createdAt).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm text-gray-600 mb-4 pb-4 border-b border-gray-100">
-                      <span>👁️ {product.views} lượt xem</span>
-                      <span>❤️ {product.likes} lượt thích</span>
+                      <span>👁️ {product.viewCount} lượt xem</span>
+                      <span>❤️ 0 lượt thích</span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
                       <button
-                        onClick={() => togglePublic(product.id)}
+                        onClick={() => togglePublic(product.productId, product.productStatus || 'Public')}
                         className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                          product.isPublic ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-green-50 text-green-700 hover:bg-green-100'
+                          product.productStatus === 'Public' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-green-50 text-green-700 hover:bg-green-100'
                         }`}
                       >
-                        {product.isPublic ? (
+                        {product.productStatus === 'Public' ? (
                           <span className="flex items-center justify-center space-x-1">
                             <EyeOff className="w-3 h-3" /><span>Ẩn</span>
                           </span>
@@ -297,6 +297,66 @@ export default function ManageProductsPage() {
                         className="py-2 px-3 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-all flex items-center justify-center space-x-1"
                       >
                         <Trash2 className="w-3 h-3" /><span>Xóa</span>
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: Thùng Rác */}
+      {activeTab === 'trash' && (
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center space-x-6 mb-6 text-sm">
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-700 font-semibold">Thùng rác: {deletedProducts.length} sản phẩm</span>
+            </div>
+          </div>
+
+          {deletedProducts.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4 text-gray-300"><Trash2 className="w-16 h-16 mx-auto mb-2 opacity-30" /></div>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">Thùng rác trống</h3>
+              <p className="text-gray-500">Các sản phẩm bạn xóa sẽ xuất hiện tại đây.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {deletedProducts.map((product) => (
+                <motion.div
+                  key={product.productId}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="relative bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden opacity-90 hover:opacity-100 transition-all"
+                >
+                  <div className="relative">
+                    <img src={product.imageUrl || 'https://via.placeholder.com/400'} alt={product.title} className="w-full h-48 object-cover grayscale" />
+                    <div className="absolute inset-0 bg-red-900/10"></div>
+                    <div className="absolute top-2 right-2">
+                      <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center space-x-1">
+                        <Trash2 className="w-3 h-3" />
+                        <span>Đã Xóa</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">{product.title}</h3>
+                    <p className="text-gray-500 font-bold text-lg mb-2">{product.price.toLocaleString()}đ</p>
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-4 pb-4 border-b border-gray-100">
+                      <span>Đã xóa vào: {new Date().toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1">
+                      <button
+                        onClick={() => handleRestore(product)}
+                        className="py-2 px-3 rounded-lg text-sm font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-all flex items-center justify-center space-x-2"
+                      >
+                        <RefreshCcw className="w-4 h-4" /><span>Khôi phục tin đăng</span>
                       </button>
                     </div>
                   </div>
@@ -425,72 +485,7 @@ export default function ManageProductsPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
-      <AnimatePresence>
-        {showEditModal && selectedProduct && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowEditModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Chỉnh Sửa Sản Phẩm</h2>
-                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tên sản phẩm</label>
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Giá</label>
-                  <input
-                    type="text"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Mô tả</label>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] focus:border-transparent resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex space-x-3 mt-6">
-                <button onClick={() => setShowEditModal(false)} className="flex-1 py-3 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors">
-                  Hủy
-                </button>
-                <button onClick={confirmEdit} className="flex-1 py-3 rounded-lg bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white font-semibold hover:shadow-lg transition-shadow">
-                  Lưu Thay Đổi
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
@@ -515,7 +510,7 @@ export default function ManageProductsPage() {
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">Xóa Sản Phẩm?</h2>
                 <p className="text-gray-600">
-                  Bạn có chắc chắn muốn xóa "{selectedProduct.name}"? Hành động này không thể hoàn tác.
+                  Bạn có chắc chắn muốn xóa "{selectedProduct.title}"? Hành động này không thể hoàn tác.
                 </p>
               </div>
 

@@ -15,6 +15,10 @@ const categories = [
   { name: 'Kính Mắt', image: 'https://images.unsplash.com/photo-1577803645773-f96470509666?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400' },
 ];
 
+import bannerImg from '../../assets/images/banner.png';
+import bannerImg2 from '../../assets/images/banner2.png';
+import bannerImg3 from '../../assets/images/banner3.png';
+
 export default function HomePage() {
   // State lưu trữ dữ liệu thật
   const [featuredProducts, setFeaturedProducts] = useState<ProductResponseDto[]>([]);
@@ -54,18 +58,12 @@ export default function HomePage() {
   const banners = featuredProducts
     .filter(p => p.isPremium && p.bannerUrl)
     .map((p, index) => {
-      const colors = [
-        'from-[#1E4029]/75 to-[#2D5A3D]/60',
-        'from-[#C4603A]/75 to-[#2D5A3D]/60',
-        'from-[#2D5A3D]/75 to-[#3D7054]/60',
-        'from-[#1E4029]/80 to-[#C4603A]/60',
-      ];
       return {
         id: p.productId,
         title: p.title,
         subtitle: 'Sản phẩm nổi bật',
         image: p.bannerUrl!,
-        color: colors[index % colors.length],
+        color: 'from-transparent via-black/40 to-black/80',
         link: `/product/${p.productId}`
       };
     });
@@ -76,7 +74,7 @@ export default function HomePage() {
       title: 'Chào mừng đến với REVORA',
       subtitle: 'Khám phá những sản phẩm tuyệt vời nhất',
       image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200',
-      color: 'from-[#1E4029]/75 to-[#2D5A3D]/60',
+      color: 'from-transparent via-black/40 to-black/80',
       link: '/all-products'
     }
   ];
@@ -137,7 +135,7 @@ export default function HomePage() {
                     <p className="text-sm text-gray-600">Các sản phẩm được ưu tiên hiển thị</p>
                   </div>
                 </div>
-                <Link to="/all-products" className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-full hover:shadow-lg hover:scale-105 transition-all font-semibold">
+                <Link to="/all-products?sort=featured" className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-full hover:shadow-lg hover:scale-105 transition-all font-semibold">
                   <span>Tất Cả Sản Phẩm</span>
                   <ChevronRight className="w-5 h-5" />
                 </Link>
@@ -159,7 +157,7 @@ export default function HomePage() {
                     <p className="text-sm text-gray-600">Top sản phẩm được quan tâm nhiều nhất</p>
                   </div>
                 </div>
-                <Link to="/all-products" className="flex items-center space-x-2 px-6 py-3 bg-white text-orange-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-orange-500">
+                <Link to="/all-products?sort=loved" className="flex items-center space-x-2 px-6 py-3 bg-white text-orange-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-orange-500">
                   <span>Tất Cả Sản Phẩm</span>
                   <ChevronRight className="w-5 h-5" />
                 </Link>
@@ -181,7 +179,7 @@ export default function HomePage() {
                     <p className="text-sm text-gray-600">Sản phẩm vừa được đăng lên</p>
                   </div>
                 </div>
-                <Link to="/all-products" className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-blue-500">
+                <Link to="/all-products?sort=newest" className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-blue-500">
                   <span>Tất Cả Sản Phẩm</span>
                   <ChevronRight className="w-5 h-5" />
                 </Link>

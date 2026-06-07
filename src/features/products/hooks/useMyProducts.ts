@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getMyProductsAPI } from '../services/productService';
-import { ProductResponse } from '../types';
+import { ProductResponseDto } from '../types';
 import axios from 'axios';
 
 export interface UseMyProductsResult {
-  products: ProductResponse[];
+  products: ProductResponseDto[];
   totalCount: number;
   isLoading: boolean;
   error: string | null;
@@ -12,7 +12,7 @@ export interface UseMyProductsResult {
 }
 
 export const useMyProducts = (): UseMyProductsResult => {
-  const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [products, setProducts] = useState<ProductResponseDto[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import ProductCard from './ProductCard';
-import { ProductResponseDto } from '../../features/products/types'; // Import DTO chuẩn
+import { ProductResponseDto } from '../../../features/products/types'; // Import DTO chuẩn
 
 interface ProductCarouselProps {
   products: ProductResponseDto[]; // Đổi sang dùng DTO thật
@@ -52,7 +52,10 @@ export default function ProductCarousel({ products, itemsToShow = 5 }: ProductCa
             className="flex-shrink-0"
             style={{ width: `calc((100% - ${(itemsToShow - 1) * 24}px) / ${itemsToShow})` }}
           >
-            <ProductCard {...product} />
+            <ProductCard 
+              {...product as any} 
+              imageUrls={product.imageUrl ? [product.imageUrl] : []}
+            />
           </div>
         ))}
       </div>
