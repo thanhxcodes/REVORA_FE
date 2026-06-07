@@ -13,6 +13,9 @@ import {
 import { ProductDetailResponseDto } from '../../features/products/types';
 import { useAuth } from '../../providers/authProvider/AuthContext';
 import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
+import { getUserProfileAPI } from '../../features/profile/services/profileService';
+import { useToggleFollow } from '../../features/profile/hooks/useFollow';
+import { Loader2, UserPlus, Check } from 'lucide-react';
 
 // Hàm helper tính thời gian đăng bình luận
 const timeAgo = (dateStr: string) => {
@@ -253,6 +256,10 @@ export default function ProductDetailPage() {
   // Wishlist Context
   const { wishlistIds, toggleWishlist, isWishlisted } = useWishlist();
 
+  // Follow State
+  const [isFollowingSeller, setIsFollowingSeller] = useState(false);
+  const { toggleFollow, isLoading: isToggleFollowLoading } = useToggleFollow();
+
   // FETCH DỮ LIỆU TỪ BACKEND
   useEffect(() => {
     window.scrollTo(0, 0); 
@@ -276,8 +283,26 @@ export default function ProductDetailPage() {
         
         if (productRes && productRes.success && productRes.data) {
           setProductDetail(productRes.data);
+          if (productRes.data.isFollowingSeller !== undefined) {
+            setIsFollowingSeller(productRes.data.isFollowingSeller);
+          } else if (productRes.data.sellerId) {
+            getUserProfileAPI(productRes.data.sellerId).then(profileRes => {
+              if (profileRes.success && profileRes.data) {
+                setIsFollowingSeller(profileRes.data.isFollowing ?? false);
+              }
+            }).catch(e => console.log('Could not fetch seller profile', e));
+          }
         } else if (productRes && productRes.productId) {
           setProductDetail(productRes);
+          if (productRes.isFollowingSeller !== undefined) {
+            setIsFollowingSeller(productRes.isFollowingSeller);
+          } else if (productRes.sellerId) {
+            getUserProfileAPI(productRes.sellerId).then(profileRes => {
+              if (profileRes.success && profileRes.data) {
+                setIsFollowingSeller(profileRes.data.isFollowing ?? false);
+              }
+            }).catch(e => console.log('Could not fetch seller profile', e));
+          }
         } else {
           setProductDetail(null);
         }
@@ -582,11 +607,38 @@ export default function ProductDetailPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-gray-900 text-lg">{productDetail.sellerName}</h3>
+                      <h3 className="font-bold text-gray-900 text-lg hover:underline cursor-pointer" onClick={() => navigate(`/profile/${productDetail.sellerId}`)}>
+                        {productDetail.sellerName}
+                      </h3>
                       <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px]" title="Đã xác thực">✓</div>
                     </div>
                     <div className="text-sm text-gray-500 mb-2">@{productDetail.sellerUsername}</div>
                   </div>
+                  
+                  {currentUser?.id !== productDetail.sellerId && (
+                    <button
+                      onClick={async () => {
+                        const result = await toggleFollow(productDetail.sellerId);
+                        if (result) {
+                          setIsFollowingSeller(result.isFollowing);
+                        }
+                      }}
+                      disabled={isToggleFollowLoading}
+                      className={`flex-shrink-0 flex items-center justify-center px-4 py-2 rounded-full text-xs font-semibold transition-all min-w-[110px] ${
+                        isFollowingSeller
+                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          : 'bg-[#2D5A3D] text-white hover:bg-[#234830] shadow-sm'
+                      } disabled:opacity-50`}
+                    >
+                      {isToggleFollowLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isFollowingSeller ? (
+                        <>Đã Follow</>
+                      ) : (
+                        <>Theo Dõi</>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Các nút liên hệ */}

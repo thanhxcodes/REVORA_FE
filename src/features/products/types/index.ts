@@ -80,4 +80,5 @@ export interface ProductDetailResponseDto {
     sellerUsername: string;
     sellerAvatar: string;
     sellerPhone: string;
+    isFollowingSeller?: boolean;
 }

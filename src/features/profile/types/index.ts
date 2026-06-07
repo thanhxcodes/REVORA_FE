@@ -14,7 +14,8 @@ export interface UserProfile {
   soldCount?: number;
   sellingCount?: number;
   followerCount?: number;
-  responseRate?: number;
+  followingCount?: number;
+  isFollowing?: boolean;
 }
 
 export interface UpdateProfileDto {
@@ -28,4 +29,19 @@ export interface UpdateProfileDto {
   avatarUrl?: string;
 }
 
+export interface UserSummaryDto {
+  userId: number;
+  username: string;
+  fullName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  followerCount: number;
+  isFollowing: boolean;
+}
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+}

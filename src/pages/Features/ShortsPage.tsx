@@ -3,6 +3,7 @@ import { Heart, MessageCircle, X, Send, ChevronUp, ChevronDown, Music2, Shopping
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { useAuth } from '../../providers/authProvider/AuthContext';
+import { useToggleFollow } from '../../features/profile/hooks/useFollow';
 
 // Import API
 import { 
@@ -480,6 +481,8 @@ function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => vo
 // -------------------------------------------------------------
 export default function ShortsPage() {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { toggleFollow, isLoading: isToggleLoading } = useToggleFollow();
   
   // Dữ liệu từ API
   const [shortsVideos, setShortsVideos] = useState<any[]>([]);
@@ -606,6 +609,23 @@ export default function ShortsPage() {
     }
   };
 
+  const handleFollowSeller = async (sellerId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để theo dõi.');
+      return;
+    }
+    const res = await toggleFollow(sellerId);
+    if (res) {
+      setShortsVideos(prev => prev.map(v => {
+        if (v.sellerId === sellerId) {
+          return { ...v, isFollowingSeller: res.isFollowing };
+        }
+        return v;
+      }));
+    }
+  };
+
   // Nếu đang Load hoặc Hết Data
   if (isLoading) {
     return <div className="h-screen bg-black flex items-center justify-center"><div className="w-10 h-10 border-4 border-[#2D5A3D] border-t-transparent rounded-full animate-spin"></div></div>;
@@ -622,7 +642,10 @@ export default function ShortsPage() {
     <>
       {/* Seller */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-base border-2 border-white/30 shadow-lg overflow-hidden flex-shrink-0">
+        <div 
+          onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.sellerId}`); }}
+          className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-base border-2 border-white/30 shadow-lg overflow-hidden flex-shrink-0 cursor-pointer"
+        >
            {video.sellerAvatar && video.sellerAvatar.length > 1 ? (
               <img src={video.sellerAvatar} alt="avatar" className="w-full h-full object-cover" />
            ) : (
@@ -630,10 +653,25 @@ export default function ShortsPage() {
            )}
         </div>
         <div>
-          <span className="text-white font-semibold text-sm drop-shadow-md">{video.sellerName}</span>
-          <button className="ml-2 text-xs text-[#C4603A] border border-[#C4603A]/60 rounded-full px-2 py-0.5 hover:bg-[#C4603A]/10 transition-colors bg-black/20">
-            + Follow
-          </button>
+          <span 
+            onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.sellerId}`); }}
+            className="text-white font-semibold text-sm drop-shadow-md cursor-pointer hover:underline"
+          >
+            {video.sellerName}
+          </span>
+          {(!currentUser || currentUser.id !== video.sellerId) && (
+            <button 
+              onClick={(e) => handleFollowSeller(video.sellerId, e)}
+              disabled={isToggleLoading}
+              className={`ml-2 text-xs border rounded-full px-2 py-0.5 transition-colors disabled:opacity-50 ${
+                video.isFollowingSeller 
+                  ? 'text-white border-white/50 bg-white/20 hover:bg-white/30' 
+                  : 'text-[#C4603A] border-[#C4603A]/60 bg-black/20 hover:bg-[#C4603A]/10'
+              }`}
+            >
+              {video.isFollowingSeller ? 'Đang theo dõi' : '+ Follow'}
+            </button>
+          )}
         </div>
       </div>
 

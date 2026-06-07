@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import {
   Star, MapPin, Calendar, Shield, Heart, Package, Award,
   Camera, Edit3, Save, X, Lock, Eye, EyeOff, Phone,
@@ -13,11 +13,13 @@ import { UserProfile } from '../../features/profile/types';
 import { useMyProducts } from '../../features/products/hooks/useMyProducts';
 import { useAuth } from '../../providers/authProvider/AuthContext';
 import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
+import { useToggleFollow } from '../../features/profile/hooks/useFollow';
 import toast from 'react-hot-toast';
 import ProfileTab, { ProfileData } from './Profile/components/ProfileTab';
 import SecurityTab from './Profile/components/SecurityTab';
 import ProductsTab from './Profile/components/ProductsTab';
 import WishlistTab from './Profile/components/WishlistTab';
+import FollowListModal from './Profile/components/FollowListModal';
 
 
 const AVATAR_COLORS = [
@@ -48,7 +50,8 @@ const AVAILABLE_BADGES = [
 ];
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
-function initials(name: string) {
+function initials(name: string | undefined | null) {
+  if (!name) return 'U';
   return name.trim().split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
 }
 
@@ -99,7 +102,9 @@ const mapProfileToUI = (profile: UserProfile): ProfileData => ({
 
 /* ─── component ──────────────────────────────────────────────────────────── */
 export default function UserProfilePage() {
+  const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialTab = (searchParams.get('tab') as TabKey) || 'profile';
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
 
@@ -108,14 +113,14 @@ export default function UserProfilePage() {
     isLoading,
     error,
     refetch,
-  } = useUserProfile();
+  } = useUserProfile(id);
 
   const {
     products: myProducts,
     isLoading: isProductsLoading,
     error: productsError,
     refetch: refetchProducts,
-  } = useMyProducts();
+  } = useMyProducts(id);
 
   const { wishlistIds } = useWishlist();
   const { changePassword } = useAuth();
@@ -126,12 +131,23 @@ export default function UserProfilePage() {
 
   const soldCount = userProfile?.soldCount ?? 156;
   const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : myProducts.length;
-  const followerCount = userProfile?.followerCount ?? 2500;
-  const responseRate = userProfile?.responseRate ?? 98;
+  
+  const [localFollowerCount, setLocalFollowerCount] = useState(0);
+  const [localFollowingCount, setLocalFollowingCount] = useState(0);
 
-  const formattedFollowers = followerCount >= 1000 
-    ? `${(followerCount / 1000).toFixed(1).replace('.0', '')}k`
-    : followerCount.toString();
+  useEffect(() => {
+    setLocalFollowerCount(userProfile?.followerCount ?? 0);
+    setLocalFollowingCount(userProfile?.followingCount ?? 0);
+  }, [userProfile?.followerCount, userProfile?.followingCount]);
+
+
+  const formattedFollowers = localFollowerCount >= 1000 
+    ? `${(localFollowerCount / 1000).toFixed(1).replace('.0', '')}k`
+    : localFollowerCount.toString();
+    
+  const formattedFollowing = localFollowingCount >= 1000 
+    ? `${(localFollowingCount / 1000).toFixed(1).replace('.0', '')}k`
+    : localFollowingCount.toString();
 
   const joinedDate = userProfile?.createdAt ? new Date(userProfile.createdAt) : null;
   const joinedStr = joinedDate 
@@ -152,6 +168,13 @@ export default function UserProfilePage() {
   const [selectedBadge, setSelectedBadge] = useState('premium-gold');
   const [isOnline, setIsOnline] = useState(true);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  
+  // Follow UI states
+  const { currentUser } = useAuth();
+  const isOwnProfile = !id || (currentUser?.id && id && currentUser.id.toString() === id);
+  const { toggleFollow, isLoading: isToggleFollowLoading } = useToggleFollow();
+  const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
+  const [followModalType, setFollowModalType] = useState<'followers' | 'following'>('followers');
 
   const DEFAULT_PROFILE: ProfileData = {
     name: '',
@@ -177,6 +200,7 @@ export default function UserProfilePage() {
 
     setProfile(mapped);
     setDraft(mapped);
+    setIsFollowing(userProfile.isFollowing ?? false);
   }, [userProfile]);
 
   // Password state
@@ -420,7 +444,7 @@ export default function UserProfilePage() {
                   }}
                 >
                   {!(isEditing ? draft.avatarUrl : profile.avatarUrl) && initials(isEditing ? draft.name : profile.name)}
-                  {isEditing && (
+                  {isEditing && isOwnProfile && (
                     <button
                       onClick={() => setAvatarPickerOpen(!avatarPickerOpen)}
                       className="absolute inset-0 bg-black/35 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
@@ -440,7 +464,7 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Color/Image picker */}
-                {avatarPickerOpen && isEditing && (
+                {avatarPickerOpen && isEditing && isOwnProfile && (
                   <div className="absolute top-36 left-0 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-20 min-w-[200px]">
                     <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Ảnh đại diện</p>
                     <div className="mb-4 flex flex-col gap-2">
@@ -505,7 +529,7 @@ export default function UserProfilePage() {
 
               {/* Actions */}
               <div className="flex flex-col gap-3 flex-shrink-0 w-full md:w-auto">
-                {isEditing ? (
+                {isEditing && isOwnProfile ? (
                   <>
                     <button
                       onClick={handleSave}
@@ -531,24 +555,33 @@ export default function UserProfilePage() {
                       <X className="w-4 h-4" /> Hủy
                     </button>
                   </>
-                ) : publicViewMode ? (
+                ) : !isOwnProfile ? (
                   <>
                     <button
-                      onClick={() => setIsFollowing(!isFollowing)}
+                      onClick={async () => {
+                        if (userProfile) {
+                          const result = await toggleFollow(userProfile.userId);
+                          if (result) {
+                            setIsFollowing(result.isFollowing);
+                            setLocalFollowerCount(prev => result.isFollowing ? prev + 1 : prev - 1);
+                          }
+                        }
+                      }}
+                      disabled={isToggleFollowLoading}
                       className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-full transition-all text-sm font-semibold ${
                         isFollowing
                           ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           : 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white hover:shadow-lg'
-                      }`}
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                      <UserPlus className="w-4 h-4" /> {isFollowing ? 'Đang Theo Dõi' : 'Theo Dõi'}
-                    </button>
-                    <button
-                      onClick={togglePublicView}
-                      className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full hover:bg-gray-50 transition-colors text-sm font-medium"
-                      title="Quay lại chế độ riêng tư"
-                    >
-                      <EyeOff className="w-4 h-4" /> Chế Độ Riêng Tư
+                      {isToggleFollowLoading ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : isFollowing ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <UserPlus className="w-4 h-4" />
+                      )}
+                      {isFollowing ? 'Đang Theo Dõi' : 'Theo dõi'}
                     </button>
                   </>
                 ) : (
@@ -564,7 +597,8 @@ export default function UserProfilePage() {
                       className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full hover:bg-gray-50 transition-colors text-sm font-medium"
                       title="Xem ở chế độ công khai"
                     >
-                      <Eye className="w-4 h-4" /> Chế Độ Công Khai
+                      {publicViewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {publicViewMode ? 'Đang xem công khai' : 'Chế Độ Công Khai'}
                     </button>
                   </>
                 )}
@@ -572,18 +606,35 @@ export default function UserProfilePage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-6 mt-6 pt-6 border-t border-gray-100">
-              {[
-                { label: 'Đã Bán', value: soldCount.toString() },
-                { label: 'Đang Bán', value: sellingCount.toString() },
-                { label: 'Người Theo Dõi', value: formattedFollowers },
-                { label: 'Tỉ Lệ Phản Hồi', value: `${responseRate}%` },
-              ].map((s) => (
-                <div key={s.label} className="text-center">
-                  <div className="text-2xl font-bold text-[#2D5A3D]">{s.value}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
-                </div>
-              ))}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6 pt-6 border-t border-gray-100">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-[#2D5A3D]">{soldCount}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Đã Bán</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-[#2D5A3D]">{sellingCount}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Đang Bán</div>
+              </div>
+              <div 
+                className="text-center cursor-pointer hover:bg-gray-50 rounded-xl transition-colors py-1"
+                onClick={() => {
+                  setFollowModalType('followers');
+                  setIsFollowModalOpen(true);
+                }}
+              >
+                <div className="text-2xl font-bold text-[#2D5A3D]">{formattedFollowers}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Follower</div>
+              </div>
+              <div 
+                className="text-center cursor-pointer hover:bg-gray-50 rounded-xl transition-colors py-1"
+                onClick={() => {
+                  setFollowModalType('following');
+                  setIsFollowModalOpen(true);
+                }}
+              >
+                <div className="text-2xl font-bold text-[#2D5A3D]">{formattedFollowing}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Đã Follow</div>
+              </div>
             </div>
           </div>
         </div>
@@ -591,29 +642,32 @@ export default function UserProfilePage() {
         {/* Tabs */}
         <div className="mb-6 overflow-x-auto pb-1">
           <div className="bg-white rounded-2xl shadow-sm p-1.5 inline-flex gap-1">
-            {visibleTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === tab.key
-                    ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-                {tab.badge && (
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                      activeTab === tab.key ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
+            {visibleTabs.map((tab) => {
+              if (!isOwnProfile && (tab.key === 'security' || tab.key === 'wishlist')) return null;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+                    activeTab === tab.key
+                      ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                        activeTab === tab.key ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -623,9 +677,9 @@ export default function UserProfilePage() {
             <ProfileTab
               profile={profile}
               draft={draft}
-              isEditing={isEditing}
+              isEditing={isEditing && isOwnProfile}
               setDraft={setDraft}
-              publicViewMode={publicViewMode}
+              publicViewMode={publicViewMode || !isOwnProfile}
               errors={errors}
               clearError={clearError}
             />
@@ -646,7 +700,7 @@ export default function UserProfilePage() {
             />
           )}
 
-          {activeTab === 'security' && (
+          {activeTab === 'security' && isOwnProfile && (
             <SecurityTab
               pwForm={pwForm}
               setPwForm={setPwForm}
@@ -713,6 +767,26 @@ export default function UserProfilePage() {
               </div>
             </div>
           </>
+        )}
+
+        {/* Follow List Modal */}
+        {userProfile && (
+          <FollowListModal
+            isOpen={isFollowModalOpen}
+            onClose={() => setIsFollowModalOpen(false)}
+            userId={userProfile.userId}
+            type={followModalType}
+            onFollowToggle={(targetUserId, newIsFollowing) => {
+              if (isOwnProfile) {
+                // If viewing own profile, following/unfollowing someone affects YOUR following count
+                setLocalFollowingCount(prev => newIsFollowing ? prev + 1 : prev - 1);
+              } else if (targetUserId === userProfile.userId) {
+                // If viewing someone else's profile, and we toggle follow on THEM
+                setIsFollowing(newIsFollowing);
+                setLocalFollowerCount(prev => newIsFollowing ? prev + 1 : prev - 1);
+              }
+            }}
+          />
         )}
       </div>
     </div>

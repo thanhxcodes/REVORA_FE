@@ -167,6 +167,7 @@ function AppContent() {
         {/* Private routes (Yêu cầu đăng nhập: Role 'user' hoặc 'admin') */}
         <Route element={<ProtectedRoute allowedRoles={['User', 'Admin']} />}>
           <Route path="/profile" element={<UserProfilePage />} />
+          <Route path="/profile/:id" element={<UserProfilePage />} />
           <Route path="/sell" element={<SellProductPage />} />
           <Route path="/manage-products" element={<ManageProductsPage />} />
           <Route path="/transactions" element={<TransactionHistoryPage />} />
