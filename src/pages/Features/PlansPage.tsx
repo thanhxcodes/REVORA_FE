@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Image, Check, X, QrCode, History, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { Sparkles, Image, Check, X, QrCode, History, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, AlertCircle, XCircle } from 'lucide-react';
 import CreditDisplay from '../../components/common/CreditDisplay';
 import { authClient } from '../../providers/authProvider/authService';
 import type { ApiResponse } from '../../features/auth/types';
+import { useCheckout } from '../../features/payment/hooks/useCheckout';
 import {
   fetchFeaturedCreditSummary,
   fetchPostingCreditSummary,
@@ -48,7 +49,7 @@ interface PaymentTransactionApi {
   creditTypeId: number;
   creditTypeName: string;
   creditTypeDisplayName: string;
-  paymentStatus: string;
+  paymentStatus: number | string;
   paymentStatusLabel: string;
   transactionAt: string;
   createdAt: string;
@@ -61,7 +62,7 @@ interface PaymentTransactionApi {
 }
 
 type CreditType = 'posting' | 'featured';
-type TransactionStatus = 'completed' | 'pending' | 'failed';
+type TransactionStatus = 'completed' | 'pending' | 'failed' | 'cancelled' | 'late_paid';
 
 interface Transaction {
   id: number;
@@ -82,16 +83,23 @@ interface Transaction {
   paidAt: string | null;
 }
 
-const mapPaymentStatus = (paymentStatus: string): TransactionStatus => {
-  const normalized = paymentStatus.trim().toLowerCase();
+const mapPaymentStatus = (paymentStatus: number | string, createdAt: string, paidAt: string | null): TransactionStatus => {
+  const normalized = String(paymentStatus).trim().toLowerCase();
 
-  if (normalized === 'successful' || normalized === 'success') {
+  if (normalized === '2' || normalized === 'successful' || normalized === 'success') {
+    if (paidAt) {
+      const createdDate = new Date(createdAt);
+      const paidDate = new Date(paidAt);
+      const diffMinutes = (paidDate.getTime() - createdDate.getTime()) / (1000 * 60);
+      if (diffMinutes > 15) {
+        return 'late_paid';
+      }
+    }
     return 'completed';
   }
 
-  if (normalized === 'pending' || normalized === 'processing') {
-    return 'pending';
-  }
+  if (normalized === '1' || normalized === 'pending' || normalized === 'processing') return 'pending';
+  if (normalized === '5' || normalized === 'cancelled' || normalized === 'canceled') return 'cancelled';
 
   return 'failed';
 };
@@ -121,7 +129,7 @@ const mapPaymentTransactions = (transactions: PaymentTransactionApi[]): Transact
         expectedAmount: transaction.expectedAmount,
         receivedAmount: transaction.receivedAmount,
         paymentMethod: transaction.paymentMethod,
-        status: mapPaymentStatus(transaction.paymentStatus),
+        status: mapPaymentStatus(transaction.paymentStatus, transaction.createdAt, transaction.paidAt),
         statusLabel: transaction.paymentStatusLabel,
         creditsGranted: transaction.creditsGranted,
         paidAt: transaction.paidAt,
@@ -129,18 +137,30 @@ const mapPaymentTransactions = (transactions: PaymentTransactionApi[]): Transact
     });
 
 const getTransactionAmount = (transaction: Transaction) =>
-  transaction.status === 'completed' ? transaction.receivedAmount : transaction.expectedAmount;
+  transaction.status === 'completed' || transaction.status === 'late_paid' 
+    ? transaction.receivedAmount 
+    : transaction.expectedAmount;
 
 const getTransactionStatusClass = (status: TransactionStatus) => {
-  if (status === 'completed') {
-    return 'bg-green-100 text-green-700';
+  switch (status) {
+    case 'completed': return 'bg-emerald-50 text-emerald-700';
+    case 'late_paid': return 'bg-amber-50 text-amber-700 border border-amber-200';
+    case 'pending': return 'bg-blue-50 text-blue-700';
+    case 'cancelled': return 'bg-gray-100 text-gray-600 opacity-80';
+    case 'failed': return 'bg-red-50 text-red-700';
+    default: return 'bg-gray-100 text-gray-700';
   }
+};
 
-  if (status === 'pending') {
-    return 'bg-yellow-100 text-yellow-700';
+const getTransactionStatusIcon = (status: TransactionStatus) => {
+  switch (status) {
+    case 'completed': return <CheckCircle className="w-3.5 h-3.5 mr-1" />;
+    case 'late_paid': return <Clock className="w-3.5 h-3.5 mr-1" />;
+    case 'pending': return <Clock className="w-3.5 h-3.5 mr-1" />;
+    case 'cancelled': return <XCircle className="w-3.5 h-3.5 mr-1" />;
+    case 'failed': return <AlertCircle className="w-3.5 h-3.5 mr-1" />;
+    default: return null;
   }
-
-  return 'bg-red-100 text-red-700';
 };
 
 interface Package {
@@ -431,7 +451,9 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
 const renderPackagePurchaseButton = (
   purchaseState: PackagePurchaseState,
   onBuy: () => void,
-  variant: CreditType
+  variant: CreditType,
+  isLoading: boolean,
+  isAnyLoading: boolean
 ) => {
   if (purchaseState === 'in_use') {
     return (
@@ -444,13 +466,26 @@ const renderPackagePurchaseButton = (
     );
   }
 
-  if (purchaseState === 'locked') {
+  if (purchaseState === 'locked' || isAnyLoading) {
     return (
       <button
         disabled
-        className="w-full bg-gray-200 text-gray-400 py-4 rounded-xl font-bold cursor-not-allowed"
+        className={`w-full py-3.5 rounded-xl text-white font-semibold flex items-center justify-center transition-all ${variant === 'posting'
+            ? 'bg-blue-300 cursor-not-allowed'
+            : 'bg-[#C4603A]/50 cursor-not-allowed'
+          }`}
       >
-        Mua Ngay
+        {isLoading ? (
+          <span className="flex items-center justify-center space-x-2 text-white/80">
+            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Đang Xử Lý...</span>
+          </span>
+        ) : (
+          'Mua Ngay'
+        )}
       </button>
     );
   }
@@ -468,9 +503,7 @@ const renderPackagePurchaseButton = (
 };
 
 export default function PlansPage() {
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
-  const [showQRModal, setShowQRModal] = useState(false);
-  const [packageType, setPackageType] = useState<'posting' | 'featured'>('posting');
+  const { initiateCheckout, isCheckoutLoading, loadingPackageId, checkoutError } = useCheckout();
   const [activeTab, setActiveTab] = useState<'packages' | 'history'>('packages');
   const [creditPackages, setCreditPackages] = useState<CreditPackageApi[]>([]);
   const [userCreditBatches, setUserCreditBatches] = useState<{ posting: CreditBatch[]; featured: CreditBatch[] }>({
@@ -543,7 +576,7 @@ export default function PlansPage() {
 
       try {
         const response = await authClient.get<ApiResponse<PaymentTransactionApi[]>>(
-          'https://localhost:7015/api/Payment/transactions'
+          '/payment/transactions'
         );
 
         if (!isMounted) {
@@ -623,10 +656,8 @@ export default function PlansPage() {
     [creditSummaries.featured, featuredPackages]
   );
 
-  const handleSelectPackage = (pkg: Package, type: CreditType) => {
-    setSelectedPackage(pkg);
-    setPackageType(type);
-    setShowQRModal(true);
+  const handleSelectPackage = (pkg: Package) => {
+    void initiateCheckout(pkg.paidCreditPackageId);
   };
 
   const successfulTransactions = transactions.filter((tx) => tx.status === 'completed');
@@ -700,6 +731,17 @@ export default function PlansPage() {
               {packageError && <p className="mb-4 text-sm text-amber-600">{packageError}</p>}
               {creditSummaries.posting?.purchaseBlockReason && (
                 <p className="mb-4 text-sm text-amber-600">{creditSummaries.posting.purchaseBlockReason}</p>
+              )}
+              {checkoutError && (
+                <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-red-600 font-bold">!</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-red-800">Thanh toán không thành công</h4>
+                    <p className="text-sm text-red-600 mt-0.5">{checkoutError}</p>
+                  </div>
+                </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {isPackageLoading ? (
@@ -775,8 +817,10 @@ export default function PlansPage() {
 
                         {renderPackagePurchaseButton(
                           purchaseState,
-                          () => handleSelectPackage(pkg, 'posting'),
-                          'posting'
+                          () => handleSelectPackage(pkg),
+                          'posting',
+                          loadingPackageId === pkg.paidCreditPackageId,
+                          isCheckoutLoading
                         )}
                       </div>
                     </div>
@@ -874,8 +918,10 @@ export default function PlansPage() {
 
                         {renderPackagePurchaseButton(
                           purchaseState,
-                          () => handleSelectPackage(pkg, 'featured'),
-                          'featured'
+                          () => handleSelectPackage(pkg),
+                          'featured',
+                          loadingPackageId === pkg.paidCreditPackageId,
+                          isCheckoutLoading
                         )}
                       </div>
                     </div>
@@ -887,85 +933,6 @@ export default function PlansPage() {
                 )}
               </div>
             </div>
-
-            {/* VNPay QR Modal */}
-            {showQRModal && selectedPackage && (
-              <>
-                <div
-                  className="fixed inset-0 bg-black/50 z-50"
-                  onClick={() => setShowQRModal(false)}
-                />
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                  <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative">
-                    <button
-                      onClick={() => setShowQRModal(false)}
-                      className="absolute top-6 right-6 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
-                    >
-                      <X className="w-5 h-5 text-gray-600" />
-                    </button>
-
-                    <div className="text-center mb-6">
-                      <h3 className="text-2xl text-gray-900 mb-2">Thanh Toán VNPay</h3>
-                      <p className="text-gray-600">Quét mã QR để thanh toán</p>
-                    </div>
-
-                    {/* QR Code Placeholder */}
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 mb-6">
-                      <div className="bg-white p-6 rounded-xl shadow-inner flex items-center justify-center">
-                        <div className="text-center">
-                          <QrCode className="w-48 h-48 text-gray-300 mx-auto mb-4" />
-                          <p className="text-sm text-gray-500">QR Code VNPay</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Payment Details */}
-                    <div className={`rounded-2xl p-6 mb-6 ${packageType === 'posting'
-                      ? 'bg-blue-50 border-2 border-blue-200'
-                      : 'bg-[#C4603A]/10 border-2 border-[#C4603A]'
-                      }`}>
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-gray-700">Gói:</span>
-                        <span className="font-bold text-gray-900">{selectedPackage.title}</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-gray-700">Loại:</span>
-                        <span className="font-bold text-gray-900">
-                          {packageType === 'posting' ? 'Credits Đăng Tin' : 'Credits Nổi Bật'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-gray-700">Credits:</span>
-                        <span className="font-bold text-gray-900">{selectedPackage.credits} credits</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-gray-700">Thời hạn:</span>
-                        <span className="font-bold text-gray-900">{selectedPackage.duration} ngày</span>
-                      </div>
-                      {selectedPackage.originalPrice && (
-                        <div className="flex justify-between items-center mb-3">
-                          <span className="text-gray-700">Giá gốc:</span>
-                          <span className="text-gray-500 line-through">
-                            {selectedPackage.originalPrice.toLocaleString('vi-VN')}đ
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center pt-3 border-t border-gray-300">
-                        <span className="text-lg font-bold text-gray-900">Tổng thanh toán:</span>
-                        <span className={`text-2xl font-bold ${packageType === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'
-                          }`}>
-                          {selectedPackage.price.toLocaleString('vi-VN')}đ
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-gray-500 text-center">
-                      Sau khi thanh toán thành công, credits sẽ được cập nhật tự động vào tài khoản của bạn trong vòng 1-2 phút
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
 
             {/* FAQ Section */}
             <div className="bg-white rounded-3xl shadow-lg p-8">
@@ -1041,7 +1008,7 @@ export default function PlansPage() {
                         </div>
 
                         {/* Details */}
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <h3 className="font-semibold text-gray-900">{tx.packageName}</h3>
                             <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${tx.packageType === 'posting'
@@ -1050,15 +1017,23 @@ export default function PlansPage() {
                               }`}>
                               {tx.creditTypeDisplayName}
                             </span>
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${getTransactionStatusClass(tx.status)}`}>
-                              {tx.statusLabel}
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold inline-flex items-center ${getTransactionStatusClass(tx.status)}`}>
+                              {getTransactionStatusIcon(tx.status)}
+                              {tx.status === 'late_paid' ? 'Thanh toán trễ' : tx.statusLabel}
                             </span>
-                            {tx.creditsGranted && (
+                            {tx.creditsGranted && tx.status !== 'late_paid' && (
                               <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-50 text-emerald-700">
                                 Đã cộng credits
                               </span>
                             )}
                           </div>
+                          
+                          {tx.status === 'late_paid' && (
+                            <p className="text-xs text-amber-700/80 mb-2 mt-0.5 leading-snug">
+                              Bạn đã chuyển tiền sau khi mã QR hết hạn. Hệ thống đã linh động ghi nhận và cộng credits thành công.
+                            </p>
+                          )}
+
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5" />
@@ -1131,6 +1106,29 @@ export default function PlansPage() {
           </div>
         )}
       </div>
+
+      {/* Global Checkout Loading Overlay */}
+      {isCheckoutLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          {/* Backdrop Blur */}
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-md transition-opacity duration-300" />
+          
+          {/* Loading Card */}
+          <div className="relative bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-gray-100 animate-in fade-in zoom-in duration-300">
+            <div className="relative w-16 h-16 mb-6">
+              <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-[#2D5A3D] rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-2 h-2 bg-[#2D5A3D] rounded-full animate-pulse"></div>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">Đang xử lý</h3>
+            <p className="text-sm text-gray-500 text-center">
+              Đang kết nối an toàn đến cổng thanh toán PayOS...
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

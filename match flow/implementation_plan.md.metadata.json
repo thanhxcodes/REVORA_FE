@@ -1,6 +1,0 @@
-{
-  "artifactType": "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
-  "summary": "Implementation plan for modifying the Match & Trade feature on both frontend and backend. Includes pagination for products, side-by-side filters layout, removing 'demo' and 'mẫu' text, updated card searching/finished states, side buttons layout, and exit swipe fly-away animations.",
-  "updatedAt": "2026-06-06T19:44:22.791274100Z",
-  "requestFeedback": true
-}

@@ -14,6 +14,7 @@ import PlansPage from './pages/Features/PlansPage';
 import ProductDetailPage from './pages/Products/ProductDetailPage';
 import SellProductPage from './pages/Products/SellProductPage';
 import UserProfilePage from './pages/Features/UserProfilePage';
+import PaymentResultPage from './pages/Features/PaymentResultPage';
 import LoginPage from './pages/Auth';
 import RevoraMatchPage from './pages/Features/RevoraMatchPage';
 import ManageProductsPage from './pages/Admin/ManageProductsPage';
@@ -154,6 +155,7 @@ function AppContent() {
         <Route path="/ranking" element={<WeeklyRankingPage />} />
         <Route path="/match" element={<RevoraMatchPage />} />
         <Route path="/plans" element={<PlansPage />} />
+        <Route path="/payment/result" element={<PaymentResultPage />} />
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/category/:name" element={<HomePage />} />
         
