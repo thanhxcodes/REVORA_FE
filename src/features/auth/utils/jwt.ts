@@ -9,6 +9,7 @@ interface DecodedTokenPayload {
   role?: string;
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
   permission?: string | string[];
+  avatar_url?: string;
 }
 
 /**
@@ -38,5 +39,6 @@ export const decodeJwtToUser = (token: string): User => {
     permissions,
     name,
     avatar,
+    avatarUrl: decoded.avatar_url,
   };
 };

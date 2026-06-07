@@ -24,7 +24,7 @@ import { getAccessToken } from '../../features/auth/services/tokenService';
 import * as signalR from '@microsoft/signalr';
 import toast from 'react-hot-toast';
 
-type MatchStep = 'landing' | 'select-products' | 'select-filters' | 'swiping';
+type MatchStep = 'landing' | 'select-products' | 'select-filters' | 'starting' | 'swiping';
 
 // --- API DTOs & Interfaces ---
 interface MatchCommunityStatsDto {
@@ -76,8 +76,8 @@ interface NextProductDto {
   title: string;
   price: number;
   condition: string;
-  brand: string;
   imageUrl: string;
+  sellerId: number;
   sellerName: string;
   sellerCity: string;
   isMatchSeed: boolean;
@@ -170,6 +170,7 @@ export default function RevoraMatchPage() {
   // Match & Chat Modal States
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [newMutualMatch, setNewMutualMatch] = useState<TradeMatchSummaryDto | null>(null);
+  const [showMutualMatchPopup, setShowMutualMatchPopup] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
   // New UI/UX states
@@ -186,6 +187,27 @@ export default function RevoraMatchPage() {
   const [interestInbox, setInterestInbox] = useState<MatchInterestInboxItemDto[]>([]);
   const [isLoadingTym, setIsLoadingTym] = useState(false);
   const [isLoadingInbox, setIsLoadingInbox] = useState(false);
+
+  // Timer state
+  const [timeLeft, setTimeLeft] = useState<number>(3600);
+
+  // Trade History Modal
+  const [showTradeHistoryModal, setShowTradeHistoryModal] = useState(false);
+  const [tradeHistoryList, setTradeHistoryList] = useState<TradeMatchSummaryDto[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const fetchTradeHistory = async () => {
+    setIsHistoryLoading(true);
+    try {
+      const res = await authClient.get('/match-trade/matches?status=Completed');
+      if (res.data.success) setTradeHistoryList(res.data.data);
+    } catch (e) {
+      console.error(e);
+      toast.error('Lỗi khi tải lịch sử giao dịch.');
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
 
   // --- Initial Data Loading: Stats & Active Session Recovery ---
   useEffect(() => {
@@ -227,6 +249,36 @@ export default function RevoraMatchPage() {
       }
     };
     checkActiveSession();
+  }, []);
+
+  // Set up real-time SignalR listeners for Match events
+  useEffect(() => {
+    const handleMatchPoolUpdated = () => window.dispatchEvent(new Event('revora_match_pool_updated'));
+    window.addEventListener('revora_match_pool_updated', () => {
+      // Handled elsewhere if needed, or trigger fetch Preview Stats
+    });
+
+    const handleProductsRemoved = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const productIds: number[] = customEvent.detail;
+      setTymList((prev) => prev.filter((p) => !productIds.includes(p.productId)));
+      // Note: we don't need to re-dispatch since we are consuming the global one now
+    };
+    window.addEventListener('revora_match_products_removed', handleProductsRemoved);
+
+    const handleMutualMatch = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const matchSummary: TradeMatchSummaryDto = customEvent.detail;
+      setNewMutualMatch(matchSummary);
+      setShowMutualMatchPopup(true);
+    };
+    window.addEventListener('revora_mutual_match_created', handleMutualMatch);
+
+    return () => {
+      window.removeEventListener('revora_match_pool_updated', handleMatchPoolUpdated);
+      window.removeEventListener('revora_match_products_removed', handleProductsRemoved);
+      window.removeEventListener('revora_mutual_match_created', handleMutualMatch);
+    };
   }, []);
 
   // Update virtual stats when real stats are loaded
@@ -301,7 +353,10 @@ export default function RevoraMatchPage() {
         try {
           const res = await authClient.get('/match-trade/filter-options');
           if (res.data.success) {
-            setFilterOptions(res.data.data);
+            const data: MatchFilterOptionsDto = res.data.data;
+            setFilterOptions(data);
+            if (data.priceBuckets.length > 0) setSelectedPriceBucket(data.priceBuckets[0]);
+            if (data.cities.length > 0) setSelectedCity(data.cities[0]);
           }
         } catch (e) {
           console.error('Failed to fetch filter options', e);
@@ -310,6 +365,21 @@ export default function RevoraMatchPage() {
       };
       fetchFilterOptions();
     }
+
+    const handlePoolUpdate = () => {
+      if (step === 'select-filters') {
+        const fetchFilterOptions = async () => {
+          try {
+            const res = await authClient.get('/match-trade/filter-options');
+            if (res.data.success) setFilterOptions(res.data.data);
+          } catch (e) { }
+        };
+        fetchFilterOptions();
+      }
+    };
+
+    window.addEventListener('revora_match_pool_updated', handlePoolUpdate);
+    return () => window.removeEventListener('revora_match_pool_updated', handlePoolUpdate);
   }, [step]);
 
   // --- Live filtering preview when BOTH bucket and city are selected on Step 2 ---
@@ -319,8 +389,8 @@ export default function RevoraMatchPage() {
         try {
           const res = await authClient.post('/match-trade/preview', {
             minPrice: selectedPriceBucket.minPrice,
-            maxPrice: selectedPriceBucket.maxPrice,
-            city: selectedCity.city,
+            maxPrice: selectedPriceBucket.maxPrice || 0,
+            city: selectedCity.city === 'Tất cả khu vực' ? '' : selectedCity.city,
           });
           if (res.data.success) {
             setPreviewStats(res.data.data);
@@ -333,6 +403,25 @@ export default function RevoraMatchPage() {
     } else {
       setPreviewStats(null);
     }
+
+    const handlePoolUpdate = () => {
+      if (step === 'select-filters' && selectedPriceBucket && selectedCity) {
+        const fetchPreview = async () => {
+          try {
+            const res = await authClient.post('/match-trade/preview', {
+              minPrice: selectedPriceBucket.minPrice,
+              maxPrice: selectedPriceBucket.maxPrice || 0,
+              city: selectedCity.city === 'Tất cả khu vực' ? '' : selectedCity.city,
+            });
+            if (res.data.success) setPreviewStats(res.data.data);
+          } catch (e) {}
+        };
+        fetchPreview();
+      }
+    };
+
+    window.addEventListener('revora_match_pool_updated', handlePoolUpdate);
+    return () => window.removeEventListener('revora_match_pool_updated', handlePoolUpdate);
   }, [selectedPriceBucket, selectedCity, step]);
 
   // --- Helper to fetch next swiping card ---
@@ -353,18 +442,69 @@ export default function RevoraMatchPage() {
     }
   };
 
-  // --- Actions ---
-  const toggleProductSelection = (productId: number) => {
-    setSelectedProductIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) {
-        next.delete(productId);
-      } else {
-        next.add(productId);
+  // When swipe card is empty and a pool update happens, try to fetch next card
+  useEffect(() => {
+    const handlePoolUpdate = () => {
+      if (step === 'swiping' && !currentSwipeCard && !isSwipeLoading && activeSession) {
+        fetchNextSwipeCard(activeSession.matchSessionId);
       }
-      return next;
-    });
-  };
+    };
+
+    window.addEventListener('revora_match_pool_updated', handlePoolUpdate);
+    return () => window.removeEventListener('revora_match_pool_updated', handlePoolUpdate);
+  }, [step, currentSwipeCard, isSwipeLoading, activeSession]);
+
+  // Handle products removed from pool dynamically
+  useEffect(() => {
+    const handleProductsRemoved = (e: any) => {
+      const removedIds: number[] = e.detail;
+      if (currentSwipeCard && removedIds.includes(currentSwipeCard.productId)) {
+        if (activeSession) fetchNextSwipeCard(activeSession.matchSessionId);
+      }
+    };
+
+    window.addEventListener('revora_match_products_removed', handleProductsRemoved);
+    return () => window.removeEventListener('revora_match_products_removed', handleProductsRemoved);
+  }, [currentSwipeCard, activeSession]);
+
+  // Prevent back navigation during swiping
+  useEffect(() => {
+    if (step === 'swiping' || step === 'starting') {
+      window.history.pushState(null, '', window.location.href);
+      const handlePopState = () => {
+        window.history.pushState(null, '', window.location.href);
+        toast('Để thoát Match, vui lòng dùng nút Thoát ở góc trên phải.', {
+          icon: '⚠️',
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        });
+      };
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
+    }
+  }, [step]);
+
+  // Handle timer countdown
+  useEffect(() => {
+    if (step !== 'swiping' || showChat) return;
+    
+    if (timeLeft <= 0) {
+      toast.error('Đã hết thời gian phiên Match.');
+      handleLeaveSession();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [step, showChat, timeLeft]);
 
   const fetchTymList = useCallback(async (sessionId: number) => {
     setIsLoadingTym(true);
@@ -389,6 +529,39 @@ export default function RevoraMatchPage() {
       setIsLoadingInbox(false);
     }
   }, []);
+
+  // Listen for interest notification received real-time
+  useEffect(() => {
+    const handleInterestReceived = () => {
+      // Re-fetch inbox if already shown, or show toast/badge
+      fetchInterestInbox();
+      toast.success('Có người vừa quan tâm sản phẩm của bạn!', { icon: '🔔' });
+    };
+
+    window.addEventListener('revora_match_interest_received', handleInterestReceived);
+    return () => window.removeEventListener('revora_match_interest_received', handleInterestReceived);
+  }, [fetchInterestInbox]);
+
+  // --- Actions ---
+  const toggleProductSelection = (productId: number) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProductIds.size === myOfferProducts.length && myOfferProducts.length > 0) {
+      setSelectedProductIds(new Set());
+    } else {
+      setSelectedProductIds(new Set(myOfferProducts.map(p => p.productId)));
+    }
+  };
 
   const resetSession = useCallback(() => {
     setActiveSession(null);
@@ -417,8 +590,8 @@ export default function RevoraMatchPage() {
       const res = await authClient.post('/match-trade/sessions', {
         productIds: Array.from(selectedProductIds),
         minPrice: selectedPriceBucket?.minPrice ?? null,
-        maxPrice: selectedPriceBucket?.maxPrice ?? null,
-        city: selectedCity?.city ?? null,
+        maxPrice: selectedPriceBucket?.maxPrice || 0,
+        city: selectedCity?.city === 'Tất cả khu vực' ? '' : selectedCity?.city,
       });
 
       if (res.data.success) {
@@ -428,7 +601,11 @@ export default function RevoraMatchPage() {
         const sessionData: MatchSessionResponseDto = res.data.data;
         setActiveSession(sessionData);
         await fetchNextSwipeCard(sessionData.matchSessionId);
-        setStep('swiping');
+        
+        setStep('starting');
+        setTimeout(() => {
+          setStep('swiping');
+        }, 5000);
       }
     } catch (e: any) {
       console.error('Failed to start session', e);
@@ -467,7 +644,7 @@ export default function RevoraMatchPage() {
 
         if (result.isMutualMatch && result.newMatch) {
           setNewMutualMatch(result.newMatch);
-          setShowMatchModal(true);
+          setShowMutualMatchPopup(true);
         }
 
         setHasMoreCards(result.hasMore);
@@ -514,7 +691,7 @@ export default function RevoraMatchPage() {
     setStep('landing');
   };
 
-  const showSwipeButtons = step === 'swiping' && (hasMoreCards || currentSwipeCard !== null || isSwipeLoading);
+  const showSwipeButtons = step === 'swiping';
 
   if (showChat && newMutualMatch) {
     return (
@@ -538,26 +715,45 @@ export default function RevoraMatchPage() {
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
       </div>
 
-      <div className="relative z-10 flex items-center justify-between p-6">
-        <button
-          onClick={() => (step === 'landing' ? navigate(-1) : setStep(step === 'swiping' ? 'select-filters' : step === 'select-filters' ? 'select-products' : 'landing'))}
-          className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors w-24"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Quay Lại</span>
-        </button>
-        <div className="flex items-center space-x-2">
-          <Flame className="w-6 h-6 text-orange-500 animate-pulse" />
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
-            REVORA MATCH
-          </h1>
+      <div className="relative z-10 flex items-center justify-between p-6 pb-2">
+        <div className="w-24">
+          {step !== 'swiping' && step !== 'starting' && (
+            <button
+              onClick={() => (step === 'landing' ? navigate(-1) : setStep(step === 'select-filters' ? 'select-products' : 'landing'))}
+              className="flex items-center space-x-2 text-white/80 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="hidden sm:inline">Quay Lại</span>
+            </button>
+          )}
         </div>
+        
+        <div className="flex flex-col items-center flex-1">
+          <div className="flex items-center space-x-2 mb-1">
+            <Flame className="w-6 h-6 text-orange-500 animate-pulse" />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent flex items-center gap-3">
+              REVORA MATCH
+              {step === 'swiping' && (
+                <span className="text-sm font-mono font-medium text-white/80 px-3 py-1 rounded-full bg-white/10 border border-white/20 shadow-inner">
+                  {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+                </span>
+              )}
+            </h1>
+          </div>
+          {step === 'swiping' && activeSession && (
+            <div className="flex items-center gap-4 text-xs font-semibold text-white/60">
+              <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-orange-400" /> {activeSession.estimatedParticipants.toLocaleString('vi-VN')} người</span>
+              <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-pink-400" /> {activeSession.estimatedProducts.toLocaleString('vi-VN')} thẻ</span>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-end w-24">
           {step === 'swiping' && (
             <button
               onClick={handleLeaveSession}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 transition-all text-xs font-semibold"
-              title="Thoát phiên Match (xóa danh sách tạm)"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 transition-all text-xs font-semibold shadow-lg shadow-red-500/10"
+              title="Thoát phiên Match"
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Thoát</span>
@@ -611,13 +807,22 @@ export default function RevoraMatchPage() {
             ))}
           </div>
 
-          <button
-            onClick={() => setStep('select-products')}
-            className="w-full py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-red-500/50 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
-          >
-            Bắt Đầu Match & Trade
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => setStep('select-products')}
+              className="w-full py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-red-500/50 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+            >
+              Bắt Đầu Match & Trade
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => { setShowTradeHistoryModal(true); fetchTradeHistory(); }}
+              className="w-full py-4 rounded-2xl font-bold text-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+            >
+              Lịch Sử Trao Đổi
+            </button>
+          </div>
         </div>
       )}
 
@@ -625,9 +830,19 @@ export default function RevoraMatchPage() {
       {step === 'select-products' && (
         <div className="relative z-10 max-w-3xl mx-auto px-6 pb-10">
           <h2 className="text-xl font-bold text-white mb-1">Chọn Sản Phẩm Trao Đổi</h2>
-          <p className="text-white/50 text-sm mb-6">
-            Chọn một hoặc nhiều sản phẩm đại diện cho phiên Match. Đây là những món bạn sẵn sàng đem đi trao đổi.
-          </p>
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-white/50 text-sm">
+              Chọn một hoặc nhiều sản phẩm đại diện cho phiên Match. Đây là những món bạn sẵn sàng đem đi trao đổi.
+            </p>
+            {myOfferProducts.length > 0 && (
+              <button
+                onClick={toggleSelectAll}
+                className="text-orange-400 text-sm hover:text-orange-300 font-semibold whitespace-nowrap"
+              >
+                {selectedProductIds.size === myOfferProducts.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+              </button>
+            )}
+          </div>
 
           {isMyProductsLoading ? (
             <p className="text-white/50 text-center py-12">Đang tải sản phẩm của bạn...</p>
@@ -652,14 +867,14 @@ export default function RevoraMatchPage() {
                         <div className="relative">
                           <img src={item.imageUrl} alt={item.title} className="w-full h-28 object-cover" />
                           <a
-                            href={`/products/${item.productId}`}
+                            href={`/product/${item.productId}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40"
+                            className="absolute bottom-2 right-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Xem chi tiết sản phẩm"
                           >
-                            <span className="bg-black/80 text-white text-xs px-2.5 py-1.5 rounded-full flex items-center gap-1 backdrop-blur border border-white/20">
+                            <span className="bg-black/80 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1 backdrop-blur border border-white/20 hover:bg-black/90">
                               <ExternalLink className="w-3 h-3" /> Chi tiết
                             </span>
                           </a>
@@ -719,7 +934,7 @@ export default function RevoraMatchPage() {
       {/* Step 2: Chọn điều kiện lọc và xem trước kết quả */}
       {step === 'select-filters' && (
         <div className="relative z-10 max-w-2xl mx-auto px-6 pb-10">
-          <h2 className="text-xl font-bold text-white mb-1">Điều Kiện Match</h2>
+          <h2 className="text-xl font-bold text-white mb-2">Điều Kiện Match</h2>
           <p className="text-white/50 text-sm mb-6">Chọn khoảng giá và khu vực bạn muốn tìm sản phẩm trao đổi.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -799,6 +1014,36 @@ export default function RevoraMatchPage() {
           >
             Bắt Đầu Match
           </button>
+        </div>
+      )}
+
+      {step === 'starting' && (
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-160px)] px-6">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+            className="bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-3xl text-center flex flex-col items-center"
+          >
+            <div className="relative w-32 h-32 mb-8 flex items-center justify-center">
+              <div className="absolute inset-0 border-4 border-orange-500/30 rounded-full animate-ping opacity-75" style={{ animationDuration: '2s' }} />
+              <div className="absolute inset-4 border-4 border-orange-500/20 rounded-full animate-ping opacity-50" style={{ animationDuration: '1.5s' }} />
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-red-600 shadow-2xl shadow-orange-500/50 flex items-center justify-center relative overflow-hidden">
+                <Flame className="w-12 h-12 text-white animate-pulse relative z-10" />
+                <div className="absolute inset-0 bg-white/20 rotate-45 transform translate-y-full animate-[shimmer_2s_infinite]" />
+              </div>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-white mb-3">Đang tổng hợp sản phẩm...</h2>
+            <p className="text-white/60 text-sm max-w-sm leading-relaxed mb-6">
+              Hệ thống đang quét các bộ lọc và nạp danh sách sản phẩm mới nhất vào phiên của bạn.
+            </p>
+            <div className="flex items-center gap-2 text-orange-400">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </motion.div>
         </div>
       )}
 
@@ -890,82 +1135,144 @@ export default function RevoraMatchPage() {
                         )}
                       </AnimatePresence>
 
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-6">
-                        <h3 className="text-white text-2xl font-bold mb-2">{currentSwipeCard.title}</h3>
-                        <p className="text-white/80 text-lg mb-3">{currentSwipeCard.price.toLocaleString('vi-VN')}đ</p>
-                        <div className="flex items-center space-x-2 mb-3">
-                          <span className="bg-white/20 px-3 py-1 rounded-full text-white text-sm">
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-6 pt-20">
+                        <div className="flex items-center justify-between mb-2">
+                          <a href={`/product/${currentSwipeCard.productId}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex-1 pr-4">
+                            <h3 className="text-white text-2xl font-bold truncate">{currentSwipeCard.title}</h3>
+                          </a>
+                          {(currentSwipeCard as any).isPremium && (
+                            <span className="flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-yellow-600 text-black text-xs font-bold px-2 py-1 rounded-md shadow-lg flex-shrink-0">
+                              <Flame className="w-3 h-3" /> PREMIUM
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-white/80 text-lg mb-3 font-semibold">{currentSwipeCard.price.toLocaleString('vi-VN')}đ</p>
+                        <div className="flex items-center space-x-2 mb-4">
+                          <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-white text-sm border border-white/10">
                             {currentSwipeCard.brand || 'Unbranded'} · {currentSwipeCard.condition || 'Mới'}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                            {currentSwipeCard.sellerName?.charAt(0) || 'U'}
+                        <div className="flex items-center space-x-3 bg-black/40 backdrop-blur-sm border border-white/10 p-3 rounded-2xl">
+                          <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-sm font-bold border-2 border-white/20 shadow-md">
+                            {(currentSwipeCard as any).sellerAvatar ? (
+                              <img src={(currentSwipeCard as any).sellerAvatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                            ) : (
+                              currentSwipeCard.sellerName?.charAt(0) || 'U'
+                            )}
                           </div>
-                          <div>
-                            <p className="text-white text-sm font-semibold">@{currentSwipeCard.sellerName}</p>
-                            <p className="text-white/60 text-xs">{currentSwipeCard.sellerCity}</p>
+                          <div className="flex-1 min-w-0">
+                            <a href={`/profile?userId=${currentSwipeCard.sellerId}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                              <p className="text-white text-sm font-bold truncate">@{currentSwipeCard.sellerName}</p>
+                              {currentSwipeCard.hasBadge && (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" title="Tài khoản uy tín" />
+                              )}
+                            </a>
+                            <p className="text-white/60 text-xs flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3 h-3" /> {currentSwipeCard.sellerCity || 'Toàn quốc'}
+                            </p>
                           </div>
                         </div>
                       </div>
                     </div>
                   </motion.div>
                 ) : (
-                  <div className="absolute inset-0 bg-gray-800/40 rounded-3xl border border-white/10 flex items-center justify-center h-[600px]" style={{ zIndex: 10 }}>
-                    <div className="text-center text-white/50 p-6 w-full">
-                      {isSwipeLoading ? (
-                        <>
-                          <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                            {/* Pulsing radar rings */}
-                            <div className="absolute inset-0 rounded-full border border-orange-500/30 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
-                            <div className="absolute inset-2 rounded-full border border-orange-500/20 animate-ping opacity-50" style={{ animationDuration: '2s' }} />
-                            <div className="absolute inset-4 rounded-full border border-orange-500/10 animate-ping opacity-25" style={{ animationDuration: '1.5s' }} />
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
-                              <Flame className="w-8 h-8 text-white animate-pulse" />
-                            </div>
-                          </div>
-                          <p className="text-white font-semibold text-lg mb-2 animate-pulse">Đang tìm kiếm sản phẩm phù hợp...</p>
-                          <p className="text-white/50 text-sm leading-relaxed max-w-[280px] mx-auto">
-                            Hệ thống đang quét các sản phẩm thuộc khoảng giá và khu vực đã chọn.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-6">
-                            <Package className="w-8 h-8 text-white/40" />
-                          </div>
-                          <p className="text-white font-semibold text-lg mb-2">
-                            {hasSwipedAtLeastOnce ? 'Đã hết sản phẩm phù hợp' : 'Không tìm thấy sản phẩm phù hợp'}
-                          </p>
-                          <p className="text-white/50 text-sm mb-8 leading-relaxed max-w-[280px] mx-auto">
-                            Vui lòng thay đổi bộ lọc khoảng giá hoặc khu vực khác để tiếp tục tìm kiếm sản phẩm trao đổi.
-                          </p>
-                          <div className="max-w-[200px] mx-auto">
-                            <button
-                              onClick={() => setStep('select-filters')}
-                              className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold hover:scale-[1.02] transition-transform text-sm shadow-lg shadow-orange-500/20"
-                            >
-                              Thay Đổi Bộ Lọc
-                            </button>
-                          </div>
-                        </>
-                      )}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 bg-gray-900/80 rounded-3xl backdrop-blur-md border border-white/10 shadow-2xl"
+                  >
+                    <div className="relative w-20 h-20 mb-6 flex items-center justify-center">
+                      <div className="absolute inset-0 border-4 border-orange-500/20 rounded-full animate-ping" style={{ animationDuration: '3s' }} />
+                      <div className="absolute inset-2 border-4 border-orange-500/40 rounded-full animate-ping" style={{ animationDuration: '2s' }} />
+                      <Flame className="w-10 h-10 text-orange-400 animate-pulse relative z-10" />
                     </div>
-                  </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Đang tìm kiếm thêm...</h3>
+                    <p className="text-white/60 text-sm max-w-xs leading-relaxed mb-8">
+                      Bạn đã duyệt hết sản phẩm hiện tại. Sản phẩm mới sẽ tự động hiện lên khi có người tham gia, hoặc bạn có thể đổi bộ lọc.
+                    </p>
+                    <button
+                      onClick={handleLeaveSession}
+                      className="px-6 py-3 rounded-full bg-white/10 text-white font-semibold hover:bg-white/20 transition-all border border-white/10 hover:border-white/30"
+                    >
+                      Thoát để đổi bộ lọc
+                    </button>
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Right Side Button: Heart (Like) + Tym List Dropdown */}
+            {/* Right Side Buttons: Inbox + Heart + Tym List Toggle */}
             {showSwipeButtons && (
               <motion.div
-                className="fixed right-4 lg:right-12 top-1/2 -translate-y-1/2 z-20"
+                className="fixed right-4 lg:right-12 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-4"
                 animate={{
                   scale: isDragging && dragOffset > 20 ? 1.25 : 1,
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
               >
-                <div className="relative flex flex-col items-center gap-2">
+                {/* Inbox Toggle Button */}
+                <div className="relative group">
+                  <button
+                    onClick={() => {
+                      const next = !showInbox;
+                      setShowInbox(next);
+                      setShowTymList(false);
+                      if (next) fetchInterestInbox();
+                    }}
+                    className="w-12 h-12 md:w-14 md:h-14 bg-white/5 backdrop-blur-md border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 rounded-full flex items-center justify-center transition-all shadow-lg"
+                    title="Người quan tâm"
+                  >
+                    <Bell className="w-6 h-6 md:w-7 md:h-7" />
+                    {interestInbox.filter(i => !i.isRead).length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border border-gray-900 shadow-md">
+                        {interestInbox.filter(i => !i.isRead).length}
+                      </span>
+                    )}
+                  </button>
+                  {/* Dropdown panel for Inbox */}
+                  <AnimatePresence>
+                    {showInbox && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className="absolute top-0 right-[calc(100%+1rem)] w-80 max-h-96 bg-gray-900/95 backdrop-blur-md border border-purple-500/20 rounded-2xl p-4 shadow-2xl flex flex-col"
+                      >
+                        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                          <h4 className="text-purple-300 font-semibold text-sm flex items-center gap-2">
+                            <Bell className="w-4 h-4 text-purple-400" />
+                            Quan tâm ({interestInbox.length})
+                          </h4>
+                        </div>
+                        {isLoadingInbox ? (
+                          <p className="text-white/40 text-xs text-center py-4">Đang tải...</p>
+                        ) : interestInbox.length === 0 ? (
+                          <p className="text-white/40 text-xs text-center py-4">Chưa có ai quan tâm.</p>
+                        ) : (
+                          <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+                            {interestInbox.map((item) => (
+                              <div key={item.notificationId} className={`flex items-center gap-3 rounded-xl p-2 ${item.isRead ? 'bg-white/5' : 'bg-purple-500/10 border border-purple-500/20'}`}>
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                  {item.interestedUserName?.charAt(0) || 'U'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <a href={`/profile?userId=${item.interestedUserId}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-white text-xs font-semibold">
+                                    @{item.interestedUserName}
+                                  </a>
+                                  <p className="text-white/50 text-xs truncate">Quan tâm: <span className="text-purple-300">{item.likedProductTitle}</span></p>
+                                  <p className="text-white/40 text-xs truncate">Đề nghị đổi: <span className="text-white/60">{item.offeringProductTitle}</span></p>
+                                </div>
+                                {!item.isRead && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="relative group flex flex-col items-center gap-2">
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
@@ -974,7 +1281,7 @@ export default function RevoraMatchPage() {
                         ? 'bg-gradient-to-r from-red-500 to-pink-500 border-transparent text-white shadow-lg shadow-red-500/50'
                         : 'border-orange-500/30 text-orange-500 hover:bg-orange-500/10'
                       }`}
-                    disabled={isSwipeLoading}
+                    disabled={isSwipeLoading || currentSwipeCard === null}
                     title="Quan tâm (Phải)"
                   >
                     <Heart className={`w-8 h-8 md:w-10 md:h-10 ${isDragging && dragOffset > 50 ? 'fill-white' : ''}`} />
@@ -984,157 +1291,150 @@ export default function RevoraMatchPage() {
                       {likedCount}
                     </span>
                   )}
-                  {/* Tym List Toggle */}
-                  <button
-                    onClick={() => {
-                      const next = !showTymList;
-                      setShowTymList(next);
-                      setShowInbox(false);
-                      if (next && activeSession) fetchTymList(activeSession.matchSessionId);
-                    }}
-                    className="flex items-center gap-1 text-orange-400/70 hover:text-orange-300 transition-colors text-xs"
-                    title="Xem danh sách đã Tym"
-                  >
-                    {showTymList ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
                 </div>
               </motion.div>
             )}
+
+            {/* Right Side Slide-out Tym List */}
+            {showSwipeButtons && (
+              <div className="fixed right-0 top-1/4 bottom-1/4 z-30 flex items-center">
+                <AnimatePresence>
+                  {showTymList && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 20, width: 0 }}
+                      animate={{ opacity: 1, x: 0, width: 320 }}
+                      exit={{ opacity: 0, x: 20, width: 0 }}
+                      className="h-full bg-gray-900/95 backdrop-blur-md border border-orange-500/20 rounded-l-2xl shadow-2xl flex flex-col overflow-hidden mr-2"
+                    >
+                      <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0 bg-white/5">
+                        <h4 className="text-orange-300 font-semibold text-sm flex items-center gap-2">
+                          <Heart className="w-4 h-4 fill-orange-400 text-orange-400" />
+                          Đã Tym ({tymList.length})
+                        </h4>
+                        <button onClick={() => setShowTymList(false)} className="text-white/40 hover:text-white transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      {isLoadingTym ? (
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="w-6 h-6 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+                        </div>
+                      ) : tymList.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                          <Heart className="w-10 h-10 text-white/10 mb-3" />
+                          <p className="text-white/40 text-sm">Bạn chưa Tym sản phẩm nào.</p>
+                          <p className="text-white/30 text-xs mt-1">Vuốt thẻ sang phải để Tym</p>
+                        </div>
+                      ) : (
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                          {tymList.map((item) => (
+                            <div key={item.productId} className="flex gap-3 bg-white/5 rounded-xl p-3 border border-white/5 hover:border-white/10 transition-colors group">
+                              {item.imageUrl && (
+                                <img src={item.imageUrl} alt={item.title} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                <p className="text-white text-sm font-semibold truncate group-hover:text-orange-300 transition-colors">{item.title}</p>
+                                <p className="text-white/60 text-xs mt-0.5">{item.price.toLocaleString('vi-VN')}đ</p>
+                              </div>
+                              <a href={`/product/${item.productId}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-orange-500/20 text-white/40 hover:text-orange-400 transition-all flex-shrink-0" title="Xem chi tiết">
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <button
+                  onClick={() => {
+                    const next = !showTymList;
+                    setShowTymList(next);
+                    setShowInbox(false);
+                    if (next && activeSession) fetchTymList(activeSession.matchSessionId);
+                  }}
+                  className="bg-white/5 backdrop-blur-md border border-r-0 border-orange-500/30 text-orange-400 p-2 rounded-l-xl hover:bg-orange-500/10 transition-all shadow-[-2px_0_10px_rgba(249,115,22,0.1)] flex flex-col items-center gap-2"
+                  title="Danh sách đã Tym"
+                >
+                  <Heart className="w-5 h-5 fill-orange-400" />
+                  <span className={`text-xl leading-none font-light transition-transform ${showTymList ? 'rotate-180' : ''}`}>{'<'}</span>
+                </button>
+              </div>
+            )}
+
           </div>
-
-          {/* Tym List Dropdown Panel */}
-          <AnimatePresence>
-            {showTymList && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="relative z-20 max-w-2xl mx-auto px-4 mb-4"
-              >
-                <div className="bg-gray-900/95 backdrop-blur-md border border-orange-500/20 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-orange-300 font-semibold text-sm flex items-center gap-2">
-                      <Heart className="w-4 h-4 fill-orange-400 text-orange-400" />
-                      Sản phẩm đã Tym ({tymList.length})
-                    </h4>
-                    <button onClick={() => setShowTymList(false)} className="text-white/40 hover:text-white/80 transition-colors">
-                      <ChevronUp className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {isLoadingTym ? (
-                    <p className="text-white/40 text-xs text-center py-4">Đang tải...</p>
-                  ) : tymList.length === 0 ? (
-                    <p className="text-white/40 text-xs text-center py-4">Bạn chưa Tym sản phẩm nào trong phiên này.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {tymList.map((item) => (
-                        <div key={item.productId} className="flex items-center gap-3 bg-white/5 rounded-xl p-2">
-                          {item.imageUrl && (
-                            <img src={item.imageUrl} alt={item.title} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-semibold truncate">{item.title}</p>
-                            <p className="text-orange-300 text-xs">{item.price.toLocaleString('vi-VN')}đ</p>
-                          </div>
-                          <a
-                            href={`/products/${item.productId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-white/40 hover:text-white/80 transition-colors flex-shrink-0"
-                            title="Xem chi tiết"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Interest Inbox Panel */}
-          <AnimatePresence>
-            {showInbox && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="relative z-20 max-w-2xl mx-auto px-4 mb-4"
-              >
-                <div className="bg-gray-900/95 backdrop-blur-md border border-purple-500/20 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-purple-300 font-semibold text-sm flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-purple-400" />
-                      Người quan tâm sản phẩm của bạn ({interestInbox.length})
-                    </h4>
-                    <button onClick={() => setShowInbox(false)} className="text-white/40 hover:text-white/80 transition-colors">
-                      <ChevronUp className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {isLoadingInbox ? (
-                    <p className="text-white/40 text-xs text-center py-4">Đang tải...</p>
-                  ) : interestInbox.length === 0 ? (
-                    <p className="text-white/40 text-xs text-center py-4">Chưa có ai quan tâm sản phẩm của bạn.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                      {interestInbox.map((item) => (
-                        <div key={item.notificationId} className={`flex items-center gap-3 rounded-xl p-2 ${item.isRead ? 'bg-white/5' : 'bg-purple-500/10 border border-purple-500/20'}`}>
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {item.interestedUserName?.charAt(0) || 'U'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-semibold">@{item.interestedUserName}</p>
-                            <p className="text-white/50 text-xs truncate">
-                              Quan tâm: <span className="text-purple-300">{item.likedProductTitle}</span>
-                            </p>
-                            <p className="text-white/40 text-xs truncate">
-                              Đề nghị đổi: <span className="text-white/60">{item.offeringProductTitle}</span>
-                            </p>
-                          </div>
-                          {!item.isRead && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           <div className="relative z-10 flex items-center justify-center gap-6 pb-6 px-4">
             <p className="text-white/40 text-xs text-center">
               Vuốt sang phải để quan tâm · Sang trái để bỏ qua
             </p>
-            {/* Inbox Toggle Button */}
-            <button
-              onClick={() => {
-                const next = !showInbox;
-                setShowInbox(next);
-                setShowTymList(false);
-                if (next) fetchInterestInbox();
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20 transition-all text-xs font-medium"
-            >
-              <Bell className="w-3.5 h-3.5" />
-              Quan tâm tôi
-              {interestInbox.filter(i => !i.isRead).length > 0 && (
-                <span className="bg-purple-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                  {interestInbox.filter(i => !i.isRead).length}
-                </span>
-              )}
-              {showInbox ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
           </div>
         </>
       )}
 
+      {/* Trade History Modal */}
       <AnimatePresence>
-        {showMatchModal && newMutualMatch && (
-          <MatchSuccessModal match={newMutualMatch} onOpenChat={handleOpenChat} onClose={() => setShowMatchModal(false)} />
+        {showTradeHistoryModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowTradeHistoryModal(false)} />
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="relative max-w-lg w-full bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white">Lịch Sử Match Thành Công</h2>
+                <button onClick={() => setShowTradeHistoryModal(false)} className="text-white/40 hover:text-white transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {isHistoryLoading ? (
+                <div className="flex-1 flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+                </div>
+              ) : tradeHistoryList.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
+                  <Heart className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-white/60 font-medium">Chưa có giao dịch Match nào thành công.</p>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
+                  {tradeHistoryList.map(match => (
+                    <div key={match.tradeMatchId} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex gap-4 hover:bg-white/10 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-semibold truncate mb-1">Giao dịch với @{match.partnerName}</p>
+                        <p className="text-white/50 text-xs mb-3">{new Date(match.createdAt).toLocaleDateString('vi-VN')} {new Date(match.createdAt).toLocaleTimeString('vi-VN')}</p>
+                        <div className="flex items-center gap-3">
+                          <img src={match.myProduct.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                          <span className="text-white/40 text-lg">⇄</span>
+                          <img src={match.partnerProduct.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="bg-green-500/20 border border-green-500/30 rounded-full p-2" title="Thành công">
+                          <CheckCircle2 className="w-5 h-5 text-green-400" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Dynamic Modal for Mutual Match Success */}
+      {showMutualMatchPopup && newMutualMatch && (
+        <MatchSuccessModal
+          match={newMutualMatch}
+          onClose={() => setShowMutualMatchPopup(false)}
+          onOpenChat={() => {
+            setShowMutualMatchPopup(false);
+            setShowChat(true);
+          }}
+        />
+      )}
+
     </div>
   );
 }
@@ -1212,9 +1512,26 @@ function ChatInterface({
   const [isCompleted, setIsCompleted] = useState(match.status === 'Completed');
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [showConfirmRequest, setShowConfirmRequest] = useState(false);
+  const [mutualLikes, setMutualLikes] = useState<{ myLikedProducts: MatchOfferingProductDto[], partnerLikedProducts: MatchOfferingProductDto[] } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch mutual likes
+  useEffect(() => {
+    const fetchMutualLikes = async () => {
+      try {
+        const res = await authClient.get(`/match-trade/matches/${match.tradeMatchId}/mutual-likes`);
+        if (res.data.success) {
+          setMutualLikes(res.data.data);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchMutualLikes();
+  }, [match.tradeMatchId]);
 
   // 1. Fetch chat history between the 2 users
   const fetchHistory = useCallback(async () => {
@@ -1284,6 +1601,33 @@ function ChatInterface({
             });
           }
         });
+
+        newConnection.on('TradeConfirmRequested', (data: any) => {
+          if (data.tradeMatchId === match.tradeMatchId) {
+            setShowConfirmRequest(true);
+            fetchMatchStatus(); // Update confirmation state flags
+          }
+        });
+
+        newConnection.on('TradeConfirmDeclined', (data: any) => {
+          if (data.tradeMatchId === match.tradeMatchId) {
+            toast.error('Đối phương đã từ chối xác nhận trao đổi.');
+            fetchMatchStatus();
+          }
+        });
+
+        newConnection.on('TradeCompleted', (data: any) => {
+          if (data.tradeMatchId === match.tradeMatchId) {
+            fetchMatchStatus();
+          }
+        });
+        
+        newConnection.on('TradeCancelled', (data: any) => {
+          if (data.tradeMatchId === match.tradeMatchId) {
+            toast.error('Giao dịch đã bị hủy từ phía đối phương.');
+            onLeaveTrade();
+          }
+        });
       })
       .catch((err) => console.error('SignalR ChatHub connection failure in ChatInterface: ', err));
 
@@ -1294,7 +1638,7 @@ function ChatInterface({
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages]);
 
   // --- Chat Actions ---
@@ -1375,6 +1719,20 @@ function ChatInterface({
     }
   };
 
+  const handleDeclineConfirm = async () => {
+    try {
+      const res = await authClient.post(`/match-trade/matches/${match.tradeMatchId}/decline-confirm`);
+      if (res.data.success) {
+        setShowConfirmRequest(false);
+        setPartnerConfirmed(false);
+        setMyConfirmed(false);
+      }
+    } catch (e: any) {
+      console.error('Failed to decline trade confirmation', e);
+      toast.error(e.response?.data?.message || 'Có lỗi xảy ra khi từ chối.');
+    }
+  };
+
   const handleCancelTrade = async () => {
     try {
       const res = await authClient.post(`/match-trade/matches/${match.tradeMatchId}/leave`);
@@ -1393,15 +1751,15 @@ function ChatInterface({
       {/* Header bar */}
       <div className="bg-black/40 backdrop-blur-sm border-b border-white/10 p-4">
         <div className="flex items-center justify-between">
-          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+          <div className="w-6" /> {/* Placeholder for alignment instead of ArrowLeft */}
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full overflow-hidden flex items-center justify-center text-white font-bold">
               {match.partnerName?.charAt(0) || 'U'}
             </div>
             <div>
-              <p className="text-white font-semibold">@{match.partnerName}</p>
+              <a href={`/profile?userId=${match.partnerUserId}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                <p className="text-white font-semibold">@{match.partnerName}</p>
+              </a>
               <p className="text-white/60 text-xs">Thương lượng trao đổi Match</p>
             </div>
           </div>
@@ -1411,18 +1769,34 @@ function ChatInterface({
         </div>
       </div>
 
-      {/* Products Summary Header */}
+      {/* Products Summary Header - Shows ALL mutual likes */}
       <div className="bg-gradient-to-r from-[#2D5A3D]/20 to-purple-500/20 border-b border-white/10 p-4">
-        <p className="text-white/60 text-xs text-center mb-3">Sản phẩm trao đổi</p>
-        <div className="flex items-center justify-center gap-4">
-          <div className="text-center max-w-[140px]">
-            <img src={match.myProduct.imageUrl} alt="" className="w-16 h-16 object-cover rounded-lg mx-auto mb-1 border border-white/10" />
-            <p className="text-white text-xs truncate">{match.myProduct.title}</p>
+        <p className="text-white/60 text-xs text-center mb-3">Tất cả sản phẩm đã Tym nhau</p>
+        <div className="flex items-center justify-center gap-6">
+          {/* Partner Liked Products (These are YOUR products that they liked) */}
+          <div className="flex flex-col items-center max-w-[45%]">
+            <p className="text-white text-xs font-semibold mb-2">Sản phẩm của bạn</p>
+            <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 max-w-full">
+              {(mutualLikes?.partnerLikedProducts || [match.myProduct]).map(p => (
+                <a key={p.productId} href={`/product/${p.productId}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" title={p.title}>
+                  <img src={p.imageUrl} alt="" className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border border-white/10 hover:opacity-80 hover:border-orange-500 transition-all" />
+                </a>
+              ))}
+            </div>
           </div>
-          <div className="text-xl text-white/60">⇄</div>
-          <div className="text-center max-w-[140px]">
-            <img src={match.partnerProduct.imageUrl} alt="" className="w-16 h-16 object-cover rounded-lg mx-auto mb-1 border border-white/10" />
-            <p className="text-white text-xs truncate">{match.partnerProduct.title}</p>
+          
+          <div className="text-2xl text-white/40 font-light flex-shrink-0">⇄</div>
+          
+          {/* My Liked Products (These are PARTNER's products that you liked) */}
+          <div className="flex flex-col items-center max-w-[45%]">
+            <p className="text-white text-xs font-semibold mb-2">@{match.partnerName}</p>
+            <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 max-w-full">
+              {(mutualLikes?.myLikedProducts || [match.partnerProduct]).map(p => (
+                <a key={p.productId} href={`/product/${p.productId}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" title={p.title}>
+                  <img src={p.imageUrl} alt="" className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border border-white/10 hover:opacity-80 hover:border-orange-500 transition-all" />
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1537,6 +1911,34 @@ function ChatInterface({
               </button>
               <button onClick={handleCancelTrade} className="flex-1 py-2 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-all">
                 Hủy Match
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trade Confirm Request Popup for User B */}
+      {showConfirmRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-gray-900 to-[#1a0611] rounded-3xl p-6 max-w-md w-full border border-orange-500/30 shadow-[0_0_30px_rgba(249,115,22,0.15)] text-center">
+            <div className="w-16 h-16 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center mx-auto mb-4 border border-orange-500/30 shadow-lg shadow-orange-500/20">
+              <CheckCircle2 className="w-8 h-8 animate-pulse" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-2">Xác Nhận Trao Đổi</h3>
+            <p className="text-white/70 text-sm mb-6 leading-relaxed">
+              <strong className="text-white">@{match.partnerName}</strong> đã xác nhận muốn chốt giao dịch trao đổi này. Bạn có đồng ý hoàn tất giao dịch không?
+              <br/><br/>
+              <span className="text-xs text-white/40">Sản phẩm của cả hai sẽ được chuyển trạng thái sang "Đã Bán" nếu bạn đồng ý.</span>
+            </p>
+            <div className="flex gap-3">
+              <button onClick={handleDeclineConfirm} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all">
+                Từ chối
+              </button>
+              <button onClick={() => {
+                setShowConfirmRequest(false);
+                handleConfirmTrade();
+              }} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold hover:scale-[1.02] shadow-lg shadow-green-500/30 transition-all">
+                Đồng Ý
               </button>
             </div>
           </div>

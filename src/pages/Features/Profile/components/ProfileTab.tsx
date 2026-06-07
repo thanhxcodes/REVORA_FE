@@ -12,6 +12,7 @@ export interface ProfileData {
   city: string;
   bio: string;
   avatarColor: string;
+  avatarUrl?: string;
 }
 
 interface ProfileTabProps {

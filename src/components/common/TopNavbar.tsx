@@ -1,6 +1,9 @@
 import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCircle, Star, Zap, ListChecks, Heart, Plus, History, BellRing } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as signalR from '@microsoft/signalr';
+import authClient from '../../providers/authProvider/authService';
+import { getAccessToken } from '../../features/auth/services/tokenService';
 import type { User as UserType } from '../../features/auth/types';
 import { useUserCreditBatches } from '../../features/credits/hooks/useUserCreditBatches';
 import NavbarCreditBadge from './NavbarCreditBadge';
@@ -68,6 +71,8 @@ const NOTIF_ICONS: Record<string, { icon: React.ReactNode; bg: string }> = {
   view: { icon: <Sparkles className="w-4 h-4 text-green-600" />, bg: 'bg-green-50' },
 };
 
+import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
+
 interface TopNavbarProps {
   onMenuToggle: () => void;
   isLoggedIn?: boolean;
@@ -85,11 +90,84 @@ export default function TopNavbar({
   setIsLoggedIn,
 }: TopNavbarProps) {
   const { batches: userCreditBatches } = useUserCreditBatches(isLoggedIn);
+  const { wishlistIds } = useWishlist();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  // --- Real-time Notifications Fetching & SignalR ---
+  const fetchInterestInbox = async () => {
+    try {
+      const res = await authClient.get('/match-trade/interest-inbox');
+      if (res.data.success && Array.isArray(res.data.data)) {
+        const mappedNotifs: Notification[] = res.data.data.map((item: any) => ({
+          id: item.notificationId || Math.random(),
+          type: 'like',
+          message: `${item.interestedUserName || 'Ai đó'} đã thả tym sản phẩm của bạn`,
+          time: new Date(item.createdAt).toLocaleString('vi-VN'),
+          read: item.isRead
+        }));
+        // Merge with mock or replace. Let's just replace the MOCK entirely with real data for 'like' type, 
+        // or prepend to MOCK. We'll prepend for demo.
+        setNotifications((prev) => {
+          const others = prev.filter(p => p.type !== 'like');
+          return [...mappedNotifs, ...others];
+        });
+      }
+    } catch (e) {
+      console.error('Failed to fetch interest inbox', e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    // Initial fetch
+    fetchInterestInbox();
+
+    // Listen to custom window event if triggered locally
+    const handleLocalInterest = () => fetchInterestInbox();
+    window.addEventListener('revora_match_interest_received', handleLocalInterest);
+
+    // Global SignalR Connection for the Header (if they aren't on MatchPage)
+    const token = getAccessToken();
+    let hubConnection: signalR.HubConnection | null = null;
+    
+    if (token) {
+      const hostUrl = (import.meta.env.VITE_API_BASE_URL || 'https://localhost:7015/api/v1').replace('/api/v1', '');
+      hubConnection = new signalR.HubConnectionBuilder()
+        .withUrl(`${hostUrl}/chatHub?access_token=${token}`)
+        .withAutomaticReconnect()
+        .build();
+
+      hubConnection.start()
+        .then(() => {
+          hubConnection!.on('InterestNotificationReceived', () => {
+            fetchInterestInbox();
+          });
+          hubConnection!.on('MatchPoolUpdated', () => {
+            window.dispatchEvent(new Event('revora_match_pool_updated'));
+          });
+          hubConnection!.on('ProductsRemoved', (productIds: number[]) => {
+            window.dispatchEvent(new CustomEvent('revora_match_products_removed', { detail: productIds }));
+          });
+          hubConnection!.on('MutualMatchCreated', (matchSummary: any) => {
+            window.dispatchEvent(new CustomEvent('revora_mutual_match_created', { detail: matchSummary }));
+          });
+        })
+        .catch(err => console.error('SignalR Header connection failure: ', err));
+    }
+
+    return () => {
+      window.removeEventListener('revora_match_interest_received', handleLocalInterest);
+      if (hubConnection) {
+        hubConnection.stop();
+      }
+    };
+  }, [isLoggedIn]);
+  // ------------------------------------------------
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -193,9 +271,11 @@ export default function TopNavbar({
               onClick={closeAll}
             >
               <Heart className="w-6 h-6" />
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#C4603A] rounded-full text-[10px] flex items-center justify-center text-[#2D5A3D] font-bold px-0.5">
-                12
-              </span>
+              {wishlistIds.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#C4603A] rounded-full text-[10px] flex items-center justify-center text-white font-bold px-0.5 shadow-sm">
+                  {wishlistIds.length}
+                </span>
+              )}
             </Link>
             
             {/* Bell / Notifications */}
@@ -303,9 +383,15 @@ export default function TopNavbar({
                   setShowUserMenu(!showUserMenu);
                   setShowNotifications(false);
                 }}
-                className="w-9 h-9 bg-white/25 rounded-full flex items-center justify-center text-white hover:bg-white/35 transition-colors font-semibold text-sm"
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors font-semibold text-sm overflow-hidden border border-white/20 ${
+                  currentUser?.avatarUrl ? 'bg-transparent' : 'bg-white/25 hover:bg-white/35'
+                }`}
               >
-                {currentUser?.avatar ?? 'U'}
+                {currentUser?.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  currentUser?.avatar ?? 'U'
+                )}
               </button>
 
               {showUserMenu && (
@@ -315,8 +401,14 @@ export default function TopNavbar({
                     {/* User info header */}
                     <div className="px-4 py-4 bg-gradient-to-r from-[#2D5A3D]/8 to-[#3D7054]/8 border-b border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-sm">
-                          {currentUser?.avatar ?? 'U'}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden ${
+                          currentUser?.avatarUrl ? 'bg-transparent' : 'bg-gradient-to-br from-[#2D5A3D] to-[#3D7054]'
+                        }`}>
+                          {currentUser?.avatarUrl ? (
+                            <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            currentUser?.avatar ?? 'U'
+                          )}
                         </div>
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">

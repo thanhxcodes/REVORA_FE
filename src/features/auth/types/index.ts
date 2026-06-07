@@ -10,6 +10,7 @@ export interface User {
   permissions: string[];
   name: string;   // Tên hiển thị người dùng (tương thích ngược cho UI)
   avatar: string; // Ký tự đại diện ảnh đại diện (tương thích ngược cho UI)
+  avatarUrl?: string;
 }
 
 export interface RegisterDto {
