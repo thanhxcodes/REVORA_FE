@@ -1,4 +1,4 @@
-import { Home, Video, ChevronDown, ChevronUp, Flame, Trophy, Grid3x3, Users, Package, List } from 'lucide-react';
+import { Home, Video, ChevronDown, ChevronUp, Flame, Trophy, Grid3x3, Users, Package, List, MessageCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
@@ -23,7 +23,7 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
   const { data: followingData } = useFollowing(currentUser?.id || null, 1, 100);
   
   const followedUsers = followingData?.items?.filter(u => u.isFollowing !== false) || [];
-  const visibleFollowing = followedUsers.slice(0, 3);
+  const visibleFollowing = followedUsers.slice(0, 5);
 
   // Synchronized virtual stats from localStorage and custom events
   const [participants, setParticipants] = useState(() => {
@@ -117,6 +117,7 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
               <Video className="w-6 h-6 flex-shrink-0" />
               {actualIsOpen && <span>Shorts</span>}
             </Link>
+
             <Link
               to="/ranking"
               className={`flex items-center space-x-4 px-6 py-3 transition-colors relative group ${isActive('/ranking')
@@ -197,7 +198,7 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
                   </div>
                 </Link>
               ))}
-              {followedUsers.length > 3 && (
+              {followedUsers.length > 5 && (
                 <button
                   onClick={() => setIsFollowModalOpen(true)}
                   className="flex items-center space-x-3 w-full px-6 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors group"

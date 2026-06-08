@@ -1,18 +1,16 @@
 // thanh start
-export interface ProductResponseDto {
+export interface ProductResponse {
   productId: number;
   title: string;
   price: number;
-  condition: string | null;
+  condition: string;
   location: string;
-  imageUrl: string | null;
+  imageUrl: string;
   sellerName: string;
-  sellerFullName: string;
   isPremium: boolean;
-  bannerUrl: string | null;
+  bannerUrl?: string;
   viewCount: number;
   createdAt: string;
-  productStatus?: string;
 }
 // thanh end
 
@@ -30,7 +28,19 @@ export interface CreateProductRequestDto {
     bannerUrl: string | null;
 }
 
-
+export interface ProductResponseDto {
+    productId: number;
+    title: string;
+    price: number;
+    condition: string;
+    location: string;
+    imageUrl: string;
+    sellerName: string;
+    isPremium: boolean;
+    bannerUrl?: string;
+    viewCount: number;
+    createdAt: string;
+}
 
 export interface PagedResult<T> {
     items: T[];
