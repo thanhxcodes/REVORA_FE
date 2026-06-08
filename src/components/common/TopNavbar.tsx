@@ -1,4 +1,4 @@
-import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCircle, Star, Zap, ListChecks, Heart, Plus, History, BellRing } from 'lucide-react';
+import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCircle, Star, Zap, ListChecks, Heart, Plus, History, BellRing, MessageSquareText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import * as signalR from '@microsoft/signalr';
@@ -261,6 +261,18 @@ export default function TopNavbar({
               >
                 <Plus className="w-4 h-4" />
                 Đăng tin
+              </Link>
+            </div>
+
+            {/* Nút Liên hệ */}
+            <div className="hidden sm:flex items-center">
+              <Link
+                to="/messages"
+                className="bg-white text-gray-900 border border-gray-200 px-4 py-[7px] rounded-full hover:bg-gray-100 hover:shadow-md transition-all text-[15px] font-semibold flex items-center gap-2"
+                onClick={closeAll}
+              >
+                <MessageCircle className="w-5 h-5 text-gray-800" strokeWidth={2.5} />
+                Liên hệ
               </Link>
             </div>
 

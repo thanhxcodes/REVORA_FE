@@ -22,6 +22,7 @@ import TransactionHistoryPage from './pages/Features/TransactionHistoryPage';
 import WeeklyRankingPage from './pages/Features/WeeklyRankingPage';
 import AllProductsPage from './pages/Products/AllProductsPage';
 import NotificationsPage from './pages/Features/NotificationsPage';
+import MessagesPage from './pages/Features/MessagesPage';
 import ErrorPage from './pages/Features/ErrorPage';
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
@@ -71,6 +72,7 @@ function UserLayout() {
 
   const isLoggedIn = currentUser !== null;
   const isShortsRoute = location.pathname === '/shorts';
+  const isMessagesRoute = location.pathname === '/messages';
 
   const handleLogout = async () => {
     await logout();
@@ -91,9 +93,9 @@ function UserLayout() {
           onToggle={() => setSidebarOpen(!sidebarOpen)}
           isLoggedIn={isLoggedIn}
         />
-        <main className="flex-1">
+        <main className="flex-1 overflow-hidden">
           <Outlet />
-          {!isShortsRoute && <Footer />}
+          {!isShortsRoute && !isMessagesRoute && <Footer />}
         </main>
       </div>
 
@@ -172,6 +174,7 @@ function AppContent() {
           <Route path="/manage-products" element={<ManageProductsPage />} />
           <Route path="/transactions" element={<TransactionHistoryPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
         </Route>
 
         {/* Catch-all page */}
