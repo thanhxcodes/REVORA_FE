@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyProductsAPI } from '../services/productService';
+import { getMyProductsAPI, getUserProductsAPI } from '../services/productService';
 import { ProductResponse } from '../types';
 import axios from 'axios';
 
@@ -11,7 +11,7 @@ export interface UseMyProductsResult {
   refetch: () => void;
 }
 
-export const useMyProducts = (): UseMyProductsResult => {
+export const useMyProducts = (sellerId?: number | string): UseMyProductsResult => {
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -37,7 +37,10 @@ export const useMyProducts = (): UseMyProductsResult => {
       setError(null);
 
       try {
-        const response = await getMyProductsAPI();
+        const response = sellerId 
+          ? await getUserProductsAPI(Number(sellerId))
+          : await getMyProductsAPI();
+          
         if (response.success && response.data) {
           setProducts(response.data.items);
           setTotalCount(response.data.totalCount);
@@ -62,7 +65,7 @@ export const useMyProducts = (): UseMyProductsResult => {
     return () => {
       controller.abort();
     };
-  }, [retryCount]);
+  }, [retryCount, sellerId]);
 
   return { products, totalCount, isLoading, error, refetch };
 };

@@ -1,6 +1,8 @@
 import { useState, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './providers/authProvider/AuthContext';
+import { WishlistProvider } from './providers/wishlistProvider/WishlistContext';
 import { User } from './features/auth/types';
 import TopNavbar from './components/common/TopNavbar';
 import Sidebar from './components/common/Sidebar';
@@ -12,6 +14,7 @@ import PlansPage from './pages/Features/PlansPage';
 import ProductDetailPage from './pages/Products/ProductDetailPage';
 import SellProductPage from './pages/Products/SellProductPage';
 import UserProfilePage from './pages/Features/UserProfilePage';
+import PaymentResultPage from './pages/Features/PaymentResultPage';
 import LoginPage from './pages/Auth';
 import RevoraMatchPage from './pages/Features/RevoraMatchPage';
 import ManageProductsPage from './pages/Admin/ManageProductsPage';
@@ -19,6 +22,7 @@ import TransactionHistoryPage from './pages/Features/TransactionHistoryPage';
 import WeeklyRankingPage from './pages/Features/WeeklyRankingPage';
 import AllProductsPage from './pages/Products/AllProductsPage';
 import NotificationsPage from './pages/Features/NotificationsPage';
+import MessagesPage from './pages/Features/MessagesPage';
 import ErrorPage from './pages/Features/ErrorPage';
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
@@ -68,6 +72,7 @@ function UserLayout() {
 
   const isLoggedIn = currentUser !== null;
   const isShortsRoute = location.pathname === '/shorts';
+  const isMessagesRoute = location.pathname === '/messages';
 
   const handleLogout = async () => {
     await logout();
@@ -88,9 +93,9 @@ function UserLayout() {
           onToggle={() => setSidebarOpen(!sidebarOpen)}
           isLoggedIn={isLoggedIn}
         />
-        <main className="flex-1">
+        <main className="flex-1 overflow-hidden">
           <Outlet />
-          {!isShortsRoute && <Footer />}
+          {!isShortsRoute && !isMessagesRoute && <Footer />}
         </main>
       </div>
 
@@ -152,8 +157,10 @@ function AppContent() {
         <Route path="/ranking" element={<WeeklyRankingPage />} />
         <Route path="/match" element={<RevoraMatchPage />} />
         <Route path="/plans" element={<PlansPage />} />
+        <Route path="/payment/result" element={<PaymentResultPage />} />
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/category/:name" element={<HomePage />} />
+        <Route path="/profile/:id" element={<UserProfilePage />} />
         
         {/* System Error Pages */}
         <Route path="/error/404" element={<ErrorPage errorCode="404" />} />
@@ -167,6 +174,7 @@ function AppContent() {
           <Route path="/manage-products" element={<ManageProductsPage />} />
           <Route path="/transactions" element={<TransactionHistoryPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
         </Route>
 
         {/* Catch-all page */}
@@ -192,7 +200,36 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppContent />
+        <WishlistProvider>
+          <Toaster 
+            position="top-center" 
+            toastOptions={{
+              style: {
+                borderRadius: '16px',
+                background: '#1F2937',
+                color: '#F9FAFB',
+                padding: '14px 24px',
+                fontSize: '15px',
+                fontWeight: '600',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.1)'
+              },
+              error: {
+                iconTheme: {
+                  primary: '#EF4444',
+                  secondary: '#fff',
+                },
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10B981',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
+          <AppContent />
+        </WishlistProvider>
       </AuthProvider>
     </BrowserRouter>
   );

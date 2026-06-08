@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import {
   Star, MapPin, Calendar, Shield, Heart, Package, Award,
   Camera, Edit3, Save, X, Lock, Eye, EyeOff, Phone,
@@ -8,19 +8,19 @@ import {
 } from 'lucide-react';
 import { useUserProfile } from '../../features/profile/hooks/useUserProfile';
 import { useUpdateProfile } from '../../features/profile/hooks/useUpdateProfile';
+import { uploadAvatarAPI } from '../../features/profile/services/profileService';
 import { UserProfile } from '../../features/profile/types';
 import { useMyProducts } from '../../features/products/hooks/useMyProducts';
+import { useAuth } from '../../providers/authProvider/AuthContext';
+import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
+import { useToggleFollow } from '../../features/profile/hooks/useFollow';
+import toast from 'react-hot-toast';
 import ProfileTab, { ProfileData } from './Profile/components/ProfileTab';
 import SecurityTab from './Profile/components/SecurityTab';
 import ProductsTab from './Profile/components/ProductsTab';
-import WishlistTab, { WishlistProduct } from './Profile/components/WishlistTab';
+import WishlistTab from './Profile/components/WishlistTab';
+import FollowListModal from './Profile/components/FollowListModal';
 
-
-const INITIAL_WISHLIST: WishlistProduct[] = [
-  { id: 30, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400', title: 'Áo Bomber Da Đen', price: 1650000, condition: 'Tốt', seller: 'vintage_co', views: 432, isPublic: true },
-  { id: 31, image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?w=400', title: 'Áo Da Lộn Nâu', price: 2100000, condition: 'Tuyệt Vời', seller: 'retro_finds', views: 678, isPublic: false },
-  { id: 32, image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400', title: 'Áo Khoác Denim Vintage', price: 950000, condition: 'Như Mới', seller: 'jean_collector', views: 234, isPublic: true },
-];
 
 const AVATAR_COLORS = [
   '#2D5A3D', '#1a1a2e', '#0f3460', '#533483', '#2d6a4f', '#b5451b', '#774936', '#374151',
@@ -50,9 +50,41 @@ const AVAILABLE_BADGES = [
 ];
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
-function initials(name: string) {
+function initials(name: string | undefined | null) {
+  if (!name) return 'U';
   return name.trim().split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase();
 }
+
+// ─── Password Validation (pure, reusable) ────────────────────────────────────
+export function validateNewPassword(
+  password: string,
+  username?: string,
+  email?: string
+): string | null {
+  if (password.length < 8)
+    return 'Mật khẩu mới phải có ít nhất 8 ký tự';
+  if (!/[A-Z]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 chữ hoa (A-Z)';
+  if (!/[a-z]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 chữ thường (a-z)';
+  if (!/[0-9]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 chữ số (0-9)';
+  if (!/[@#$!%*?&]/.test(password))
+    return 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (@, #, $, !, %, *, ?, &)';
+
+  const lower = password.toLowerCase();
+  if (username && username.length >= 3 && lower.includes(username.toLowerCase()))
+    return 'Mật khẩu không được chứa tên đăng nhập của bạn';
+
+  if (email) {
+    const emailLocal = email.split('@')[0].toLowerCase();
+    if (emailLocal.length >= 4 && lower.includes(emailLocal))
+      return 'Mật khẩu không được chứa thông tin email của bạn';
+  }
+
+  return null;
+}
+
 
 const mapProfileToUI = (profile: UserProfile): ProfileData => ({
   name: profile.fullName,
@@ -65,11 +97,14 @@ const mapProfileToUI = (profile: UserProfile): ProfileData => ({
   city: profile.city ?? '',
   bio: profile.bio ?? '',
   avatarColor: '#2D5A3D',
+  avatarUrl: profile.avatarUrl ?? '',
 });
 
 /* ─── component ──────────────────────────────────────────────────────────── */
 export default function UserProfilePage() {
+  const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialTab = (searchParams.get('tab') as TabKey) || 'profile';
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
 
@@ -78,27 +113,41 @@ export default function UserProfilePage() {
     isLoading,
     error,
     refetch,
-  } = useUserProfile();
+  } = useUserProfile(id);
 
   const {
     products: myProducts,
     isLoading: isProductsLoading,
     error: productsError,
     refetch: refetchProducts,
-  } = useMyProducts();
+  } = useMyProducts(id);
 
+  const { wishlistIds } = useWishlist();
+  const { changePassword } = useAuth();
   const { updateProfile, isUpdating, updateError } = useUpdateProfile();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string; phone?: string; birthday?: string }>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const soldCount = userProfile?.soldCount ?? 156;
   const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : myProducts.length;
-  const followerCount = userProfile?.followerCount ?? 2500;
-  const responseRate = userProfile?.responseRate ?? 98;
+  
+  const [localFollowerCount, setLocalFollowerCount] = useState(0);
+  const [localFollowingCount, setLocalFollowingCount] = useState(0);
 
-  const formattedFollowers = followerCount >= 1000 
-    ? `${(followerCount / 1000).toFixed(1).replace('.0', '')}k`
-    : followerCount.toString();
+  useEffect(() => {
+    setLocalFollowerCount(userProfile?.followerCount ?? 0);
+    setLocalFollowingCount(userProfile?.followingCount ?? 0);
+  }, [userProfile?.followerCount, userProfile?.followingCount]);
+
+
+  const formattedFollowers = localFollowerCount >= 1000 
+    ? `${(localFollowerCount / 1000).toFixed(1).replace('.0', '')}k`
+    : localFollowerCount.toString();
+    
+  const formattedFollowing = localFollowingCount >= 1000 
+    ? `${(localFollowingCount / 1000).toFixed(1).replace('.0', '')}k`
+    : localFollowingCount.toString();
 
   const joinedDate = userProfile?.createdAt ? new Date(userProfile.createdAt) : null;
   const joinedStr = joinedDate 
@@ -118,7 +167,14 @@ export default function UserProfilePage() {
   const [showBadgeSelector, setShowBadgeSelector] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState('premium-gold');
   const [isOnline, setIsOnline] = useState(true);
-  const [wishlistProducts, setWishlistProducts] = useState<WishlistProduct[]>(INITIAL_WISHLIST);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  
+  // Follow UI states
+  const { currentUser } = useAuth();
+  const isOwnProfile = !id || (currentUser?.id && id && currentUser.id.toString() === id);
+  const { toggleFollow, isLoading: isToggleFollowLoading } = useToggleFollow();
+  const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
+  const [followModalType, setFollowModalType] = useState<'followers' | 'following'>('followers');
 
   const DEFAULT_PROFILE: ProfileData = {
     name: '',
@@ -131,6 +187,7 @@ export default function UserProfilePage() {
     city: '',
     bio: '',
     avatarColor: '#2D5A3D',
+    avatarUrl: '',
   };
 
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
@@ -143,6 +200,7 @@ export default function UserProfilePage() {
 
     setProfile(mapped);
     setDraft(mapped);
+    setIsFollowing(userProfile.isFollowing ?? false);
   }, [userProfile]);
 
   // Password state
@@ -150,6 +208,7 @@ export default function UserProfilePage() {
   const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   // Khai báo refs cho các timeout để tránh memory leak
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,6 +266,7 @@ export default function UserProfilePage() {
         address: draft.address || undefined,
         city: draft.city || undefined,
         bio: draft.bio || undefined,
+        avatarUrl: draft.avatarUrl || undefined,
       });
 
       setProfile(draft);
@@ -231,38 +291,66 @@ export default function UserProfilePage() {
     setAvatarPickerOpen(false);
   }, [profile]);
 
-  const handlePasswordChange = useCallback(() => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ảnh vượt quá giới hạn 5MB.');
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+      const res = await uploadAvatarAPI(file);
+      if (res.success && res.url) {
+        setDraft((prev) => ({ ...prev, avatarUrl: res.url }));
+        toast.success('Đã tải ảnh lên thành công. Vui lòng nhấn Lưu thay đổi để hoàn tất!');
+        // Update the current profile to show the image immediately in UI preview
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi tải ảnh lên.');
+    } finally {
+      setIsUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
+
+  const handlePasswordChange = useCallback(async () => {
     setPwError('');
-    
-    if (!pwForm.current) { 
-      setPwError('Vui lòng nhập mật khẩu hiện tại'); 
-      return; 
+    setPwSuccess(false);
+    setHasAttemptedSubmit(true);
+
+    const hasEmpty = !pwForm.current || !pwForm.next || !pwForm.confirm;
+    const complexityError = validateNewPassword(pwForm.next, profile.username, profile.email);
+    const isMismatch = pwForm.next !== pwForm.confirm;
+
+    if (hasEmpty || complexityError || isMismatch) {
+      return;
     }
-    
-    // TODO: Phase B - Gọi API verify mật khẩu hiện tại
-    // const { verifyCurrentPassword } = useAuth();
-    // const isValid = await verifyCurrentPassword(pwForm.current);
-    // if (!isValid) {
-    //   setPwError('Mật khẩu hiện tại không đúng');
-    //   return;
-    // }
-    
-    if (pwForm.next.length < 3) { 
-      setPwError('Mật khẩu mới phải có ít nhất 3 ký tự'); 
-      return; 
+
+    try {
+      setIsChangingPassword(true);
+      await changePassword({
+        currentPassword: pwForm.current,
+        newPassword: pwForm.next,
+        confirmPassword: pwForm.confirm
+      });
+      setPwSuccess(true);
+      setPwForm({ current: '', next: '', confirm: '' });
+      setHasAttemptedSubmit(false);
+
+      if (pwTimeoutRef.current) clearTimeout(pwTimeoutRef.current);
+      pwTimeoutRef.current = setTimeout(() => setPwSuccess(false), 4000);
+    } catch (err: any) {
+      console.error('Lỗi khi đổi mật khẩu:', err);
+      setPwError(err.response?.data?.detail || 'Có lỗi xảy ra khi đổi mật khẩu.');
+    } finally {
+      setIsChangingPassword(false);
     }
-    
-    if (pwForm.next !== pwForm.confirm) { 
-      setPwError('Xác nhận mật khẩu không khớp'); 
-      return; 
-    }
-    
-    setPwSuccess(true);
-    setPwForm({ current: '', next: '', confirm: '' });
-    
-    if (pwTimeoutRef.current) clearTimeout(pwTimeoutRef.current);
-    pwTimeoutRef.current = setTimeout(() => setPwSuccess(false), 4000);
-  }, [pwForm]);
+  }, [pwForm, changePassword, profile.username, profile.email]);
+
 
   const togglePublicView = useCallback(() => {
     setPublicViewMode((prev) => {
@@ -279,12 +367,12 @@ export default function UserProfilePage() {
   const dynamicTabs = [
     { key: 'profile' as TabKey, label: 'Hồ Sơ', icon: <User className="w-4 h-4" /> },
     { key: 'products' as TabKey, label: 'Đang Bán', icon: <Package className="w-4 h-4" />, badge: sellingCount.toString() },
-    { key: 'wishlist' as TabKey, label: 'Yêu Thích', icon: <Heart className="w-4 h-4" />, badge: '12' },
+    { key: 'wishlist' as TabKey, label: 'Yêu Thích', icon: <Heart className="w-4 h-4" />, badge: wishlistIds.length.toString() },
     { key: 'security' as TabKey, label: 'Bảo Mật', icon: <Lock className="w-4 h-4" /> },
   ];
 
   const visibleTabs = publicViewMode
-    ? dynamicTabs.filter(tab => ['profile', 'products', 'wishlist'].includes(tab.key))
+    ? dynamicTabs.filter(tab => ['profile', 'products'].includes(tab.key))
     : dynamicTabs;
 
   const currentBadge = AVAILABLE_BADGES.find(b => b.id === selectedBadge) || AVAILABLE_BADGES[0];
@@ -315,31 +403,29 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Banner */}
-      <div
-        className="h-52 relative overflow-hidden bg-gradient-to-r from-[#2D5A3D] via-[#3D7054] to-[#2D5A3D]"
-      >
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='40' cy='40' r='35' fill='none' stroke='white' stroke-width='0.5'/%3E%3Ccircle cx='40' cy='40' r='20' fill='none' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E")`,
-          }}
-        />
+      {/* Banner - Abstract Mesh Gradient */}
+      <div className="h-72 relative overflow-hidden bg-[#2D5A3D]">
+        {/* Animated Mesh Gradients */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-60 mix-blend-screen">
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[150%] bg-gradient-to-br from-[#3D7054] to-[#C4603A]/30 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[120%] bg-gradient-to-bl from-[#C4603A]/20 to-[#2D5A3D] rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '1s' }} />
+        </div>
+        <div className="absolute inset-0 bg-black/10" />
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Profile card */}
-        <div className="relative -mt-36 mb-6">
-          <div className="bg-white rounded-3xl shadow-xl p-8">
+        {/* Profile card - Glassmorphism */}
+        <div className="relative -mt-40 mb-8">
+          <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] p-8 md:p-10">
             {saveSuccess && (
-              <div className="mb-6 bg-green-50 border border-green-200 text-green-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5">
+              <div className="mb-6 bg-green-50/80 backdrop-blur-sm border border-green-200 text-green-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5 shadow-sm">
                 <CheckCircle className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium">Đã lưu thông tin thành công!</span>
               </div>
             )}
 
             {(profileError || updateError) && (
-              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5">
+              <div className="mb-6 bg-red-50/80 backdrop-blur-sm border border-red-200 text-red-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5 shadow-sm">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium">{profileError || updateError}</span>
               </div>
@@ -349,11 +435,14 @@ export default function UserProfilePage() {
               {/* Avatar */}
               <div className="relative flex-shrink-0">
                 <div
-                  className="w-32 h-32 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg select-none"
-                  style={{ backgroundColor: isEditing ? draft.avatarColor : profile.avatarColor }}
+                  className="w-32 h-32 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg select-none bg-cover bg-center overflow-hidden"
+                  style={{ 
+                    backgroundColor: isEditing ? draft.avatarColor : profile.avatarColor,
+                    backgroundImage: (isEditing ? draft.avatarUrl : profile.avatarUrl) ? `url(${isEditing ? draft.avatarUrl : profile.avatarUrl})` : 'none'
+                  }}
                 >
-                  {initials(isEditing ? draft.name : profile.name)}
-                  {isEditing && (
+                  {!(isEditing ? draft.avatarUrl : profile.avatarUrl) && initials(isEditing ? draft.name : profile.name)}
+                  {isEditing && isOwnProfile && (
                     <button
                       onClick={() => setAvatarPickerOpen(!avatarPickerOpen)}
                       className="absolute inset-0 bg-black/35 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
@@ -372,19 +461,31 @@ export default function UserProfilePage() {
                   </div>
                 </div>
 
-                {/* Color picker */}
-                {avatarPickerOpen && isEditing && (
-                  <div className="absolute top-36 left-0 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-20">
-                    <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Màu avatar</p>
+                {/* Color/Image picker */}
+                {avatarPickerOpen && isEditing && isOwnProfile && (
+                  <div className="absolute top-36 left-0 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-20 min-w-[200px]">
+                    <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Ảnh đại diện</p>
+                    <div className="mb-4 flex flex-col gap-2">
+                        <input type="file" id="avatarUpload" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploadingAvatar} />
+                        <label htmlFor="avatarUpload" className={`flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-sm font-medium rounded-lg transition-colors border border-gray-200 justify-center ${isUploadingAvatar ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                            {isUploadingAvatar ? (
+                                <div className="w-4 h-4 border-2 border-[#2D5A3D] border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                                <Camera className="w-4 h-4" />
+                            )}
+                            {isUploadingAvatar ? 'Đang tải lên...' : 'Tải ảnh lên'}
+                        </label>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Hoặc chọn màu</p>
                     <div className="grid grid-cols-4 gap-2">
                       {AVATAR_COLORS.map((color) => (
                         <button
                           key={color}
-                          onClick={() => setDraft((p) => ({ ...p, avatarColor: color }))}
+                          onClick={() => setDraft((p) => ({ ...p, avatarColor: color, avatarUrl: '' }))}
                           className={`w-10 h-10 rounded-full transition-transform hover:scale-110 ${
-                            draft.avatarColor === color ? 'ring-3 ring-offset-2 ring-gray-800 scale-110' : ''
+                            draft.avatarColor === color && !draft.avatarUrl ? 'ring-3 ring-offset-2 ring-gray-800 scale-110' : ''
                           }`}
-                          style={{ backgroundColor: color, outline: draft.avatarColor === color ? '2px solid #374151' : 'none', outlineOffset: '2px' }}
+                          style={{ backgroundColor: color, outline: draft.avatarColor === color && !draft.avatarUrl ? '2px solid #374151' : 'none', outlineOffset: '2px' }}
                         />
                       ))}
                     </div>
@@ -417,16 +518,11 @@ export default function UserProfilePage() {
                 </div>
                 <p className="text-gray-600 text-sm leading-relaxed max-w-2xl line-clamp-2 mb-3">{profile.bio}</p>
 
-                {/* Rating stars */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-gray-900">⭐ 4.9</span>
-                  <span className="text-sm text-gray-500">(234 đánh giá)</span>
-                </div>
               </div>
 
               {/* Actions */}
               <div className="flex flex-col gap-3 flex-shrink-0 w-full md:w-auto">
-                {isEditing ? (
+                {isEditing && isOwnProfile ? (
                   <>
                     <button
                       onClick={handleSave}
@@ -452,24 +548,38 @@ export default function UserProfilePage() {
                       <X className="w-4 h-4" /> Hủy
                     </button>
                   </>
-                ) : publicViewMode ? (
+                ) : !isOwnProfile ? (
                   <>
                     <button
-                      onClick={() => setIsFollowing(!isFollowing)}
+                      onClick={async () => {
+                        if (!currentUser) {
+                          toast.error('Vui lòng đăng nhập để theo dõi.');
+                          navigate('/login');
+                          return;
+                        }
+                        if (userProfile) {
+                          const result = await toggleFollow(userProfile.userId);
+                          if (result) {
+                            setIsFollowing(result.isFollowing);
+                            setLocalFollowerCount(prev => result.isFollowing ? prev + 1 : prev - 1);
+                          }
+                        }
+                      }}
+                      disabled={isToggleFollowLoading}
                       className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-full transition-all text-sm font-semibold ${
                         isFollowing
                           ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           : 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white hover:shadow-lg'
-                      }`}
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                      <UserPlus className="w-4 h-4" /> {isFollowing ? 'Đang Theo Dõi' : 'Theo Dõi'}
-                    </button>
-                    <button
-                      onClick={togglePublicView}
-                      className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full hover:bg-gray-50 transition-colors text-sm font-medium"
-                      title="Quay lại chế độ riêng tư"
-                    >
-                      <EyeOff className="w-4 h-4" /> Chế Độ Riêng Tư
+                      {isToggleFollowLoading ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : isFollowing ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <UserPlus className="w-4 h-4" />
+                      )}
+                      {isFollowing ? 'Đang Theo Dõi' : 'Theo dõi'}
                     </button>
                   </>
                 ) : (
@@ -485,7 +595,8 @@ export default function UserProfilePage() {
                       className="flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-600 px-6 py-2.5 rounded-full hover:bg-gray-50 transition-colors text-sm font-medium"
                       title="Xem ở chế độ công khai"
                     >
-                      <Eye className="w-4 h-4" /> Chế Độ Công Khai
+                      {publicViewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {publicViewMode ? 'Đang xem công khai' : 'Chế Độ Công Khai'}
                     </button>
                   </>
                 )}
@@ -493,48 +604,68 @@ export default function UserProfilePage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-6 mt-6 pt-6 border-t border-gray-100">
-              {[
-                { label: 'Đã Bán', value: soldCount.toString() },
-                { label: 'Đang Bán', value: sellingCount.toString() },
-                { label: 'Người Theo Dõi', value: formattedFollowers },
-                { label: 'Tỉ Lệ Phản Hồi', value: `${responseRate}%` },
-              ].map((s) => (
-                <div key={s.label} className="text-center">
-                  <div className="text-2xl font-bold text-[#2D5A3D]">{s.value}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
-                </div>
-              ))}
+            <div className="grid grid-cols-3 gap-4 md:gap-6 mt-8 pt-8 border-t border-gray-200/50">
+              <div className="flex flex-col items-center p-4 rounded-2xl hover:bg-white/50 transition-colors">
+                <div className="text-3xl font-black text-[#2D5A3D] drop-shadow-sm">{sellingCount}</div>
+                <div className="text-sm font-medium text-gray-500 mt-1 uppercase tracking-wider">Đang Bán</div>
+              </div>
+              <div 
+                className="flex flex-col items-center p-4 rounded-2xl hover:bg-[#2D5A3D]/5 hover:scale-105 transition-all cursor-pointer group"
+                onClick={() => {
+                  setFollowModalType('followers');
+                  setIsFollowModalOpen(true);
+                }}
+              >
+                <div className="text-3xl font-black text-[#2D5A3D] drop-shadow-sm group-hover:text-[#3D7054] transition-colors">{formattedFollowers}</div>
+                <div className="text-sm font-medium text-gray-500 mt-1 uppercase tracking-wider group-hover:text-[#2D5A3D] transition-colors">Follower</div>
+              </div>
+              <div 
+                className="flex flex-col items-center p-4 rounded-2xl hover:bg-[#2D5A3D]/5 hover:scale-105 transition-all cursor-pointer group"
+                onClick={() => {
+                  setFollowModalType('following');
+                  setIsFollowModalOpen(true);
+                }}
+              >
+                <div className="text-3xl font-black text-[#2D5A3D] drop-shadow-sm group-hover:text-[#3D7054] transition-colors">{formattedFollowing}</div>
+                <div className="text-sm font-medium text-gray-500 mt-1 uppercase tracking-wider group-hover:text-[#2D5A3D] transition-colors">Đã Follow</div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-6 overflow-x-auto pb-1">
-          <div className="bg-white rounded-2xl shadow-sm p-1.5 inline-flex gap-1">
-            {visibleTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === tab.key
-                    ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-                {tab.badge && (
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                      activeTab === tab.key ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
+        {/* Tabs - Pill format */}
+        <div className="mb-8 flex justify-center overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+          <div className="bg-white/60 backdrop-blur-md rounded-full shadow-sm p-1.5 inline-flex gap-2 border border-white/40">
+            {visibleTabs.map((tab) => {
+              if (!isOwnProfile && (tab.key === 'security' || tab.key === 'wishlist')) return null;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-2.5 px-6 py-2.5 rounded-full text-[15px] font-semibold transition-all whitespace-nowrap relative ${
+                    isActive
+                      ? 'text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                  }`}
+                >
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] rounded-full -z-10 shadow-[0_4px_12px_rgba(45,90,61,0.3)]" />
+                  )}
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                        isActive ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -544,9 +675,9 @@ export default function UserProfilePage() {
             <ProfileTab
               profile={profile}
               draft={draft}
-              isEditing={isEditing}
+              isEditing={isEditing && isOwnProfile}
               setDraft={setDraft}
-              publicViewMode={publicViewMode}
+              publicViewMode={publicViewMode || !isOwnProfile}
               errors={errors}
               clearError={clearError}
             />
@@ -563,13 +694,11 @@ export default function UserProfilePage() {
 
           {activeTab === 'wishlist' && (
             <WishlistTab
-              wishlistProducts={wishlistProducts}
               publicViewMode={publicViewMode}
-              setWishlistProducts={setWishlistProducts}
             />
           )}
 
-          {activeTab === 'security' && (
+          {activeTab === 'security' && isOwnProfile && (
             <SecurityTab
               pwForm={pwForm}
               setPwForm={setPwForm}
@@ -578,6 +707,11 @@ export default function UserProfilePage() {
               pwError={pwError}
               pwSuccess={pwSuccess}
               handlePasswordChange={handlePasswordChange}
+              isSubmitting={isChangingPassword}
+              username={profile.username}
+              email={profile.email}
+              hasAttemptedSubmit={hasAttemptedSubmit}
+              setHasAttemptedSubmit={setHasAttemptedSubmit}
             />
           )}
         </div>
@@ -631,6 +765,26 @@ export default function UserProfilePage() {
               </div>
             </div>
           </>
+        )}
+
+        {/* Follow List Modal */}
+        {userProfile && (
+          <FollowListModal
+            isOpen={isFollowModalOpen}
+            onClose={() => setIsFollowModalOpen(false)}
+            userId={userProfile.userId}
+            type={followModalType}
+            onFollowToggle={(targetUserId, newIsFollowing) => {
+              if (isOwnProfile) {
+                // If viewing own profile, following/unfollowing someone affects YOUR following count
+                setLocalFollowingCount(prev => newIsFollowing ? prev + 1 : prev - 1);
+              } else if (targetUserId === userProfile.userId) {
+                // If viewing someone else's profile, and we toggle follow on THEM
+                setIsFollowing(newIsFollowing);
+                setLocalFollowerCount(prev => newIsFollowing ? prev + 1 : prev - 1);
+              }
+            }}
+          />
         )}
       </div>
     </div>

@@ -8,8 +8,12 @@ export interface ProductResponse {
   imageUrl: string;
   sellerName: string;
   isPremium: boolean;
+  bannerUrl?: string;
   viewCount: number;
+  likeCount?: number;
   createdAt: string;
+  productExpiredAt?: string;
+  productStatus?: string;
 }
 // thanh end
 
@@ -27,7 +31,6 @@ export interface CreateProductRequestDto {
     bannerUrl: string | null;
 }
 
-// Trong src/features/products/types/index.ts
 export interface ProductResponseDto {
     productId: number;
     title: string;
@@ -36,9 +39,15 @@ export interface ProductResponseDto {
     location: string;
     imageUrl: string;
     sellerName: string;
+    sellerId?: number;
+    sellerAvatar?: string;
     isPremium: boolean;
+    bannerUrl?: string;
     viewCount: number;
+    likeCount?: number;
     createdAt: string;
+    productExpiredAt?: string;
+    productStatus?: string;
 }
 
 export interface PagedResult<T> {
@@ -73,9 +82,13 @@ export interface ProductDetailResponseDto {
     videoUrl?: string;
     isPremium: boolean;
     viewCount: number;
+    likeCount?: number;
     createdAt: string;
+    productExpiredAt?: string;
     sellerName: string;
+    sellerId: number;
     sellerUsername: string;
     sellerAvatar: string;
     sellerPhone: string;
+    isFollowingSeller?: boolean;
 }

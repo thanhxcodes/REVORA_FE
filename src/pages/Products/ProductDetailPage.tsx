@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Heart, Flag, MessageCircle, Star, Shield, Package, Send, ThumbsUp } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Heart, Flag, MessageCircle, Star, Shield, Package, Send, ThumbsUp, MoreHorizontal, Edit2, Trash2, ChevronDown, X } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
   getProductDetailAPI, 
   getProductCommentsAPI, 
   addProductCommentAPI, 
-  toggleLikeCommentAPI 
+  toggleLikeCommentAPI,
+  editProductCommentAPI,
+  deleteProductCommentAPI
 } from '../../features/products/services/productApi';
 import { ProductDetailResponseDto } from '../../features/products/types';
+import { useAuth } from '../../providers/authProvider/AuthContext';
+import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
+import { getUserProfileAPI } from '../../features/profile/services/profileService';
+import { useToggleFollow } from '../../features/profile/hooks/useFollow';
+import { Loader2, UserPlus, Check } from 'lucide-react';
 
 // Hàm helper tính thời gian đăng bình luận
 const timeAgo = (dateStr: string) => {
@@ -19,6 +26,209 @@ const timeAgo = (dateStr: string) => {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} giờ trước`;
   return `${Math.floor(hours / 24)} ngày trước`;
+};
+
+const CommentInput = ({ 
+  currentUser, inputText, setInputText, sendComment, isSubmittingComment, 
+  editingCommentId, replyingToName, cancelReplyOrEdit, autoFocus = false 
+}: any) => {
+  return (
+    <div className="flex gap-3 w-full">
+      <div className="w-8 h-8 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+        {(currentUser?.fullName || 'U').charAt(0).toUpperCase()}
+      </div>
+      <div className="flex-1 bg-white border border-gray-200 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-[#2D5A3D]/30 focus-within:border-transparent transition-all">
+        {(replyingToName || editingCommentId) && (
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-600 flex items-center gap-2">
+              {editingCommentId ? <Edit2 className="w-3 h-3" /> : <MessageCircle className="w-3 h-3" />}
+              {editingCommentId ? 'Đang sửa bình luận' : `Đang trả lời ${replyingToName}`}
+            </span>
+            <button onClick={cancelReplyOrEdit} className="p-1 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+        <textarea
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder={editingCommentId ? "Sửa bình luận..." : replyingToName ? `Trả lời ${replyingToName}...` : "Bạn có thắc mắc gì về sản phẩm này?"}
+          className="w-full px-4 py-2.5 focus:outline-none resize-none bg-transparent text-sm"
+          rows={2}
+          autoFocus={autoFocus}
+        />
+        <div className="flex justify-end px-3 pb-2.5">
+          <button
+            onClick={sendComment}
+            disabled={!inputText.trim() || isSubmittingComment}
+            className="flex items-center gap-1.5 bg-[#2D5A3D] text-white px-4 py-1.5 rounded-xl hover:bg-[#234830] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
+          >
+            <Send className="w-3 h-3" />
+            <span>{isSubmittingComment ? 'Đang gửi...' : (editingCommentId ? 'Cập nhật' : 'Gửi')}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
+// COMPONENT RENDER BÌNH LUẬN (CHUYỂN RA NGOÀI ĐỂ TRÁNH RE-RENDER MẤT SCROLL)
+// -------------------------------------------------------------
+const CommentItem = ({ 
+  comment, isReply, parentComment, 
+  currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId,
+  startEdit, executeDelete, handleLike, startReply, inputProps
+}: any) => {
+  const isOwner = currentUser?.id === comment.userId;
+  const showParentName = isReply && parentComment; 
+
+  return (
+    <div className={`flex gap-3 ${isReply ? 'mt-3' : 'mt-5'}`}>
+      <div className={`${isReply ? 'w-8 h-8' : 'w-10 h-10'} bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden`}>
+        {comment.avatarUrl && comment.avatarUrl.length > 1 ? (
+           <img src={comment.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+        ) : (
+           (comment.fullName || 'U').charAt(0).toUpperCase()
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-start">
+           <div className="flex-1 bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100 relative group">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-sm font-bold text-gray-900">
+                  {comment.fullName}
+                  {showParentName && <><span className="text-gray-400 font-normal mx-1.5 text-xs">▶</span><span className="text-xs font-medium text-gray-600">{parentComment.fullName}</span></>}
+                </span>
+                <span className="text-[10px] text-gray-400">{timeAgo(comment.createdAt)}</span>
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed break-words">{comment.content}</p>
+              
+              {isOwner && (
+                <div className="absolute top-2 right-2">
+                   <button 
+                     onClick={() => {
+                       if (openDropdownId === comment.commentId) {
+                         setOpenDropdownId(null);
+                         setConfirmDeleteId(null);
+                       } else {
+                         setOpenDropdownId(comment.commentId);
+                       }
+                     }} 
+                     className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                   >
+                     <MoreHorizontal className="w-4 h-4" />
+                   </button>
+                   {openDropdownId === comment.commentId && (
+                     <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-50 py-1">
+                       {confirmDeleteId === comment.commentId ? (
+                          <div className="p-3">
+                             <p className="text-xs text-gray-800 font-medium mb-3 text-center">Chắc chắn xóa?</p>
+                             <div className="flex gap-2 justify-center">
+                                <button onClick={() => setConfirmDeleteId(null)} className="flex-1 px-2 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Hủy</button>
+                                <button onClick={() => executeDelete(comment.commentId)} className="flex-1 px-2 py-1.5 text-xs font-medium text-white bg-red-500 rounded-lg hover:bg-red-600">Xóa</button>
+                             </div>
+                          </div>
+                       ) : (
+                         <>
+                           <button 
+                             onClick={() => { startEdit(comment.commentId, comment.content); setOpenDropdownId(null); }}
+                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                           >
+                             <Edit2 className="w-3.5 h-3.5" /> Sửa
+                           </button>
+                           <button 
+                             onClick={() => setConfirmDeleteId(comment.commentId)}
+                             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                           >
+                             <Trash2 className="w-3.5 h-3.5" /> Xóa
+                           </button>
+                         </>
+                       )}
+                     </div>
+                   )}
+                </div>
+              )}
+           </div>
+           
+           <div className="flex flex-col items-center ml-3 pt-2">
+              <button onClick={() => handleLike(comment.commentId)}>
+                 <Heart className={`w-4 h-4 ${comment.isLikedByCurrentUser ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-400'}`} />
+              </button>
+              <span className="text-xs text-gray-500 mt-1">{comment.likeCount}</span>
+           </div>
+        </div>
+        
+        <div className="flex items-center gap-4 mt-2 ml-2">
+          <button onClick={() => startReply(comment.commentId, comment.fullName)} className="text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors">
+              Trả lời
+          </button>
+        </div>
+        
+        {/* Render CommentInput trực tiếp bên dưới nếu đang Trả lời hoặc Sửa bình luận này */}
+        {inputProps && ((inputProps.replyingToCommentId === comment.commentId) || (inputProps.editingCommentId === comment.commentId)) && (
+          <div className="mt-3">
+             <CommentInput {...inputProps} autoFocus={true} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const CommentThread = ({ 
+  rootComment, allComments, 
+  currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId,
+  startEdit, executeDelete, handleLike, startReply, inputProps
+}: any) => {
+  const [visibleCount, setVisibleCount] = useState(2);
+  
+  const getDescendants = (parentId: number): any[] => {
+    const children = allComments.filter((c: any) => c.parentId === parentId).sort((a: any,b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    let descendants: any[] = [];
+    for (const child of children) {
+      descendants.push(child);
+      descendants = descendants.concat(getDescendants(child.commentId));
+    }
+    return descendants;
+  };
+
+  const descendants = getDescendants(rootComment.commentId).sort((a: any,b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const visibleReplies = descendants.slice(0, visibleCount);
+  const remaining = descendants.length - visibleCount;
+
+  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply, inputProps };
+
+  return (
+    <div key={rootComment.commentId}>
+      <CommentItem comment={rootComment} isReply={false} {...commonProps} />
+      
+      {descendants.length > 0 && (
+        <div className="ml-[52px]">
+          {visibleReplies.map((reply: any) => (
+            <CommentItem 
+              key={reply.commentId} 
+              comment={reply} 
+              isReply={true} 
+              parentComment={allComments.find((c: any) => c.commentId === reply.parentId)} 
+              {...commonProps}
+            />
+          ))}
+          
+          {remaining > 0 && (
+            <button 
+              onClick={() => setVisibleCount(prev => prev + 3)}
+              className="mt-3 text-xs font-semibold text-[#2D5A3D] hover:text-[#234830] flex items-center gap-2"
+            >
+              <span className="w-6 h-[1px] bg-gray-300 inline-block"></span> 
+              Xem thêm {remaining} câu trả lời
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function ProductDetailPage() {
@@ -32,8 +242,23 @@ export default function ProductDetailPage() {
 
   // States Bình Luận
   const [comments, setComments] = useState<any[]>([]);
-  const [newComment, setNewComment] = useState('');
+  const [inputText, setInputText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  // States Giao diện Bình luận mới
+  const { currentUser } = useAuth();
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
+  const [replyingToName, setReplyingToName] = useState<string>('');
+
+  // Wishlist Context
+  const { wishlistIds, toggleWishlist, isWishlisted } = useWishlist();
+
+  // Follow State
+  const [isFollowingSeller, setIsFollowingSeller] = useState(false);
+  const { toggleFollow, isLoading: isToggleFollowLoading } = useToggleFollow();
 
   // FETCH DỮ LIỆU TỪ BACKEND
   useEffect(() => {
@@ -58,8 +283,26 @@ export default function ProductDetailPage() {
         
         if (productRes && productRes.success && productRes.data) {
           setProductDetail(productRes.data);
+          if (productRes.data.isFollowingSeller !== undefined) {
+            setIsFollowingSeller(productRes.data.isFollowingSeller);
+          } else if (productRes.data.sellerId) {
+            getUserProfileAPI(productRes.data.sellerId).then(profileRes => {
+              if (profileRes.success && profileRes.data) {
+                setIsFollowingSeller(profileRes.data.isFollowing ?? false);
+              }
+            }).catch(e => console.log('Could not fetch seller profile', e));
+          }
         } else if (productRes && productRes.productId) {
           setProductDetail(productRes);
+          if (productRes.isFollowingSeller !== undefined) {
+            setIsFollowingSeller(productRes.isFollowingSeller);
+          } else if (productRes.sellerId) {
+            getUserProfileAPI(productRes.sellerId).then(profileRes => {
+              if (profileRes.success && profileRes.data) {
+                setIsFollowingSeller(profileRes.data.isFollowing ?? false);
+              }
+            }).catch(e => console.log('Could not fetch seller profile', e));
+          }
         } else {
           setProductDetail(null);
         }
@@ -82,6 +325,11 @@ export default function ProductDetailPage() {
 
   // LOGIC NHÚNG ZALO & CHAT NỘI BỘ
   const openZaloChat = () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để chat với người bán.');
+      navigate('/login');
+      return;
+    }
     if (!productDetail?.sellerPhone) {
       return toast.error('Người bán chưa cập nhật số điện thoại Zalo.');
     }
@@ -93,6 +341,11 @@ export default function ProductDetailPage() {
   };
 
   const openInternalChat = () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để chat nội bộ.');
+      navigate('/login');
+      return;
+    }
     if (!productDetail) return;
     const formattedPrice = Number(productDetail.price || 0).toLocaleString('vi-VN') + 'đ';
     const message = `Chào shop! Sản phẩm "${productDetail.title}" (${formattedPrice}) còn hàng không ạ?`;
@@ -101,6 +354,7 @@ export default function ProductDetailPage() {
       new CustomEvent('revora:openChat', {
         detail: {
           seller: { 
+            id: productDetail.sellerId,
             username: productDetail.sellerUsername, 
             name: productDetail.sellerName, 
             avatar: productDetail.sellerAvatar 
@@ -119,28 +373,100 @@ export default function ProductDetailPage() {
     );
   };
 
-  // THÊM BÌNH LUẬN
-  const handleAddComment = async () => {
-    if (!newComment.trim() || !id) return;
-    
+  // THÊM HOẶC SỬA BÌNH LUẬN
+  const sendComment = async () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để bình luận.');
+      navigate('/login');
+      return;
+    }
+    if (!inputText.trim() || !id) return;
+
+    setIsSubmittingComment(true);
     try {
-      setIsSubmittingComment(true);
-      const res = await addProductCommentAPI(id, newComment);
-      if (res.success) {
-        setComments([res.data, ...comments]); // Đẩy bình luận mới lên đầu
-        setNewComment('');
-        toast.success('Đã gửi bình luận!');
+      if (editingCommentId) {
+        // SỬA BÌNH LUẬN
+        const res = await editProductCommentAPI(id, editingCommentId, inputText);
+        if (res && res.success) {
+          setComments(prev => prev.map(c => c.commentId === editingCommentId ? res.data : c));
+          setInputText('');
+          setEditingCommentId(null);
+        }
+      } else {
+        // THÊM HOẶC TRẢ LỜI
+        const parentId = replyingToCommentId || undefined;
+        const res = await addProductCommentAPI(id, inputText, parentId);
+        if (res && res.success) {
+          setComments(prev => [res.data, ...prev]);
+          setInputText('');
+          setReplyingToCommentId(null);
+          setReplyingToName('');
+        }
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Vui lòng đăng nhập để bình luận.');
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
       setIsSubmittingComment(false);
     }
   };
 
+  const startReply = (commentId: number, fullName: string) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để trả lời bình luận.');
+      navigate('/login');
+      return;
+    }
+    setReplyingToCommentId(commentId);
+    setReplyingToName(fullName);
+    setEditingCommentId(null);
+    setInputText('');
+  };
+
+  const startEdit = (commentId: number, content: string) => {
+    setEditingCommentId(commentId);
+    setInputText(content);
+    setReplyingToCommentId(null);
+    setReplyingToName('');
+  };
+
+  const cancelReplyOrEdit = () => {
+    setReplyingToCommentId(null);
+    setReplyingToName('');
+    setEditingCommentId(null);
+    setInputText('');
+  };
+
+  const executeDelete = async (commentId: number) => {
+    try {
+      if (!id) return;
+      await deleteProductCommentAPI(id, commentId);
+      
+      const getDescendantsIds = (parentId: number): number[] => {
+        const children = comments.filter((c: any) => c.parentId === parentId);
+        let ids = children.map(c => c.commentId);
+        for (const child of children) {
+          ids = ids.concat(getDescendantsIds(child.commentId));
+        }
+        return ids;
+      };
+
+      const idsToRemove = [commentId, ...getDescendantsIds(commentId)];
+      setComments(prev => prev.filter(c => !idsToRemove.includes(c.commentId)));
+      setConfirmDeleteId(null);
+      setOpenDropdownId(null);
+    } catch (error: any) {
+      toast.error('Xóa thất bại.');
+    }
+  };
+
   // LIKE BÌNH LUẬN (Optimistic UI Update)
-  const handleLikeComment = async (commentId: number) => {
+  const handleLike = async (commentId: number) => {
     if (!id) return;
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      navigate('/login');
+      return;
+    }
 
     // Cập nhật UI trước cho mượt
     setComments(comments.map(c => 
@@ -152,8 +478,8 @@ export default function ProductDetailPage() {
     try {
       await toggleLikeCommentAPI(id, commentId);
     } catch (error) {
-      toast.error('Vui lòng đăng nhập để thích bình luận.');
-      // Hoàn tác UI nếu lỗi
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      // Rollback nếu lỗi
       setComments(comments.map(c => 
         c.commentId === commentId 
           ? { ...c, isLikedByCurrentUser: !c.isLikedByCurrentUser, likeCount: !c.isLikedByCurrentUser ? c.likeCount - 1 : c.likeCount + 1 } 
@@ -161,6 +487,11 @@ export default function ProductDetailPage() {
       ));
     }
   };
+
+  const inputProps = { currentUser, inputText, setInputText, sendComment, isSubmittingComment, editingCommentId, replyingToName, replyingToCommentId, cancelReplyOrEdit };
+
+  const rootComments = comments.filter(c => !c.parentId);
+  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply, allComments: comments, inputProps };
 
   if (isLoading) {
     return (
@@ -191,7 +522,6 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <Toaster position="top-right" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
@@ -260,8 +590,22 @@ export default function ProductDetailPage() {
                     </span>
                   </div>
                 </div>
-                <button className="p-3 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0 text-gray-400">
-                  <Heart className="w-6 h-6" />
+                <button 
+                  onClick={() => {
+                    if (!currentUser) {
+                      toast.error('Vui lòng đăng nhập để thêm vào yêu thích.');
+                      navigate('/login');
+                      return;
+                    }
+                    if (productDetail) toggleWishlist(productDetail.productId);
+                  }}
+                  className={`p-3 rounded-full transition-colors flex-shrink-0 ${
+                    productDetail && isWishlisted(productDetail.productId)
+                      ? 'bg-red-50 text-red-500'
+                      : 'hover:bg-red-50 hover:text-red-500 text-gray-400'
+                  }`}
+                >
+                  <Heart className={`w-6 h-6 ${productDetail && isWishlisted(productDetail.productId) ? 'fill-current' : ''}`} />
                 </button>
               </div>
 
@@ -295,29 +639,73 @@ export default function ProductDetailPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-gray-900 text-lg">{productDetail.sellerName}</h3>
+                      <h3 className="font-bold text-gray-900 text-lg hover:underline cursor-pointer" onClick={() => navigate(`/profile/${productDetail.sellerId}`)}>
+                        {productDetail.sellerName}
+                      </h3>
                       <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px]" title="Đã xác thực">✓</div>
                     </div>
                     <div className="text-sm text-gray-500 mb-2">@{productDetail.sellerUsername}</div>
                   </div>
+                  
+                  {currentUser?.id !== productDetail.sellerId && (
+                    <button
+                      onClick={async () => {
+                        if (!currentUser) {
+                          toast.error('Vui lòng đăng nhập để theo dõi.');
+                          navigate('/login');
+                          return;
+                        }
+                        const result = await toggleFollow(productDetail.sellerId);
+                        if (result) {
+                          setIsFollowingSeller(result.isFollowing);
+                        }
+                      }}
+                      disabled={isToggleFollowLoading}
+                      className={`flex-shrink-0 flex items-center justify-center px-4 py-2 rounded-full text-xs font-semibold transition-all min-w-[110px] ${
+                        isFollowingSeller
+                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          : 'bg-[#2D5A3D] text-white hover:bg-[#234830] shadow-sm'
+                      } disabled:opacity-50`}
+                    >
+                      {isToggleFollowLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isFollowingSeller ? (
+                        <>Đã Follow</>
+                      ) : (
+                        <>Theo Dõi</>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Các nút liên hệ */}
-                <div className="grid grid-cols-2 gap-3 mt-6">
-                  <button
-                    onClick={openZaloChat}
-                    className="w-full bg-[#0068FF] text-white py-3.5 rounded-xl hover:bg-[#0055D4] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Chat Zalo
-                  </button>
-                  <button
-                    onClick={openInternalChat}
-                    className="w-full bg-[#2D5A3D] text-white py-3.5 rounded-xl hover:bg-[#234830] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Chat Nội Bộ
-                  </button>
+                <div className="mt-6">
+                  {currentUser?.id === productDetail.sellerId ? (
+                    <Link
+                      to="/manage-products"
+                      className="w-full bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white py-3.5 rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all font-semibold flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                      Đây là Sản phẩm của bạn (Quản lý)
+                    </Link>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={openZaloChat}
+                        className="w-full bg-[#0068FF] text-white py-3.5 rounded-xl hover:bg-[#0055D4] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        Chat Zalo
+                      </button>
+                      <button
+                        onClick={openInternalChat}
+                        className="w-full bg-[#2D5A3D] text-white py-3.5 rounded-xl hover:bg-[#234830] transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        Chat Nội Bộ
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -357,69 +745,26 @@ export default function ProductDetailPage() {
             </h2>
           </div>
 
-          <div className="mb-8">
-            <div className="flex gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                U
-              </div>
-              <div className="flex-1">
-                <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Bạn có thắc mắc gì về sản phẩm này?"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 resize-none bg-gray-50 focus:bg-white"
-                  rows={3}
-                />
-                <div className="flex justify-end mt-2">
-                  <button
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim() || isSubmittingComment}
-                    className="flex items-center gap-2 bg-[#2D5A3D] text-white px-6 py-2.5 rounded-full hover:bg-[#234830] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>{isSubmittingComment ? 'Đang gửi...' : 'Gửi câu hỏi'}</span>
-                  </button>
-                </div>
-              </div>
+          {/* NHẬP BÌNH LUẬN GỐC (Chỉ hiển thị nếu KHÔNG ĐANG SỬA VÀ KHÔNG ĐANG TRẢ LỜI) */}
+          {!editingCommentId && !replyingToCommentId && (
+            <div className="mb-8">
+              <CommentInput 
+                currentUser={currentUser} 
+                inputText={inputText} 
+                setInputText={setInputText} 
+                sendComment={sendComment} 
+                isSubmittingComment={isSubmittingComment}
+                editingCommentId={null}
+                replyingToName=""
+                cancelReplyOrEdit={cancelReplyOrEdit}
+              />
             </div>
-          </div>
+          )}
 
           <div className="space-y-6">
-            {comments.map((comment) => (
-              <div key={comment.commentId} className="flex gap-3">
-                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 font-bold text-sm flex-shrink-0 overflow-hidden">
-                  {comment.avatarUrl && comment.avatarUrl.length > 1 ? (
-                     <img src={comment.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                  ) : (
-                     (comment.fullName || 'U').charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900 text-sm">{comment.fullName}</span>
-                      </div>
-                      <span className="text-xs text-gray-400 font-medium">{timeAgo(comment.createdAt)}</span>
-                    </div>
-                    <p className="text-gray-700 text-sm leading-relaxed">{comment.content}</p>
-                  </div>
-                  <div className="flex items-center gap-4 mt-2 ml-2">
-                    <button
-                      onClick={() => handleLikeComment(comment.commentId)}
-                      className={`flex items-center gap-1.5 text-xs transition-colors font-medium ${
-                        comment.isLikedByCurrentUser ? 'text-[#2D5A3D]' : 'text-gray-500 hover:text-[#2D5A3D]'
-                      }`}
-                    >
-                      <ThumbsUp className={`w-3.5 h-3.5 ${comment.isLikedByCurrentUser ? 'fill-[#2D5A3D]' : ''}`} />
-                      <span>{comment.likeCount > 0 ? comment.likeCount : 'Hữu ích'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {comments.length === 0 && (
+            {rootComments.length > 0 ? (
+              rootComments.map(c => <CommentThread key={c.commentId} rootComment={c} {...commonProps} />)
+            ) : (
               <div className="text-center py-12">
                 <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500">Chưa có bình luận nào. Hãy là người đầu tiên!</p>

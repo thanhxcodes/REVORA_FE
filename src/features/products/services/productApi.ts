@@ -50,6 +50,37 @@ export const getMyCreditsAPI = async () => {
     return response.data;
 };
 
+// Quản lý tin đăng
+export const getMyProductsAPI = async (status: string = 'all', pageNumber: number = 1, pageSize: number = 10) => {
+    const response = await authClient.get(`/Products/me?status=${status}&pageNumber=${pageNumber}&pageSize=${pageSize}`);
+    return response.data;
+};
+
+export const getMyDeletedProductsAPI = async () => {
+    const response = await authClient.get('/Products/me/deleted');
+    return response.data;
+};
+
+export const updateProductAPI = async (id: string | number, data: CreateProductRequestDto) => {
+    const response = await authClient.put(`/Products/${id}`, data);
+    return response.data;
+};
+
+export const toggleProductStatusAPI = async (id: string | number, status: string) => {
+    const response = await authClient.patch(`/Products/${id}/status`, { status });
+    return response.data;
+};
+
+export const deleteProductAPI = async (id: string | number) => {
+    const response = await authClient.delete(`/Products/${id}`);
+    return response.data;
+};
+
+export const renewProductAPI = async (id: string | number, data: any) => {
+    const response = await authClient.post(`/Products/${id}/renew`, data);
+    return response.data;
+};
+
 // API lấy sản phẩm nổi bật
 export const getFeaturedProductsAPI = async (limit = 10) => {
     // Lưu ý: Các API Get public (không cần token) thì bạn có thể dùng axios bình thường 
@@ -92,12 +123,73 @@ export const getProductCommentsAPI = async (productId: string | number) => {
     return response.data;
 };
 
-export const addProductCommentAPI = async (productId: string | number, content: string) => {
-    const response = await authClient.post(`/Products/${productId}/comments`, { content });
+export const addProductCommentAPI = async (productId: string | number, content: string, parentId?: number) => {
+    const response = await authClient.post(`/Products/${productId}/comments`, { content, parentId });
+    return response.data;
+};
+
+// Sửa bình luận
+export const editProductCommentAPI = async (productId: string | number, commentId: number, content: string) => {
+    const response = await authClient.put(`/Products/${productId}/comments/${commentId}`, { content });
+    return response.data;
+};
+
+// Xóa bình luận
+export const deleteProductCommentAPI = async (productId: string | number, commentId: number) => {
+    const response = await authClient.delete(`/Products/${productId}/comments/${commentId}`);
     return response.data;
 };
 
 export const toggleLikeCommentAPI = async (productId: string | number, commentId: number) => {
     const response = await authClient.post(`/Products/${productId}/comments/${commentId}/like`);
+    return response.data;
+};
+
+// ================= SHORTS API =================
+// 1. Lấy danh sách Video Shorts (cho phép lướt)
+export const getFeedShortsAPI = async () => {
+    const response = await authClient.get('/Shorts', { skipAuthRefresh: true });
+    return response.data;
+};
+
+// 2. Lấy bình luận của 1 video cụ thể
+export const getShortCommentsAPI = async (shortId: string | number) => {
+    const response = await authClient.get(`/Shorts/${shortId}/comments`, { skipAuthRefresh: true });
+    return response.data;
+};
+
+// 3. Gửi bình luận mới vào video
+export const addShortCommentAPI = async (shortId: string | number, content: string, parentId?: number) => {
+    const response = await authClient.post(`/Shorts/${shortId}/comments`, { content, parentId });
+    return response.data;
+};
+
+// Sửa bình luận Shorts
+export const editShortCommentAPI = async (shortId: string | number, commentId: number, content: string) => {
+    const response = await authClient.put(`/Shorts/${shortId}/comments/${commentId}`, { content });
+    return response.data;
+};
+
+// Xóa bình luận Shorts
+export const deleteShortCommentAPI = async (shortId: string | number, commentId: number) => {
+    const response = await authClient.delete(`/Shorts/${shortId}/comments/${commentId}`);
+    return response.data;
+};
+
+// Thả tim bình luận Shorts
+export const toggleLikeShortCommentAPI = async (shortId: string | number, commentId: number) => {
+    const response = await authClient.post(`/Shorts/${shortId}/comments/${commentId}/like`);
+    return response.data;
+};
+
+// 4. Thả tim (hoặc bỏ tim) video
+export const toggleLikeShortAPI = async (shortId: string | number) => {
+    const response = await authClient.post(`/Shorts/${shortId}/like`);
+    return response.data;
+};
+
+// Đổi trạng thái Short Video
+export const changeShortStatusAPI = async (shortId: string | number, status: string) => {
+    const response = await authClient.put(`/Shorts/${shortId}/status`, { status });
     return response.data;
 };

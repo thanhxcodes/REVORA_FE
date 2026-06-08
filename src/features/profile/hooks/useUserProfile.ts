@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyProfileAPI } from '../services/profileService';
+import { getMyProfileAPI, getUserProfileAPI } from '../services/profileService';
 import { UserProfile } from '../types';
 import axios from 'axios';
 
@@ -10,7 +10,7 @@ export interface UseUserProfileResult {
   refetch: () => void;
 }
 
-export const useUserProfile = (): UseUserProfileResult => {
+export const useUserProfile = (userId?: number | string): UseUserProfileResult => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,12 @@ export const useUserProfile = (): UseUserProfileResult => {
       setError(null);
 
       try {
-        const apiResponse = await getMyProfileAPI(controller.signal);
+        let apiResponse;
+        if (userId) {
+          apiResponse = await getUserProfileAPI(Number(userId), controller.signal);
+        } else {
+          apiResponse = await getMyProfileAPI(controller.signal);
+        }
         setProfile(apiResponse.data);
       } catch (err: any) {
         if (axios.isCancel(err) || err.name === 'CanceledError') {
@@ -61,7 +66,7 @@ export const useUserProfile = (): UseUserProfileResult => {
     return () => {
       controller.abort();
     };
-  }, [retryCount]);
+  }, [retryCount, userId]);
 
   return { profile, isLoading, error, refetch };
 };

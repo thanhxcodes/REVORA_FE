@@ -3,7 +3,7 @@ import { ChevronRight, Sparkles, TrendingUp, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProductCarousel from '../Products/components/ProductCarousel';
 import BannerCarousel from './components/BannerCarousel';
-import { getFeaturedProductsAPI, getNewestProductsAPI, getLovedProductsAPI } from '../../features/products/services/productApi';
+import { getFeaturedProductsAPI, getNewestProductsAPI, getLovedProductsAPI, getCategoriesAPI } from '../../features/products/services/productApi';
 import { ProductResponseDto } from '../../features/products/types';
 
 const categories = [
@@ -15,11 +15,16 @@ const categories = [
   { name: 'Kính Mắt', image: 'https://images.unsplash.com/photo-1577803645773-f96470509666?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400' },
 ];
 
+import bannerImg from '../../assets/images/banner.png';
+import bannerImg2 from '../../assets/images/banner2.png';
+import bannerImg3 from '../../assets/images/banner3.png';
+
 export default function HomePage() {
   // State lưu trữ dữ liệu thật
   const [featuredProducts, setFeaturedProducts] = useState<ProductResponseDto[]>([]);
   const [bestSellers, setBestSellers] = useState<ProductResponseDto[]>([]);
   const [newestProducts, setNewestProducts] = useState<ProductResponseDto[]>([]);
+  const [apiCategories, setApiCategories] = useState<{categoryId: number, name: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Gọi API lấy dữ liệu trang chủ
@@ -27,16 +32,18 @@ export default function HomePage() {
     const fetchHomeData = async () => {
       try {
         setIsLoading(true);
-        // Chạy đồng thời cả 3 request để tăng tốc độ tải trang
-        const [featuredRes, lovedRes, newestRes] = await Promise.all([
+        // Chạy đồng thời cả 4 request để tăng tốc độ tải trang
+        const [featuredRes, lovedRes, newestRes, catRes] = await Promise.all([
           getFeaturedProductsAPI(10),
           getLovedProductsAPI(10),
-          getNewestProductsAPI(10)
+          getNewestProductsAPI(10),
+          getCategoriesAPI()
         ]);
 
         if (featuredRes.success) setFeaturedProducts(featuredRes.data);
         if (lovedRes.success) setBestSellers(lovedRes.data);
         if (newestRes.success) setNewestProducts(newestRes.data);
+        if (catRes.success) setApiCategories(catRes.data);
       } catch (error) {
         console.error("Lỗi tải dữ liệu trang chủ: ", error);
       } finally {
@@ -47,29 +54,63 @@ export default function HomePage() {
     fetchHomeData();
   }, []);
 
+  // Tạo danh sách banner từ dữ liệu thật
+  const banners = featuredProducts
+    .filter(p => p.isPremium && p.bannerUrl)
+    .map((p, index) => {
+      return {
+        id: p.productId,
+        title: p.title,
+        subtitle: 'Sản phẩm nổi bật',
+        image: p.bannerUrl!,
+        color: 'from-transparent via-black/40 to-black/80',
+        link: `/product/${p.productId}`
+      };
+    });
+
+  const displayBanners = banners.length > 0 ? banners : [
+    {
+      id: -1,
+      title: 'Chào mừng đến với REVORA',
+      subtitle: 'Khám phá những sản phẩm tuyệt vời nhất',
+      image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200',
+      color: 'from-transparent via-black/40 to-black/80',
+      link: '/all-products'
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-[#fafaf7]">
       {/* Banner Carousel */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mb-8">
-        <BannerCarousel />
+        {!isLoading && <BannerCarousel banners={displayBanners} />}
+        {isLoading && (
+          <div className="w-full h-[500px] rounded-3xl bg-gray-200 animate-pulse flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-[#2D5A3D]/20 border-t-[#2D5A3D] rounded-full animate-spin"></div>
+          </div>
+        )}
       </section>
 
       {/* Categories */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
         <div className="bg-white rounded-3xl shadow-lg p-8">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-6">
-            {categories.map((category) => (
-              <Link
-                key={category.name}
-                to="/all-products"
-                className="flex flex-col items-center space-y-3 group"
-              >
-                <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md group-hover:shadow-xl transition-all group-hover:scale-105">
-                  <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
-                </div>
-                <span className="text-sm text-gray-700 font-medium group-hover:text-[#2D5A3D] transition-colors">{category.name}</span>
-              </Link>
-            ))}
+            {categories.map((category) => {
+              const matchedCat = apiCategories.find(c => c.name.toLowerCase() === category.name.toLowerCase());
+              const catId = matchedCat ? matchedCat.categoryId : '';
+              return (
+                <Link
+                  key={category.name}
+                  to={`/all-products${catId ? `?category=${catId}` : ''}`}
+                  className="flex flex-col items-center space-y-3 group"
+                >
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md group-hover:shadow-xl transition-all group-hover:scale-105">
+                    <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-sm text-gray-700 font-medium group-hover:text-[#2D5A3D] transition-colors">{category.name}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -94,7 +135,7 @@ export default function HomePage() {
                     <p className="text-sm text-gray-600">Các sản phẩm được ưu tiên hiển thị</p>
                   </div>
                 </div>
-                <Link to="/all-products" className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-full hover:shadow-lg hover:scale-105 transition-all font-semibold">
+                <Link to="/all-products?sort=featured" className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-full hover:shadow-lg hover:scale-105 transition-all font-semibold">
                   <span>Tất Cả Sản Phẩm</span>
                   <ChevronRight className="w-5 h-5" />
                 </Link>
@@ -116,7 +157,7 @@ export default function HomePage() {
                     <p className="text-sm text-gray-600">Top sản phẩm được quan tâm nhiều nhất</p>
                   </div>
                 </div>
-                <Link to="/all-products" className="flex items-center space-x-2 px-6 py-3 bg-white text-orange-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-orange-500">
+                <Link to="/all-products?sort=loved" className="flex items-center space-x-2 px-6 py-3 bg-white text-orange-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-orange-500">
                   <span>Tất Cả Sản Phẩm</span>
                   <ChevronRight className="w-5 h-5" />
                 </Link>
@@ -138,7 +179,7 @@ export default function HomePage() {
                     <p className="text-sm text-gray-600">Sản phẩm vừa được đăng lên</p>
                   </div>
                 </div>
-                <Link to="/all-products" className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-blue-500">
+                <Link to="/all-products?sort=newest" className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-blue-500">
                   <span>Tất Cả Sản Phẩm</span>
                   <ChevronRight className="w-5 h-5" />
                 </Link>

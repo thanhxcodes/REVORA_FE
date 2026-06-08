@@ -12,11 +12,37 @@ export const getMyProfileAPI = async (signal?: AbortSignal): Promise<ApiResponse
 };
 
 /**
+ * Fetch a specific user's profile
+ * @param userId ID of the user
+ * @param signal AbortSignal to cancel pending requests
+ */
+export const getUserProfileAPI = async (userId: number, signal?: AbortSignal): Promise<ApiResponse<UserProfile>> => {
+  const response = await authClient.get<ApiResponse<UserProfile>>(`/users/${userId}`, { signal });
+  return response.data;
+};
+
+/**
  * Update the currently authenticated user's profile
  * @param data profile update data DTO
  */
 export const updateMyProfileAPI = async (data: UpdateProfileDto): Promise<ApiResponse<UserProfile>> => {
   const response = await authClient.put<ApiResponse<UserProfile>>('/users/me', data);
+  return response.data;
+};
+
+/**
+ * Upload user's avatar image
+ * @param file image file
+ */
+export const uploadAvatarAPI = async (file: File): Promise<{ success: boolean; message: string; url?: string }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await authClient.post('/media/upload-avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 };
 

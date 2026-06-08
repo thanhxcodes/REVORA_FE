@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Filter, ChevronDown, Grid3x3, List, ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductCard from './components/ProductCard';
 import { getFilteredProductsAPI, getCategoriesAPI } from '../../features/products/services/productApi';
+import { useSearchParams } from 'react-router-dom';
 import { ProductResponseDto } from '../../features/products/types';
-
+  
 const LOCATIONS = ['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng'];
 const BRANDS = ['Gucci', 'Chanel', 'Apple', 'Samsung', '5TheWay', 'First News', 'Logitech', 'No Brand'];
 const CONDITIONS = ['Mới 100%', 'Như Mới', 'Tuyệt Vời', 'Tốt', 'Khá'];
@@ -22,6 +23,11 @@ const PRICE_RANGES = [
 type ViewMode = 'grid' | 'list';
 
 export default function AllProductsPage() {
+  const [searchParams] = useSearchParams();
+  const searchKeyword = searchParams.get('search') || '';
+  const urlCategory = searchParams.get('category');
+  const urlSort = searchParams.get('sort');
+
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [showFilters, setShowFilters] = useState(true);
   
@@ -35,12 +41,14 @@ export default function AllProductsPage() {
   // States lọc dữ liệu
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
-  const [selectedCategory, setSelectedCategory] = useState<number>(0);
+  const [selectedCategory, setSelectedCategory] = useState<number>(urlCategory ? Number(urlCategory) : 0);
   const [selectedLocation, setSelectedLocation] = useState('Tất Cả');
   const [selectedBrand, setSelectedBrand] = useState('Tất Cả');
   const [selectedCondition, setSelectedCondition] = useState('Tất Cả');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000000]);
-  const [sortBy, setSortBy] = useState<'newest' | 'priceAsc' | 'priceDesc' | 'popular'>('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'priceAsc' | 'priceDesc' | 'popular' | 'featured' | 'loved'>(
+    (urlSort as any) || 'newest'
+  );
 
   // Load danh mục 1 lần khi vào trang
   useEffect(() => {
@@ -51,12 +59,23 @@ export default function AllProductsPage() {
     fetchCats();
   }, []);
 
+  // Cập nhật state nếu URL thay đổi
+  useEffect(() => {
+    if (urlCategory) setSelectedCategory(Number(urlCategory));
+    else setSelectedCategory(0);
+  }, [urlCategory]);
+
+  useEffect(() => {
+    if (urlSort) setSortBy(urlSort as any);
+  }, [urlSort]);
+
   // Gọi API lấy dữ liệu Sản Phẩm mỗi khi các bộ lọc thay đổi
   useEffect(() => {
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
         const result = await getFilteredProductsAPI({
+          keyword: searchKeyword ? searchKeyword : undefined,
           categoryId: selectedCategory === 0 ? undefined : selectedCategory,
           city: selectedLocation === 'Tất Cả' ? undefined : selectedLocation,
           brand: selectedBrand === 'Tất Cả' ? undefined : selectedBrand,
@@ -81,7 +100,7 @@ export default function AllProductsPage() {
     };
 
     fetchProducts();
-  }, [selectedCategory, selectedLocation, selectedBrand, selectedCondition, priceRange, sortBy, currentPage]);
+  }, [searchKeyword, selectedCategory, selectedLocation, selectedBrand, selectedCondition, priceRange, sortBy, currentPage]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -104,7 +123,9 @@ export default function AllProductsPage() {
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl text-gray-900 mb-2 font-bold">Tất Cả Sản Phẩm</h1>
+          <h1 className="text-4xl text-gray-900 mb-2 font-bold">
+            {searchKeyword ? `Kết quả tìm kiếm cho: "${searchKeyword}"` : 'Tất Cả Sản Phẩm'}
+          </h1>
           <p className="text-gray-600">
             Tìm thấy <span className="font-semibold text-[#2D5A3D]">{totalCount}</span> sản phẩm phù hợp
           </p>
@@ -145,6 +166,8 @@ export default function AllProductsPage() {
                   className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] text-sm font-medium text-gray-700 cursor-pointer"
                 >
                   <option value="newest">Mới nhất</option>
+                  <option value="featured">Sản phẩm nổi bật</option>
+                  <option value="loved">Được yêu thích nhất</option>
                   <option value="priceAsc">Giá: Thấp đến Cao</option>
                   <option value="priceDesc">Giá: Cao đến Thấp</option>
                 </select>
@@ -161,7 +184,12 @@ export default function AllProductsPage() {
               <>
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
                   {products.map((product) => (
-                    <ProductCard key={product.productId} {...product} viewMode={viewMode} />
+                    <ProductCard 
+                      key={product.productId} 
+                      {...product as any} 
+                      imageUrls={product.imageUrl ? [product.imageUrl] : []}
+                      viewMode={viewMode} 
+                    />
                   ))}
                 </div>
 

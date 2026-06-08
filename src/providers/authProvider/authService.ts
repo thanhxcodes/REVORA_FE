@@ -223,18 +223,16 @@ export const logoutAllAPI = async (): Promise<ApiResponse<null>> => {
  * Nếu thất bại (gõ sai mật khẩu cũ), giữ nguyên phiên đăng nhập và đẩy lỗi ra ngoài UI.
  */
 export const changePasswordAPI = async (dto: ChangePasswordDto): Promise<ApiResponse<null>> => {
-  try {
-    const response = await authClient.post<ApiResponse<null>>('/auth/change-password', dto);
-    
-    // Đổi mật khẩu thành công -> Hủy phiên đăng nhập hiện tại và dọn sạch token
-    clearAccessToken();
-    triggerLogout();
-    
-    return response.data;
-  } catch (error) {
-    // Re-throw lỗi ra ngoài để UI xử lý (ví dụ hiển thị thông báo "Mật khẩu cũ không chính xác")
-    throw error;
-  }
+  // On success: clear in-memory access token and trigger logout so the user
+  // must re-authenticate with the new password.
+  // On failure (e.g. wrong current password): Axios throws a 400 — the caller handles the error UI.
+  // skipAuthRefresh: true prevents the 4xx interceptor from treating this as a session expiry.
+  const response = await authClient.post<ApiResponse<null>>('/auth/change-password', dto, {
+    skipAuthRefresh: true,
+  });
+  clearAccessToken();
+  triggerLogout();
+  return response.data;
 };
 
 export default authClient;

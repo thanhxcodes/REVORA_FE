@@ -1,238 +1,33 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Heart, MessageCircle, X, Send, ThumbsUp, ChevronUp, ChevronDown, Music2, ShoppingBag } from 'lucide-react';
+import { Heart, MessageCircle, X, Send, ChevronUp, ChevronDown, Music2, ShoppingBag, Edit2, Trash2, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
+import { useAuth } from '../../providers/authProvider/AuthContext';
+import { useToggleFollow } from '../../features/profile/hooks/useFollow';
 
-const shortsVideos = [
-  {
-    id: 1,
-    thumbnail: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&h=1420&fit=crop&auto=format',
-    title: 'Cách phối đồ vintage cực chất cho mùa thu 🍂',
-    price: 450000,
-    seller: 'fashionista_vn',
-    avatar: 'F',
-    likes: 2341,
-    comments: 156,
-    song: 'Vintage Vibes - Lo-fi Mix',
-  },
-  {
-    id: 2,
-    thumbnail: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=1420&fit=crop&auto=format',
-    title: 'Review túi xách secondhand hàng hiệu giá sốc 👜',
-    price: 2990000,
-    seller: 'luxury_deals',
-    avatar: 'L',
-    likes: 1856,
-    comments: 89,
-    song: 'Luxury Life - Aesthetic',
-  },
-  {
-    id: 3,
-    thumbnail: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=800&h=1420&fit=crop&auto=format',
-    title: 'Bộ sưu tập giày thể thao cực hiếm 👟',
-    price: 850000,
-    seller: 'sneaker_head',
-    avatar: 'S',
-    likes: 3214,
-    comments: 234,
-    song: 'Sneaker Culture - Hip Hop',
-  },
-  {
-    id: 4,
-    thumbnail: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&h=1420&fit=crop&auto=format',
-    title: 'Thrift flip - Biến đồ cũ thành mới siêu xịn ✨',
-    price: 320000,
-    seller: 'thrift_queen',
-    avatar: 'T',
-    likes: 4102,
-    comments: 567,
-    song: 'Thrift Shop Remix - Pop',
-  },
-  {
-    id: 5,
-    thumbnail: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=800&h=1420&fit=crop&auto=format',
-    title: 'Áo khoác da vintage đỉnh cao không thể bỏ qua 🖤',
-    price: 1890000,
-    seller: 'vintage_style',
-    avatar: 'V',
-    likes: 2890,
-    comments: 198,
-    song: 'Dark Aesthetic - Indie',
-  },
-  {
-    id: 6,
-    thumbnail: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&h=1420&fit=crop&auto=format',
-    title: 'Váy hè xinh xắn giá cực tốt cho mùa nắng ☀️',
-    price: 750000,
-    seller: 'summer_vibes',
-    avatar: 'S',
-    likes: 1567,
-    comments: 78,
-    song: 'Summer Mood - Tropical',
-  },
-];
+// Import API
+import { 
+  getFeedShortsAPI, 
+  getShortCommentsAPI, 
+  addShortCommentAPI, 
+  toggleLikeShortAPI,
+  editShortCommentAPI,
+  deleteShortCommentAPI,
+  toggleLikeShortCommentAPI
+} from '../../features/products/services/productApi';
 
-interface Comment {
-  id: number;
-  user: string;
-  avatar: string;
-  text: string;
-  time: string;
-  likes: number;
-  liked: boolean;
-}
+// Helper Format Thời Gian
+const timeAgo = (dateStr: string) => {
+  const diff = new Date().getTime() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Vừa xong';
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  return `${Math.floor(hours / 24)} ngày trước`;
+};
 
-const BASE_COMMENTS: Comment[] = [
-  { id: 1, user: 'style_hunter99', avatar: 'S', text: 'Đẹp quá!! Mình thích phong cách này lắm 😍', time: '3 phút trước', likes: 47, liked: false },
-  { id: 2, user: 'thu_fashionista', avatar: 'T', text: 'Giá có thể negotiate không bạn ơi? Mình muốn mua lắm', time: '11 phút trước', likes: 12, liked: false },
-  { id: 3, user: 'minh_trendyy', avatar: 'M', text: 'Mình đã inbox bạn rồi nhé! Chờ rep nha 🙏', time: '24 phút trước', likes: 5, liked: false },
-  { id: 4, user: 'zara_lover_vn', avatar: 'Z', text: 'Phối với quần jeans rách là chuẩn không cần chỉnh luôn 🔥🔥', time: '45 phút trước', likes: 89, liked: false },
-  { id: 5, user: 'hanoi_thrift', avatar: 'H', text: 'Ship về Hà Nội được không bạn? Bao nhiêu phí vậy?', time: '1 giờ trước', likes: 8, liked: false },
-  { id: 6, user: 'gen_z_fashion', avatar: 'G', text: 'Video quá đỉnh, follow luôn bạn ơi!! 💯', time: '2 giờ trước', likes: 134, liked: false },
-  { id: 7, user: 'vintage_collector', avatar: 'V', text: 'Cái này mình thấy ở shop vintage Saigon rồi, authentic nhé mọi người', time: '3 giờ trước', likes: 23, liked: false },
-  { id: 8, user: 'linh_trendsetter', avatar: 'L', text: 'Bạn có thêm màu khác không? Mình muốn xem thêm', time: '5 giờ trước', likes: 16, liked: false },
-];
-
-const COMMENT_POOL = [
-  { user: 'bich_stylish', avatar: 'B', text: 'Wow quá đẹp, sản phẩm còn không bạn?' },
-  { user: 'khanh_fashion', avatar: 'K', text: 'Mình đã share cho cả group fashion của mình rồi nhé! ❤️' },
-  { user: 'nam_streetwear', avatar: 'N', text: 'Phong cách quá xịn, muốn sở hữu ngay!' },
-  { user: 'trang_minimalist', avatar: 'T', text: 'Clean và minimal, đúng gu mình luôn 🖤' },
-  { user: 'hoang_sneakerhead', avatar: 'H', text: 'Giá tốt thật, ủng hộ người bán Việt Nam!' },
-];
-
-function CommentModal({
-  video,
-  onClose,
-}: {
-  video: typeof shortsVideos[0];
-  onClose: () => void;
-}) {
-  const [comments, setComments] = useState<Comment[]>(
-    BASE_COMMENTS.slice(0, Math.min(6, video.comments))
-  );
-  const [inputText, setInputText] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 150);
-  }, []);
-
-  useEffect(() => {
-    listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [comments.length]);
-
-  const sendComment = () => {
-    if (!inputText.trim()) return;
-    const newComment: Comment = {
-      id: Date.now(),
-      user: 'user1',
-      avatar: 'M',
-      text: inputText.trim(),
-      time: 'Vừa xong',
-      likes: 0,
-      liked: false,
-    };
-    setComments((prev) => [...prev, newComment]);
-    setInputText('');
-
-    const pool = COMMENT_POOL[Math.floor(Math.random() * COMMENT_POOL.length)];
-    setTimeout(() => {
-      setComments((prev) => [
-        ...prev,
-        { id: Date.now() + 1, ...pool, time: 'Vừa xong', likes: 0, liked: false },
-      ]);
-    }, 1800);
-  };
-
-  const toggleLike = (id: number) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, liked: !c.liked, likes: c.liked ? c.likes - 1 : c.likes + 1 } : c
-      )
-    );
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div
-        className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden sm:mx-4"
-        style={{ maxHeight: '80vh' }}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <div>
-            <h3 className="font-semibold text-gray-900 text-sm">{video.comments} bình luận</h3>
-            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[240px]">{video.title}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {comments.map((comment) => (
-            <div key={comment.id} className="flex gap-3">
-              <div className="w-9 h-9 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                {comment.avatar}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-semibold text-gray-900">@{comment.user}</span>
-                  <span className="text-[10px] text-gray-400">{comment.time}</span>
-                </div>
-                <p className="text-sm text-gray-700 mt-0.5 leading-relaxed">{comment.text}</p>
-                <div className="flex items-center gap-4 mt-2">
-                  <button
-                    onClick={() => toggleLike(comment.id)}
-                    className={`flex items-center gap-1.5 text-xs transition-colors ${
-                      comment.liked ? 'text-[#2D5A3D]' : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                  >
-                    <ThumbsUp className={`w-3.5 h-3.5 ${comment.liked ? 'fill-[#2D5A3D]' : ''}`} />
-                    <span>{comment.likes > 0 ? comment.likes : 'Thích'}</span>
-                  </button>
-                  <button className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                    Trả lời
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-          <div ref={listEndRef} />
-        </div>
-
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-3 flex-shrink-0 bg-white">
-          <div className="w-8 h-8 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-            M
-          </div>
-          <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendComment()}
-              placeholder="Thêm bình luận..."
-              className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
-            />
-            <button
-              onClick={sendComment}
-              disabled={!inputText.trim()}
-              className="text-[#2D5A3D] disabled:text-gray-300 transition-colors"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+// Component Đĩa Nhạc Xoay
 function SpinningDisc() {
   return (
     <div className="w-10 h-10 rounded-full border-[3px] border-white/30 overflow-hidden animate-spin" style={{ animationDuration: '3s' }}>
@@ -243,28 +38,512 @@ function SpinningDisc() {
   );
 }
 
+// Component Video Player
+function ShortVideoPlayer({ src, isActive }: { src: string; isActive: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    if (isActive) {
+      if (video.readyState === 0) {
+        video.load();
+      }
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => console.log("Auto-play prevented:", e));
+      }
+    } else {
+      video.pause();
+    }
+  }, [isActive]);
+
+  return (
+    <div className="absolute inset-0 w-full h-full bg-black">
+      <video
+        ref={videoRef}
+        src={isActive ? src : ""}
+        className="absolute inset-0 w-full h-full object-contain"
+        style={{ 
+          opacity: isActive ? 1 : 0.99,
+          transform: 'translateZ(0)',
+          willChange: 'transform'
+        }}
+        loop
+        playsInline
+        muted={!isActive}
+        preload={isActive ? "auto" : "none"}
+      />
+    </div>
+  );
+}
+
+const CommentInput = ({ 
+  currentUser, inputText, setInputText, sendComment, isSubmittingComment, 
+  editingCommentId, replyingToName, cancelReplyOrEdit, autoFocus = false 
+}: any) => {
+  return (
+    <div className="flex gap-3 w-full">
+      <div className="w-8 h-8 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+        {(currentUser?.fullName || 'U').charAt(0).toUpperCase()}
+      </div>
+      <div className="flex-1 bg-white border border-gray-200 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-[#2D5A3D]/30 focus-within:border-transparent transition-all">
+        {(replyingToName || editingCommentId) && (
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-600 flex items-center gap-2">
+              {editingCommentId ? <Edit2 className="w-3 h-3" /> : <MessageCircle className="w-3 h-3" />}
+              {editingCommentId ? 'Đang sửa bình luận' : `Đang trả lời ${replyingToName}`}
+            </span>
+            <button onClick={cancelReplyOrEdit} className="p-1 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+        <textarea
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          placeholder={editingCommentId ? "Sửa bình luận..." : replyingToName ? `Trả lời ${replyingToName}...` : "Bạn có thắc mắc gì về sản phẩm này?"}
+          className="w-full px-4 py-2.5 focus:outline-none resize-none bg-transparent text-sm"
+          rows={2}
+          autoFocus={autoFocus}
+        />
+        <div className="flex justify-end px-3 pb-2.5">
+          <button
+            onClick={sendComment}
+            disabled={!inputText.trim() || isSubmittingComment}
+            className="flex items-center gap-1.5 bg-[#2D5A3D] text-white px-4 py-1.5 rounded-xl hover:bg-[#234830] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
+          >
+            <Send className="w-3 h-3" />
+            <span>{isSubmittingComment ? 'Đang gửi...' : (editingCommentId ? 'Cập nhật' : 'Gửi')}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
+// COMPONENT RENDER BÌNH LUẬN (CHUYỂN RA NGOÀI ĐỂ TRÁNH RE-RENDER MẤT SCROLL)
+// -------------------------------------------------------------
+const CommentItem = ({ 
+  comment, isReply, parentComment, 
+  currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId,
+  startEdit, executeDelete, handleLike, startReply, inputProps
+}: any) => {
+  const isOwner = currentUser?.id === comment.userId;
+  const showParentName = isReply && parentComment;
+
+  return (
+    <div className={`flex gap-3 ${isReply ? 'mt-3' : 'mt-5'}`}>
+      <div className={`${isReply ? 'w-7 h-7' : 'w-9 h-9'} bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden`}>
+        {comment.avatarUrl && comment.avatarUrl.length > 1 ? (
+           <img src={comment.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+        ) : (
+           comment.fullName.charAt(0).toUpperCase()
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-start">
+           <div className="flex-1 bg-white p-3 rounded-2xl shadow-sm border border-gray-100 relative group">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-sm font-bold text-gray-900">
+                  {comment.fullName}
+                  {showParentName && <><span className="text-gray-400 font-normal mx-1.5 text-xs">▶</span><span className="text-xs font-medium text-gray-600">{parentComment.fullName}</span></>}
+                </span>
+                <span className="text-[10px] text-gray-400">{timeAgo(comment.createdAt)}</span>
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed break-words">{comment.content}</p>
+              
+              {isOwner && (
+                <div className="absolute top-2 right-2">
+                   <button 
+                     onClick={() => {
+                       if (openDropdownId === comment.commentId) {
+                         setOpenDropdownId(null);
+                         setConfirmDeleteId(null);
+                       } else {
+                         setOpenDropdownId(comment.commentId);
+                       }
+                     }} 
+                     className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                   >
+                     <MoreHorizontal className="w-4 h-4" />
+                   </button>
+                   {openDropdownId === comment.commentId && (
+                     <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-50 py-1">
+                       {confirmDeleteId === comment.commentId ? (
+                          <div className="p-3">
+                             <p className="text-xs text-gray-800 font-medium mb-3 text-center">Chắc chắn xóa?</p>
+                             <div className="flex gap-2 justify-center">
+                                <button onClick={() => setConfirmDeleteId(null)} className="flex-1 px-2 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Hủy</button>
+                                <button onClick={() => executeDelete(comment.commentId)} className="flex-1 px-2 py-1.5 text-xs font-medium text-white bg-red-500 rounded-lg hover:bg-red-600">Xóa</button>
+                             </div>
+                          </div>
+                       ) : (
+                         <>
+                           <button 
+                             onClick={() => { startEdit(comment.commentId, comment.content); setOpenDropdownId(null); }}
+                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                           >
+                             <Edit2 className="w-3.5 h-3.5" /> Sửa
+                           </button>
+                           <button 
+                             onClick={() => setConfirmDeleteId(comment.commentId)}
+                             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                           >
+                             <Trash2 className="w-3.5 h-3.5" /> Xóa
+                           </button>
+                         </>
+                       )}
+                     </div>
+                   )}
+                </div>
+              )}
+           </div>
+           
+           <div className="flex flex-col items-center ml-3 pt-2">
+              <button onClick={() => handleLike(comment.commentId)}>
+                 <Heart className={`w-4 h-4 ${comment.isLikedByCurrentUser ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-400'}`} />
+              </button>
+              <span className="text-xs text-gray-500 mt-1">{comment.likeCount}</span>
+           </div>
+        </div>
+        
+        <div className="flex items-center gap-4 mt-1.5 ml-2">
+          <button onClick={() => startReply(comment.commentId, comment.fullName)} className="text-xs font-medium text-gray-500 hover:text-gray-800">
+              Trả lời
+          </button>
+        </div>
+        
+        {/* Render CommentInput trực tiếp bên dưới nếu đang Trả lời hoặc Sửa bình luận này */}
+        {inputProps && ((inputProps.replyingToCommentId === comment.commentId) || (inputProps.editingCommentId === comment.commentId)) && (
+          <div className="mt-3">
+             <CommentInput {...inputProps} autoFocus={true} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const CommentThread = ({ 
+  rootComment, allComments, 
+  currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId,
+  startEdit, executeDelete, handleLike, startReply, inputProps
+}: any) => {
+  const [visibleCount, setVisibleCount] = useState(2);
+  
+  const getDescendants = (parentId: number): any[] => {
+    const children = allComments.filter((c: any) => c.parentId === parentId).sort((a: any,b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    let descendants: any[] = [];
+    for (const child of children) {
+      descendants.push(child);
+      descendants = descendants.concat(getDescendants(child.commentId));
+    }
+    return descendants;
+  };
+
+  const descendants = getDescendants(rootComment.commentId).sort((a: any,b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const visibleReplies = descendants.slice(0, visibleCount);
+  const remaining = descendants.length - visibleCount;
+
+  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply, inputProps };
+
+  return (
+    <div key={rootComment.commentId}>
+      <CommentItem comment={rootComment} isReply={false} {...commonProps} />
+      
+      {descendants.length > 0 && (
+        <div className="ml-[44px]">
+          {visibleReplies.map((reply: any) => (
+            <CommentItem 
+              key={reply.commentId} 
+              comment={reply} 
+              isReply={true} 
+              parentComment={allComments.find((c: any) => c.commentId === reply.parentId)} 
+              {...commonProps}
+            />
+          ))}
+          
+          {remaining > 0 && (
+            <button 
+              onClick={() => setVisibleCount(prev => prev + 3)}
+              className="mt-3 text-xs font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-2"
+            >
+              <span className="w-6 h-[1px] bg-gray-300 inline-block"></span> 
+              Xem thêm {remaining} câu trả lời
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
+// COMPONENT POPUP BÌNH LUẬN VIDEO
+// -------------------------------------------------------------
+function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => void }) {
+  const navigate = useNavigate();
+  const [comments, setComments] = useState<any[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: number; name: string } | null>(null);
+  const [editingComment, setEditingComment] = useState<{ id: number; content: string } | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  
+  const { currentUser } = useAuth();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const res = await getShortCommentsAPI(shortId);
+        if (res.success) setComments(res.data);
+      } catch (error) {
+        toast.error("Không thể tải bình luận.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchComments();
+  }, [shortId]);
+
+  useEffect(() => {
+    // Chỉ cuộn xuống đáy trong lần load đầu tiên nếu cần, hoặc khi thêm bình luận mới (tuỳ chọn)
+    // listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  const sendComment = async () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để bình luận.');
+      navigate('/login');
+      return;
+    }
+    if (!inputText.trim()) return;
+    try {
+      setIsSubmitting(true);
+      if (editingComment) {
+        const res = await editShortCommentAPI(shortId, editingComment.id, inputText);
+        if (res.success) {
+          setComments((prev) => prev.map(c => c.commentId === editingComment.id ? res.data : c));
+          setEditingComment(null);
+        }
+      } else {
+        const res = await addShortCommentAPI(shortId, inputText, replyingTo?.id);
+        if (res.success) {
+          setComments((prev) => [...prev, res.data]);
+        }
+      }
+      setInputText('');
+      setReplyingTo(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const executeDelete = async (commentId: number) => {
+    try {
+      const res = await deleteShortCommentAPI(shortId, commentId);
+      if (res.success) {
+        // Đệ quy xóa cả cây bình luận trong state
+        const getIdsToDelete = (id: number): number[] => {
+          const children = comments.filter(c => c.parentId === id);
+          return [id, ...children.flatMap(c => getIdsToDelete(c.commentId))];
+        };
+        const idsToDelete = getIdsToDelete(commentId);
+        setComments((prev) => prev.filter(c => !idsToDelete.includes(c.commentId)));
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra.');
+    } finally {
+      setConfirmDeleteId(null);
+      setOpenDropdownId(null);
+    }
+  };
+
+  const handleLike = async (commentId: number) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      navigate('/login');
+      return;
+    }
+    try {
+      setComments(prev => prev.map(c => {
+        if (c.commentId === commentId) {
+          return { ...c, isLikedByCurrentUser: !c.isLikedByCurrentUser, likeCount: c.isLikedByCurrentUser ? c.likeCount - 1 : c.likeCount + 1 };
+        }
+        return c;
+      }));
+      await toggleLikeShortCommentAPI(shortId, commentId);
+    } catch (error) {
+       toast.error('Vui lòng đăng nhập để thả tim.');
+       setComments(prev => prev.map(c => {
+        if (c.commentId === commentId) {
+          return { ...c, isLikedByCurrentUser: !c.isLikedByCurrentUser, likeCount: !c.isLikedByCurrentUser ? c.likeCount - 1 : c.likeCount + 1 };
+        }
+        return c;
+      }));
+    }
+  };
+
+  const startReply = (commentId: number, name: string) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để trả lời bình luận.');
+      navigate('/login');
+      return;
+    }
+    setEditingComment(null);
+    setReplyingTo({ id: commentId, name });
+    inputRef.current?.focus();
+  };
+
+  const startEdit = (commentId: number, content: string) => {
+    setReplyingTo(null);
+    setEditingComment({ id: commentId, content });
+    setInputText(content);
+    inputRef.current?.focus();
+  };
+
+  const cancelAction = () => {
+    setReplyingTo(null);
+    setEditingComment(null);
+    setInputText('');
+    setOpenDropdownId(null);
+  };
+
+  const inputProps = { 
+    currentUser, 
+    inputText, 
+    setInputText, 
+    sendComment, 
+    isSubmittingComment: isSubmitting, 
+    editingCommentId: editingComment?.id, 
+    replyingToName: replyingTo?.name, 
+    replyingToCommentId: replyingTo?.id,
+    cancelReplyOrEdit: cancelAction 
+  };
+
+  const rootComments = comments.filter(c => !c.parentId);
+  const commonProps = { currentUser, openDropdownId, setOpenDropdownId, confirmDeleteId, setConfirmDeleteId, startEdit, executeDelete, handleLike, startReply, allComments: comments, inputProps };
+
+  return (
+    <>
+      {/* Overlay: Chỉ hiển thị trên mobile */}
+      <div className="sm:hidden fixed inset-0 bg-black/40 z-40 cursor-pointer" onClick={onClose} />
+      {/* Panel bình luận */}
+      <div 
+        className="fixed bottom-0 left-0 right-0 sm:absolute sm:top-0 sm:right-0 sm:bottom-0 sm:left-auto w-full sm:w-[350px] md:w-[400px] lg:w-[420px] h-[60vh] sm:h-full bg-white rounded-t-2xl sm:rounded-none sm:border-l sm:border-gray-200 shadow-[-20px_0_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden animate-slide-in z-50 sm:z-10"
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
+        
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <h3 className="font-semibold text-gray-900 text-sm">Bình luận ({comments.length})</h3>
+          <button onClick={onClose} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 bg-gray-50">
+          {isLoading ? (
+            <div className="text-center py-10"><div className="w-6 h-6 border-2 border-[#2D5A3D] border-t-transparent rounded-full animate-spin mx-auto"></div></div>
+          ) : comments.length === 0 ? (
+            <div className="text-center text-gray-400 py-10 text-sm">Chưa có bình luận nào.</div>
+          ) : (
+            rootComments.map(c => <CommentThread key={c.commentId} rootComment={c} {...commonProps} />)
+          )}
+          <div ref={listEndRef} className="h-4 sm:h-16 flex-shrink-0" />
+        </div>
+
+        {/* NHẬP BÌNH LUẬN GỐC (Chỉ hiển thị nếu KHÔNG ĐANG SỬA VÀ KHÔNG ĐANG TRẢ LỜI) */}
+        {!editingComment && !replyingTo && (
+          <div className="pl-4 pr-4 sm:pr-[90px] py-3 border-t border-gray-100 flex flex-col gap-2 flex-shrink-0 bg-white">
+            <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendComment()}
+                placeholder="Thêm bình luận..."
+                className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+                disabled={isSubmitting}
+              />
+              <button
+                onClick={sendComment}
+                disabled={!inputText.trim() || isSubmitting}
+                className="text-[#2D5A3D] disabled:text-gray-300 transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// -------------------------------------------------------------
+// TRANG SHORTS CHÍNH
+// -------------------------------------------------------------
 export default function ShortsPage() {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { toggleFollow, isLoading: isToggleLoading } = useToggleFollow();
+  
+  // Dữ liệu từ API
+  const [shortsVideos, setShortsVideos] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // State Giao diện
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [likedVideos, setLikedVideos] = useState<Set<number>>(new Set());
-  const [activeComments, setActiveComments] = useState<typeof shortsVideos[0] | null>(null);
+  const [activeCommentsId, setActiveCommentsId] = useState<number | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
 
+  // FETCH DỮ LIỆU KHI VÀO TRANG
+  useEffect(() => {
+    const fetchShorts = async () => {
+      try {
+        const res = await getFeedShortsAPI();
+        if (res.success && res.data) {
+          setShortsVideos(res.data);
+        }
+      } catch (error) {
+        toast.error("Lỗi khi tải danh sách video.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchShorts();
+  }, []);
+
+  // ĐIỀU HƯỚNG TRƯỢT VIDEO
   const goTo = useCallback(
     (index: number) => {
-      if (isTransitioning) return;
+      if (isTransitioning || shortsVideos.length === 0) return;
       const clamped = Math.max(0, Math.min(shortsVideos.length - 1, index));
       if (clamped === currentIndex) return;
+      
       setIsTransitioning(true);
       setCurrentIndex(clamped);
       setTimeout(() => setIsTransitioning(false), 500);
     },
-    [currentIndex, isTransitioning]
+    [currentIndex, isTransitioning, shortsVideos.length]
   );
 
-  // Keyboard navigation
+  // Bắt sự kiện phím
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') goTo(currentIndex + 1);
@@ -274,7 +553,17 @@ export default function ShortsPage() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [currentIndex, goTo]);
 
-  // Wheel scroll
+  // Đồng bộ Comment Modal khi lướt video
+  useEffect(() => {
+    setActiveCommentsId((prev) => {
+      if (prev !== null && shortsVideos[currentIndex]) {
+        return shortsVideos[currentIndex].shortId;
+      }
+      return prev;
+    });
+  }, [currentIndex, shortsVideos]);
+
+  // Bắt sự kiện lăn chuột
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -282,7 +571,7 @@ export default function ShortsPage() {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const now = Date.now();
-      if (now - lastWheel < 600) return;
+      if (now - lastWheel < 600) return; // Debounce 600ms
       lastWheel = now;
       if (e.deltaY > 0) goTo(currentIndex + 1);
       else goTo(currentIndex - 1);
@@ -291,10 +580,8 @@ export default function ShortsPage() {
     return () => el.removeEventListener('wheel', handleWheel);
   }, [currentIndex, goTo]);
 
-  // Touch swipe
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
+  // Bắt sự kiện Vuốt màn hình điện thoại
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY; };
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
     const delta = touchStartY.current - e.changedTouches[0].clientY;
@@ -305,198 +592,238 @@ export default function ShortsPage() {
     touchStartY.current = null;
   };
 
-  const toggleLike = (id: number) => {
-    setLikedVideos((prev) => {
-      const s = new Set(prev);
-      s.has(id) ? s.delete(id) : s.add(id);
-      return s;
-    });
+  // LOGIC THẢ TIM API (Optimistic UI Update)
+  const toggleLike = async (id: number) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      navigate('/login');
+      return;
+    }
+    // 1. Cập nhật giao diện mượt trước
+    setShortsVideos(prev => prev.map(v => {
+      if (v.shortId === id) {
+        return { 
+          ...v, 
+          isLikedByCurrentUser: !v.isLikedByCurrentUser, 
+          likeCount: v.isLikedByCurrentUser ? v.likeCount - 1 : v.likeCount + 1 
+        };
+      }
+      return v;
+    }));
+
+    // 2. Gửi lệnh lên máy chủ
+    try {
+      await toggleLikeShortAPI(id);
+    } catch (error) {
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      // 3. Rollback nếu lỗi
+      setShortsVideos(prev => prev.map(v => {
+        if (v.shortId === id) {
+          return { 
+            ...v, 
+            isLikedByCurrentUser: !v.isLikedByCurrentUser, 
+            likeCount: !v.isLikedByCurrentUser ? v.likeCount - 1 : v.likeCount + 1 
+          };
+        }
+        return v;
+      }));
+    }
   };
 
+  const handleFollowSeller = async (sellerId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để theo dõi.');
+      navigate('/login');
+      return;
+    }
+    const res = await toggleFollow(sellerId);
+    if (res) {
+      setShortsVideos(prev => prev.map(v => {
+        if (v.sellerId === sellerId) {
+          return { ...v, isFollowingSeller: res.isFollowing };
+        }
+        return v;
+      }));
+    }
+  };
+
+  // Nếu đang Load hoặc Hết Data
+  if (isLoading) {
+    return <div className="h-screen bg-black flex items-center justify-center"><div className="w-10 h-10 border-4 border-[#2D5A3D] border-t-transparent rounded-full animate-spin"></div></div>;
+  }
+
+  if (shortsVideos.length === 0) {
+    return <div className="h-screen bg-black flex flex-col items-center justify-center text-white"><h2 className="text-xl font-bold">Chưa có video nào</h2><p className="text-gray-400 mt-2">Vui lòng quay lại sau.</p></div>;
+  }
+
+  // Lấy video đang chiếu
   const video = shortsVideos[currentIndex];
+
+  const infoOverlayContent = (
+    <>
+      {/* Seller */}
+      <div className="flex items-center gap-2 mb-3">
+        <div 
+          onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.sellerId}`); }}
+          className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-base border-2 border-white/30 shadow-lg overflow-hidden flex-shrink-0 cursor-pointer"
+        >
+           {video.sellerAvatar && video.sellerAvatar.length > 1 ? (
+              <img src={video.sellerAvatar} alt="avatar" className="w-full h-full object-cover" />
+           ) : (
+              video.sellerName.charAt(0).toUpperCase()
+           )}
+        </div>
+        <div>
+          <span 
+            onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.sellerId}`); }}
+            className="text-white font-semibold text-sm drop-shadow-md cursor-pointer hover:underline"
+          >
+            {video.sellerName}
+          </span>
+          {(!currentUser || currentUser.id !== video.sellerId) && (
+            <button 
+              onClick={(e) => handleFollowSeller(video.sellerId, e)}
+              disabled={isToggleLoading}
+              className={`ml-2 text-xs border rounded-full px-2 py-0.5 transition-colors disabled:opacity-50 ${
+                video.isFollowingSeller 
+                  ? 'text-white border-white/50 bg-white/20 hover:bg-white/30' 
+                  : 'text-[#C4603A] border-[#C4603A]/60 bg-black/20 hover:bg-[#C4603A]/10'
+              }`}
+            >
+              {video.isFollowingSeller ? 'Đang theo dõi' : '+ Follow'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="text-white text-sm font-medium leading-relaxed mb-2 drop-shadow-md max-w-xs">
+        {video.caption}
+      </p>
+
+      {video.productId && video.productPrice && (
+        <div className="inline-flex items-center gap-1.5 bg-[#2D5A3D]/90 backdrop-blur-sm rounded-full px-4 py-1.5 mb-3 cursor-pointer hover:bg-[#2D5A3D] transition-colors pointer-events-auto" onClick={() => navigate(`/product/${video.productId}`)}>
+          <ShoppingBag className="w-4 h-4 text-white" />
+          <span className="text-white font-bold text-sm">
+            Đang bán: {Number(video.productPrice).toLocaleString('vi-VN')}đ
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Music2 className="w-4 h-4 text-white flex-shrink-0 drop-shadow-md" />
+        <div className="overflow-hidden flex-1 max-w-[200px]">
+          <p className="text-white text-xs whitespace-nowrap animate-marquee drop-shadow-md">
+            Nhạc nền gốc - @{video.sellerName}
+          </p>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <div
       ref={containerRef}
-      className="relative bg-black select-none overflow-hidden"
+      className={`relative bg-[#0F0F0F] select-none overflow-hidden flex items-center justify-center sm:py-6 transition-all duration-500 ease-in-out ${activeCommentsId ? 'sm:pr-[350px] md:pr-[400px] lg:pr-[420px]' : ''}`}
       style={{ height: 'calc(100vh - 64px)' }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Video stack — slide up/down with transform */}
-      <div
-        className="absolute inset-0 transition-transform duration-500 ease-in-out"
-        style={{ transform: `translateY(-${currentIndex * 100}%)`, height: `${shortsVideos.length * 100}%` }}
-      >
-        {shortsVideos.map((v) => (
-          <div key={v.id} className="relative w-full" style={{ height: `${100 / shortsVideos.length}%` }}>
-            {/* Background image */}
-            <img
-              src={v.thumbnail}
-              alt={v.title}
-              className="absolute inset-0 w-full h-full object-cover"
-              draggable={false}
-            />
-            {/* Gradients */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent" />
-          </div>
-        ))}
+      
+      {/* THÔNG TIN VIDEO (Desktop) - Hiển thị ở góc dưới bên trái màn hình như cũ */}
+      <div className="hidden sm:block absolute bottom-8 left-8 w-[300px] md:w-[350px] pointer-events-auto z-10">
+        {infoOverlayContent}
       </div>
 
-      {/* Fixed overlay UI — always on top */}
-      <div className="absolute inset-0 flex pointer-events-none">
-        {/* Bottom-left: info */}
-        <div className="absolute bottom-0 left-0 right-16 p-5 pointer-events-auto">
-          {/* Seller */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white font-bold text-base border-2 border-white/30 shadow-lg">
-              {video.avatar}
-            </div>
-            <div>
-              <span className="text-white font-semibold text-sm">@{video.seller}</span>
-              <button className="ml-2 text-xs text-[#C4603A] border border-[#C4603A]/60 rounded-full px-2 py-0.5 hover:bg-[#C4603A]/10 transition-colors">
-                + Follow
+      {/* Tối ưu desktop: Khung video (giới hạn tỷ lệ) */}
+      <div 
+         className="relative w-full sm:w-[350px] md:w-[400px] lg:w-[420px] h-full bg-black sm:rounded-2xl transition-all duration-500 ease-in-out flex-shrink-0"
+      >
+        {/* Khung chứa video có overflow-hidden để cắt phần trượt */}
+        <div className="absolute inset-0 overflow-hidden sm:rounded-2xl">
+          {/* Video stack */}
+          <div
+            className="absolute inset-0 transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateY(-${(currentIndex * 100) / shortsVideos.length}%)`, height: `${shortsVideos.length * 100}%` }}
+          >
+            {shortsVideos.map((v, i) => (
+              <div key={v.shortId} className="relative w-full" style={{ height: `${100 / shortsVideos.length}%` }}>
+                {Math.abs(currentIndex - i) <= 1 && (
+                  <ShortVideoPlayer src={v.videoUrl} isActive={i === currentIndex} />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* OVERLAY UI BÊN TRÊN VIDEO */}
+        <div className="absolute inset-0 pointer-events-none">
+          
+          {/* Góc trái dưới: THÔNG TIN VIDEO (Mobile) - Chỉ hiển thị trên mobile */}
+          <div className="absolute bottom-0 left-0 right-16 p-4 pointer-events-auto sm:hidden">
+            {infoOverlayContent}
+          </div>
+
+          {/* NÚT TƯƠNG TÁC (Tym, Comment...) */}
+          {/* Mobile: Bên trong video, góc phải dưới */}
+          {/* Desktop: Bên ngoài video, lề phải */}
+          <div className="absolute right-3 sm:-right-16 bottom-6 sm:bottom-4 flex flex-col items-center gap-4 sm:gap-5 pointer-events-auto">
+            {/* Mũi tên lên xuống (Chỉ Desktop) */}
+            <div className="hidden sm:flex flex-col items-center gap-2 mb-2">
+              <button onClick={() => goTo(currentIndex - 1)} disabled={currentIndex === 0} className="w-10 h-10 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-all">
+                <ChevronUp className="w-6 h-6 text-white" />
+              </button>
+              <button onClick={() => goTo(currentIndex + 1)} disabled={currentIndex === shortsVideos.length - 1} className="w-10 h-10 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-all">
+                <ChevronDown className="w-6 h-6 text-white" />
               </button>
             </div>
-          </div>
 
-          {/* Title */}
-          <p className="text-white text-sm font-medium leading-relaxed mb-2 drop-shadow-md max-w-xs">
-            {video.title}
-          </p>
+            {/* Like */}
+            <button onClick={() => toggleLike(video.shortId)} className="flex flex-col items-center gap-1">
+              <div className={`w-12 h-12 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${video.isLikedByCurrentUser ? 'bg-red-500/20 sm:bg-white/10 scale-110' : 'bg-white/10 sm:bg-white/10 hover:bg-white/20'}`}>
+                <Heart className={`w-7 h-7 sm:w-5 sm:h-5 transition-all ${video.isLikedByCurrentUser ? 'text-red-500 fill-red-500 scale-110' : 'text-white sm:text-white'}`} />
+              </div>
+              <span className="text-white sm:text-white/80 text-xs font-semibold drop-shadow">{video.likeCount}</span>
+            </button>
 
-          {/* Price tag */}
-          <div className="inline-flex items-center gap-1.5 bg-[#2D5A3D]/80 backdrop-blur-sm rounded-full px-3 py-1 mb-3">
-            <span className="text-[#C4603A] font-bold text-sm">
-              {video.price.toLocaleString('vi-VN')}đ
-            </span>
-          </div>
+            {/* Comment */}
+            <button onClick={() => setActiveCommentsId(activeCommentsId === video.shortId ? null : video.shortId)} className="flex flex-col items-center gap-1">
+              <div className="w-12 h-12 sm:w-10 sm:h-10 bg-white/10 sm:bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+                <MessageCircle className="w-7 h-7 sm:w-5 sm:h-5 text-white sm:text-white" />
+              </div>
+              <span className="text-white sm:text-white/80 text-xs font-semibold drop-shadow">{video.commentCount}</span>
+            </button>
 
-          {/* Music info */}
-          <div className="flex items-center gap-2">
-            <Music2 className="w-3.5 h-3.5 text-white/70 flex-shrink-0" />
-            <div className="overflow-hidden flex-1 max-w-[200px]">
-              <p className="text-white/70 text-xs whitespace-nowrap animate-marquee">
-                {video.song}
-              </p>
-            </div>
-          </div>
-        </div>
+            {/* Chia sẻ */}
+            <button className="flex flex-col items-center gap-1">
+              <div className="w-12 h-12 sm:w-10 sm:h-10 bg-white/10 sm:bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+              </div>
+              <span className="text-white sm:text-white/80 text-xs font-semibold drop-shadow">Chia sẻ</span>
+            </button>
 
-        {/* Right side: action buttons */}
-        <div className="absolute right-3 bottom-6 flex flex-col items-center gap-5 pointer-events-auto">
-          {/* Like */}
-          <button
-            onClick={() => toggleLike(video.id)}
-            className="flex flex-col items-center gap-1"
-          >
-            <div
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 ${
-                likedVideos.has(video.id)
-                  ? 'bg-red-500/20 scale-110'
-                  : 'bg-white/10 hover:bg-white/20'
-              }`}
-            >
-              <Heart
-                className={`w-6 h-6 transition-all ${
-                  likedVideos.has(video.id) ? 'text-red-400 fill-red-400 scale-110' : 'text-white'
-                }`}
-              />
-            </div>
-            <span className="text-white text-xs font-medium drop-shadow">
-              {(likedVideos.has(video.id) ? video.likes + 1 : video.likes).toLocaleString()}
-            </span>
-          </button>
-
-          {/* Comment */}
-          <button
-            onClick={() => setActiveComments(video)}
-            className="flex flex-col items-center gap-1"
-          >
-            <div className="w-11 h-11 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
-              <MessageCircle className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-white text-xs font-medium drop-shadow">{video.comments}</span>
-          </button>
-
-          {/* Xem sản phẩm */}
-          <button
-            onClick={() => navigate(`/product/${video.id}`)}
-            className="flex flex-col items-center gap-1"
-          >
-            <div className="w-11 h-11 bg-[#C4603A] hover:bg-[#A14E2D] rounded-full flex items-center justify-center transition-colors shadow-lg">
-              <ShoppingBag className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-white text-xs font-medium drop-shadow">Xem SP</span>
-          </button>
-
-          {/* Spinning disc */}
-          <div className="mt-1">
-            <SpinningDisc />
-          </div>
-        </div>
-
-        {/* Progress dots — vertical on left edge */}
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 pointer-events-auto">
-          {shortsVideos.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goTo(i)}
-              className={`rounded-full transition-all duration-300 ${
-                i === currentIndex
-                  ? 'bg-white h-5 w-1'
-                  : 'bg-white/30 h-1.5 w-1 hover:bg-white/60'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Navigation arrows */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2 pointer-events-auto">
-          <button
-            onClick={() => goTo(currentIndex - 1)}
-            disabled={currentIndex === 0}
-            className="w-8 h-8 bg-white/10 hover:bg-white/25 disabled:opacity-20 rounded-full flex items-center justify-center transition-all"
-          >
-            <ChevronUp className="w-5 h-5 text-white" />
-          </button>
-          <button
-            onClick={() => goTo(currentIndex + 1)}
-            disabled={currentIndex === shortsVideos.length - 1}
-            className="w-8 h-8 bg-white/10 hover:bg-white/25 disabled:opacity-20 rounded-full flex items-center justify-center transition-all"
-          >
-            <ChevronDown className="w-5 h-5 text-white" />
-          </button>
-        </div>
-
-        {/* Top label */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none">
-          <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md rounded-full px-4 py-1.5">
-            <span className="text-white/60 text-xs font-medium">REVORA SHORTS</span>
-            <span className="text-white/30 text-xs">·</span>
-            <span className="text-white/80 text-xs font-semibold">
-              {currentIndex + 1} / {shortsVideos.length}
-            </span>
+            {/* Đĩa nhạc (Chỉ hiển thị trên mobile) */}
+            <div className="mt-2 sm:hidden"><SpinningDisc /></div>
           </div>
         </div>
       </div>
 
-      {/* Comment Modal */}
-      {activeComments && (
-        <CommentModal
-          video={activeComments}
-          onClose={() => setActiveComments(null)}
-        />
+      {/* (Mũi tên toàn màn hình đã được dời vào bên trong video) */}
+
+      {/* Modal Gọi API Bình luận */}
+      {activeCommentsId && (
+        <CommentModal shortId={activeCommentsId} onClose={() => setActiveCommentsId(null)} />
       )}
 
       <style>{`
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-100%); }
-        }
-        .animate-marquee {
-          animation: marquee 8s linear infinite;
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+        .animate-marquee { animation: marquee 8s linear infinite; }
+        @keyframes slideInMobile { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes slideInDesktop { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .animate-slide-in { animation: slideInMobile 0.3s ease-out; }
+        @media (min-width: 640px) {
+          .animate-slide-in { animation: slideInDesktop 0.3s ease-out; }
         }
       `}</style>
     </div>

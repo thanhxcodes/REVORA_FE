@@ -1,5 +1,9 @@
 import { Heart, Eye, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useWishlist } from '../../../providers/wishlistProvider/WishlistContext';
+import toast from 'react-hot-toast';
+import { useAuth } from '../../../providers/authProvider/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface ProductCardProps {
   productId: number;
@@ -14,6 +18,8 @@ interface ProductCardProps {
   sellerBadge?: { icon: string; gradient: string } | null;
   location?: string;
   imageUrl?: string;
+  sellerFullName?: string;
+  createdAt?: string;
 }
 
 export default function ProductCard({
@@ -29,7 +35,27 @@ export default function ProductCard({
   viewMode = 'grid',
   sellerBadge,
   location,
+  sellerFullName,
+  createdAt,
 }: ProductCardProps) {
+
+
+
+  const { wishlistIds, toggleWishlist, isWishlisted } = useWishlist();
+  const wishlisted = isWishlisted(productId);
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Ngăn Link trigger
+    e.stopPropagation();
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thêm vào yêu thích.');
+      navigate('/login');
+      return;
+    }
+    toggleWishlist(productId);
+  };
 
   const finalImageUrl = propImageUrl || (imageUrls && imageUrls.length > 0 ? imageUrls[0] : undefined);
 
@@ -48,7 +74,7 @@ export default function ProductCard({
 
   if (viewMode === 'list') {
     return (
-      <Link to={`/product/${productId}`}>
+      <Link to={`/product/${productId}`} className="block">
         <div className={`group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 ${isPremium ? 'ring-2 ring-[#C4603A] shadow-[0_0_20px_rgba(196,96,58,0.3)] hover:shadow-[0_0_30px_rgba(196,96,58,0.5)]' : ''
           }`}>
           {isPremium && (
@@ -88,26 +114,38 @@ export default function ProductCard({
                 )}
               </div>
               <div className="flex items-center justify-between text-sm text-gray-500">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="truncate">Bởi {sellerName}</span>
-                  {badge && (
-                    <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
-                      {badge.icon}
-                    </div>
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate">Bởi {sellerFullName || sellerName}</span>
+                    {badge && (
+                      <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
+                        {badge.icon}
+                      </div>
+                    )}
+                  </div>
+                  {createdAt && (
+                    <span className="text-xs text-gray-400">Đăng ngày {new Date(createdAt).toLocaleDateString('vi-VN')}</span>
                   )}
                 </div>
                 {viewCount !== undefined && (
                   <div className="flex items-center space-x-1">
-                    <Eye className="w-4 h-4" />
-                    <span>{viewCount.toLocaleString()} lượt xem</span>
+                    <Heart className="w-4 h-4 text-[#C4603A]" />
+                    <span>{viewCount.toLocaleString()} lượt thích</span>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="flex items-center">
-              <button className="bg-white/90 backdrop-blur-sm p-3 rounded-full border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#2D5A3D] hover:border-[#2D5A3D] hover:text-white">
-                <Heart className="w-5 h-5" />
+              <button 
+                onClick={handleWishlistClick}
+                className={`p-3 rounded-full border transition-all ${
+                  wishlisted 
+                    ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' 
+                    : 'bg-white/90 backdrop-blur-sm border-gray-200 opacity-0 group-hover:opacity-100 hover:bg-[#2D5A3D] hover:border-[#2D5A3D] hover:text-white'
+                }`}
+              >
+                <Heart className={`w-5 h-5 ${wishlisted ? 'fill-current' : ''}`} />
               </button>
             </div>
           </div>
@@ -117,7 +155,7 @@ export default function ProductCard({
   }
 
   return (
-    <Link to={`/product/${productId}`}>
+    <Link to={`/product/${productId}`} className="block h-full">
       <div className={`group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full flex flex-col ${isPremium ? 'ring-2 ring-[#C4603A] shadow-[0_0_20px_rgba(196,96,58,0.3)] hover:shadow-[0_0_30px_rgba(196,96,58,0.5)]' : ''
         }`}>
         {isPremium && (
@@ -139,8 +177,15 @@ export default function ProductCard({
               <span>Premium</span>
             </div>
           )}
-          <button className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-            <Heart className="w-4 h-4 text-[#2D5A3D]" />
+          <button 
+            onClick={handleWishlistClick}
+            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${
+              wishlisted
+                ? 'bg-red-50 text-red-500'
+                : 'bg-white/90 backdrop-blur-sm opacity-0 group-hover:opacity-100 text-[#2D5A3D] hover:bg-[#2D5A3D] hover:text-white'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${wishlisted ? 'fill-current' : ''}`} />
           </button>
         </div>
 
@@ -160,17 +205,22 @@ export default function ProductCard({
           </div>
 
           <div className="flex items-center justify-between text-sm text-gray-500 mt-auto pt-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="truncate">{sellerName}</span>
-              {badge && (
-                <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
-                  {badge.icon}
-                </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate">{sellerFullName || sellerName}</span>
+                {badge && (
+                  <div className={`w-4 h-4 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-[8px] flex-shrink-0`} title="Badge">
+                    {badge.icon}
+                  </div>
+                )}
+              </div>
+              {createdAt && (
+                <span className="text-[10px] text-gray-400">Ngày đăng: {new Date(createdAt).toLocaleDateString('vi-VN')}</span>
               )}
             </div>
             {viewCount !== undefined && (
               <div className="flex items-center space-x-1">
-                <Eye className="w-3 h-3" />
+                <Heart className="w-3 h-3 text-[#C4603A]" />
                 <span className="text-xs">{viewCount}</span>
               </div>
             )}
