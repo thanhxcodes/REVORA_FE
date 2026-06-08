@@ -44,7 +44,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   clearError,
 }) => {
   return (
-    <div className="bg-white rounded-3xl shadow-sm p-8">
+    <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[32px] shadow-sm p-8 md:p-10">
       <h2 className="text-lg font-bold text-gray-900 mb-7">Thông Tin Cá Nhân</h2>
 
       {isEditing ? (
@@ -180,12 +180,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </div>
         </div>
       ) : (
-        /* View mode */
-        <div className="divide-y divide-gray-50">
+        /* View mode - Grid Layout */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { label: 'Họ và Tên', value: profile.name, icon: <User className="w-4 h-4" />, public: true },
-            { label: 'Email', value: profile.email, icon: <Mail className="w-4 h-4" />, public: false },
-            { label: 'Số Điện Thoại', value: profile.phone, icon: <Phone className="w-4 h-4" />, public: false },
+            { label: 'Họ và Tên', value: profile.name, icon: <User className="w-[18px] h-[18px]" />, public: true },
+            { label: 'Email', value: profile.email, icon: <Mail className="w-[18px] h-[18px]" />, public: false },
+            { label: 'Số Điện Thoại', value: profile.phone, icon: <Phone className="w-[18px] h-[18px]" />, public: false },
             {
               label: 'Ngày Sinh',
               value: (() => {
@@ -198,33 +198,33 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   return '';
                 }
               })(),
-              icon: <Calendar className="w-4 h-4" />,
+              icon: <Calendar className="w-[18px] h-[18px]" />,
               public: true,
             },
             {
               label: 'Giới Tính',
               value: profile.gender === 'female' ? 'Nữ' : profile.gender === 'male' ? 'Nam' : profile.gender === 'other' ? 'Khác' : '',
-              icon: <User className="w-4 h-4" />,
+              icon: <User className="w-[18px] h-[18px]" />,
               public: true,
             },
-            { label: 'Thành Phố', value: profile.city, icon: <MapPin className="w-4 h-4" />, public: true },
-            { label: 'Địa Chỉ', value: profile.address, icon: <MapPin className="w-4 h-4" />, public: false },
+            { label: 'Thành Phố', value: profile.city, icon: <MapPin className="w-[18px] h-[18px]" />, public: true },
+            { label: 'Địa Chỉ', value: profile.address, icon: <MapPin className="w-[18px] h-[18px]" />, public: false, fullWidth: true },
           ]
             .filter(field => !publicViewMode || field.public)
             .map((field, i) => (
-              <div key={i} className="flex items-start gap-4 py-4">
-                <div className="w-9 h-9 bg-[#2D5A3D]/8 rounded-xl flex items-center justify-center text-[#2D5A3D] flex-shrink-0">
+              <div key={i} className={`flex items-start gap-4 p-5 bg-gray-50/50 hover:bg-gray-50 rounded-2xl border border-gray-100/50 transition-colors ${field.fullWidth ? 'md:col-span-2' : ''}`}>
+                <div className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-xl flex items-center justify-center text-[#2D5A3D] flex-shrink-0">
                   {field.icon}
                 </div>
                 <div>
-                  <div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">{field.label}</div>
-                  <div className="text-gray-800 mt-0.5 font-medium">{field.value || '—'}</div>
+                  <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">{field.label}</div>
+                  <div className="text-gray-900 font-medium text-[15px]">{field.value || '—'}</div>
                 </div>
               </div>
             ))}
-          <div className="py-4">
-            <div className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-2">Tiểu Sử</div>
-            <p className="text-gray-700 leading-relaxed">{profile.bio}</p>
+          <div className="md:col-span-2 p-5 bg-gray-50/50 hover:bg-gray-50 rounded-2xl border border-gray-100/50 transition-colors mt-2">
+            <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-3">Tiểu Sử</div>
+            <p className="text-gray-700 leading-relaxed text-[15px]">{profile.bio || 'Chưa có thông tin tiểu sử.'}</p>
           </div>
         </div>
       )}

@@ -117,13 +117,13 @@ const StateSuccess = ({ data }: { data: PaymentStatusResponse | null }) => {
 
       <div className="w-full space-y-3">
         <button 
-          onClick={() => navigate('/features/plans?tab=history')}
+          onClick={() => navigate('/plans?tab=history')}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
         >
           Đăng tin ngay
         </button>
         <button 
-          onClick={() => navigate('/features/plans')}
+          onClick={() => navigate('/')}
           className="w-full bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-6 rounded-xl border border-gray-200 transition-colors"
         >
           Trở về trang chủ
@@ -202,13 +202,13 @@ const StateInterrupted = ({ type, orderCode }: { type: 'system_error' | 'timeout
 
       <div className="w-full space-y-3">
         <button 
-          onClick={() => navigate('/features/plans?tab=history')}
+          onClick={() => navigate('/plans?tab=history')}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
         >
           Kiểm tra lịch sử
         </button>
         <button 
-          onClick={() => navigate('/features/plans')}
+          onClick={() => navigate('/')}
           className="w-full bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-6 rounded-xl border border-gray-200 transition-colors"
         >
           Về trang chủ
@@ -231,7 +231,7 @@ const StateNotFound = () => {
       <p className="text-gray-500 mb-8">Phiên thanh toán đã hết hạn hoặc mã giao dịch không hợp lệ.</p>
 
       <button 
-        onClick={() => navigate('/features/plans')}
+        onClick={() => navigate('/plans')}
         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
       >
         Về trang Gói Credit

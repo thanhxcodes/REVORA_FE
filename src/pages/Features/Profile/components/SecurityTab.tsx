@@ -162,7 +162,7 @@ export const SecurityTab: React.FC<SecurityTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Change password */}
-      <div className="bg-white rounded-3xl shadow-sm p-8">
+      <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[32px] shadow-sm p-8 md:p-10">
         <h3 className="font-bold text-gray-900 text-lg mb-6">
           Thay Đổi Mật Khẩu
         </h3>
@@ -259,8 +259,8 @@ export const SecurityTab: React.FC<SecurityTabProps> = ({
           </div>
 
           {/* Right Column: Premium Side Guidance Panel */}
-          <div className="lg:col-span-5 space-y-5 animate-slide-down lg:border-l lg:border-gray-100 lg:pl-8">
-            <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 space-y-3">
+          <div className="lg:col-span-5 space-y-5 animate-slide-down lg:border-l lg:border-gray-200/50 lg:pl-8">
+            <div className="bg-gray-50/80 backdrop-blur-sm border border-gray-100 rounded-2xl p-5 space-y-3">
               <div className="flex items-center gap-2 text-[#2D5A3D]">
                 <Info className="w-5 h-5 flex-shrink-0" />
                 <span className="font-bold text-gray-800 text-sm">Quy tắc đặt mật khẩu</span>
@@ -271,7 +271,7 @@ export const SecurityTab: React.FC<SecurityTabProps> = ({
               </p>
             </div>
 
-            <div className="bg-[#2D5A3D]/5 border border-[#2D5A3D]/10 rounded-2xl p-5 space-y-3">
+            <div className="bg-[#2D5A3D]/5 backdrop-blur-sm border border-[#2D5A3D]/10 rounded-2xl p-5 space-y-3">
               <div className="flex items-center gap-2 text-[#2D5A3D]">
                 <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-[#2D5A3D] flex-shrink-0" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
