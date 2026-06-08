@@ -47,3 +47,6 @@ export const fetchUserCreditBatches = async (): Promise<UserCreditBatches> => {
     featured: featuredSummary ? mapCreditBatches(featuredSummary.batches) : [],
   };
 };
+
+export const fetchMyUsageHistory = () =>
+  authClient.get<ApiResponse<any[]>>(creditPackagesUrl('my-usage-history'));

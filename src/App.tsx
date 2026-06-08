@@ -160,6 +160,7 @@ function AppContent() {
         <Route path="/payment/result" element={<PaymentResultPage />} />
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/category/:name" element={<HomePage />} />
+        <Route path="/profile/:id" element={<UserProfilePage />} />
         
         {/* System Error Pages */}
         <Route path="/error/404" element={<ErrorPage errorCode="404" />} />
@@ -169,7 +170,6 @@ function AppContent() {
         {/* Private routes (Yêu cầu đăng nhập: Role 'user' hoặc 'admin') */}
         <Route element={<ProtectedRoute allowedRoles={['User', 'Admin']} />}>
           <Route path="/profile" element={<UserProfilePage />} />
-          <Route path="/profile/:id" element={<UserProfilePage />} />
           <Route path="/sell" element={<SellProductPage />} />
           <Route path="/manage-products" element={<ManageProductsPage />} />
           <Route path="/transactions" element={<TransactionHistoryPage />} />
@@ -201,7 +201,33 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <WishlistProvider>
-          <Toaster position="top-right" />
+          <Toaster 
+            position="top-center" 
+            toastOptions={{
+              style: {
+                borderRadius: '16px',
+                background: '#1F2937',
+                color: '#F9FAFB',
+                padding: '14px 24px',
+                fontSize: '15px',
+                fontWeight: '600',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.1)'
+              },
+              error: {
+                iconTheme: {
+                  primary: '#EF4444',
+                  secondary: '#fff',
+                },
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10B981',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
           <AppContent />
         </WishlistProvider>
       </AuthProvider>

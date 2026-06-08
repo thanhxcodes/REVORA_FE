@@ -10,7 +10,10 @@ export interface ProductResponse {
   isPremium: boolean;
   bannerUrl?: string;
   viewCount: number;
+  likeCount?: number;
   createdAt: string;
+  productExpiredAt?: string;
+  productStatus?: string;
 }
 // thanh end
 
@@ -41,7 +44,10 @@ export interface ProductResponseDto {
     isPremium: boolean;
     bannerUrl?: string;
     viewCount: number;
+    likeCount?: number;
     createdAt: string;
+    productExpiredAt?: string;
+    productStatus?: string;
 }
 
 export interface PagedResult<T> {
@@ -76,7 +82,9 @@ export interface ProductDetailResponseDto {
     videoUrl?: string;
     isPremium: boolean;
     viewCount: number;
+    likeCount?: number;
     createdAt: string;
+    productExpiredAt?: string;
     sellerName: string;
     sellerId: number;
     sellerUsername: string;

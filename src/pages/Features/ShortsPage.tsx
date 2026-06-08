@@ -286,6 +286,7 @@ const CommentThread = ({
 // COMPONENT POPUP BÌNH LUẬN VIDEO
 // -------------------------------------------------------------
 function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => void }) {
+  const navigate = useNavigate();
   const [comments, setComments] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -319,6 +320,11 @@ function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => vo
   }, []);
 
   const sendComment = async () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để bình luận.');
+      navigate('/login');
+      return;
+    }
     if (!inputText.trim()) return;
     try {
       setIsSubmitting(true);
@@ -364,6 +370,11 @@ function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => vo
   };
 
   const handleLike = async (commentId: number) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      navigate('/login');
+      return;
+    }
     try {
       setComments(prev => prev.map(c => {
         if (c.commentId === commentId) {
@@ -384,6 +395,11 @@ function CommentModal({ shortId, onClose }: { shortId: number; onClose: () => vo
   };
 
   const startReply = (commentId: number, name: string) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để trả lời bình luận.');
+      navigate('/login');
+      return;
+    }
     setEditingComment(null);
     setReplyingTo({ id: commentId, name });
     inputRef.current?.focus();
@@ -578,6 +594,11 @@ export default function ShortsPage() {
 
   // LOGIC THẢ TIM API (Optimistic UI Update)
   const toggleLike = async (id: number) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      navigate('/login');
+      return;
+    }
     // 1. Cập nhật giao diện mượt trước
     setShortsVideos(prev => prev.map(v => {
       if (v.shortId === id) {
@@ -613,6 +634,7 @@ export default function ShortsPage() {
     e.stopPropagation();
     if (!currentUser) {
       toast.error('Vui lòng đăng nhập để theo dõi.');
+      navigate('/login');
       return;
     }
     const res = await toggleFollow(sellerId);

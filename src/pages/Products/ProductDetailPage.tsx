@@ -325,6 +325,11 @@ export default function ProductDetailPage() {
 
   // LOGIC NHÚNG ZALO & CHAT NỘI BỘ
   const openZaloChat = () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để chat với người bán.');
+      navigate('/login');
+      return;
+    }
     if (!productDetail?.sellerPhone) {
       return toast.error('Người bán chưa cập nhật số điện thoại Zalo.');
     }
@@ -336,6 +341,11 @@ export default function ProductDetailPage() {
   };
 
   const openInternalChat = () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để chat nội bộ.');
+      navigate('/login');
+      return;
+    }
     if (!productDetail) return;
     const formattedPrice = Number(productDetail.price || 0).toLocaleString('vi-VN') + 'đ';
     const message = `Chào shop! Sản phẩm "${productDetail.title}" (${formattedPrice}) còn hàng không ạ?`;
@@ -365,6 +375,11 @@ export default function ProductDetailPage() {
 
   // THÊM HOẶC SỬA BÌNH LUẬN
   const sendComment = async () => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để bình luận.');
+      navigate('/login');
+      return;
+    }
     if (!inputText.trim() || !id) return;
 
     setIsSubmittingComment(true);
@@ -396,6 +411,11 @@ export default function ProductDetailPage() {
   };
 
   const startReply = (commentId: number, fullName: string) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để trả lời bình luận.');
+      navigate('/login');
+      return;
+    }
     setReplyingToCommentId(commentId);
     setReplyingToName(fullName);
     setEditingCommentId(null);
@@ -442,6 +462,11 @@ export default function ProductDetailPage() {
   // LIKE BÌNH LUẬN (Optimistic UI Update)
   const handleLike = async (commentId: number) => {
     if (!id) return;
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thả tim.');
+      navigate('/login');
+      return;
+    }
 
     // Cập nhật UI trước cho mượt
     setComments(comments.map(c => 
@@ -566,7 +591,14 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
                 <button 
-                  onClick={() => productDetail && toggleWishlist(productDetail.productId)}
+                  onClick={() => {
+                    if (!currentUser) {
+                      toast.error('Vui lòng đăng nhập để thêm vào yêu thích.');
+                      navigate('/login');
+                      return;
+                    }
+                    if (productDetail) toggleWishlist(productDetail.productId);
+                  }}
                   className={`p-3 rounded-full transition-colors flex-shrink-0 ${
                     productDetail && isWishlisted(productDetail.productId)
                       ? 'bg-red-50 text-red-500'
@@ -618,6 +650,11 @@ export default function ProductDetailPage() {
                   {currentUser?.id !== productDetail.sellerId && (
                     <button
                       onClick={async () => {
+                        if (!currentUser) {
+                          toast.error('Vui lòng đăng nhập để theo dõi.');
+                          navigate('/login');
+                          return;
+                        }
                         const result = await toggleFollow(productDetail.sellerId);
                         if (result) {
                           setIsFollowingSeller(result.isFollowing);

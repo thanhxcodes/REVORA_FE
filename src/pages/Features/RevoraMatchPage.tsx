@@ -811,7 +811,14 @@ export default function RevoraMatchPage() {
 
           <div className="flex flex-col gap-3">
             <button
-              onClick={() => setStep('select-products')}
+              onClick={() => {
+                if (!getAccessToken()) {
+                  toast.error('Vui lòng đăng nhập để bắt đầu Match & Trade.');
+                  navigate('/login');
+                  return;
+                }
+                setStep('select-products');
+              }}
               className="w-full py-4 rounded-2xl font-bold text-lg bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-red-500/50 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
             >
               Bắt Đầu Match & Trade
@@ -819,7 +826,15 @@ export default function RevoraMatchPage() {
             </button>
 
             <button
-              onClick={() => { setShowTradeHistoryModal(true); fetchTradeHistory(); }}
+              onClick={() => { 
+                if (!getAccessToken()) {
+                  toast.error('Vui lòng đăng nhập để xem lịch sử.');
+                  navigate('/login');
+                  return;
+                }
+                setShowTradeHistoryModal(true); 
+                fetchTradeHistory(); 
+              }}
               className="w-full py-4 rounded-2xl font-bold text-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
             >
               Lịch Sử Trao Đổi

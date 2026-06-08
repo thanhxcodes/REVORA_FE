@@ -51,8 +51,8 @@ export const getMyCreditsAPI = async () => {
 };
 
 // Quản lý tin đăng
-export const getMyProductsAPI = async () => {
-    const response = await authClient.get('/Products/me');
+export const getMyProductsAPI = async (status: string = 'all', pageNumber: number = 1, pageSize: number = 10) => {
+    const response = await authClient.get(`/Products/me?status=${status}&pageNumber=${pageNumber}&pageSize=${pageSize}`);
     return response.data;
 };
 
@@ -73,6 +73,11 @@ export const toggleProductStatusAPI = async (id: string | number, status: string
 
 export const deleteProductAPI = async (id: string | number) => {
     const response = await authClient.delete(`/Products/${id}`);
+    return response.data;
+};
+
+export const renewProductAPI = async (id: string | number, data: any) => {
+    const response = await authClient.post(`/Products/${id}/renew`, data);
     return response.data;
 };
 
@@ -180,5 +185,11 @@ export const toggleLikeShortCommentAPI = async (shortId: string | number, commen
 // 4. Thả tim (hoặc bỏ tim) video
 export const toggleLikeShortAPI = async (shortId: string | number) => {
     const response = await authClient.post(`/Shorts/${shortId}/like`);
+    return response.data;
+};
+
+// Đổi trạng thái Short Video
+export const changeShortStatusAPI = async (shortId: string | number, status: string) => {
+    const response = await authClient.put(`/Shorts/${shortId}/status`, { status });
     return response.data;
 };
