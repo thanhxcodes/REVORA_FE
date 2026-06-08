@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, Video, Image as ImageIcon, Sparkles, Crown, Upload, Info } from 'lucide-react';
+import { X, Video, Image as ImageIcon, Sparkles, Crown, Upload, Info, FileText, CheckCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { uploadProductImagesAPI, uploadProductVideoAPI, createProductAPI, getMyCreditsAPI, getCategoriesAPI, getProductDetailAPI, updateProductAPI } from '../../features/products/services/productApi';
 
@@ -83,6 +83,9 @@ export default function SellProductPage() {
 
   const [categories, setCategories] = useState<{ categoryId: number, name: string }[]>([]);
 
+  const [acceptRules, setAcceptRules] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
@@ -92,12 +95,19 @@ export default function SellProductPage() {
   const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
   const [uploadedBanner, setUploadedBanner] = useState<string | null>(null);
 
+  const [isShortActive, setIsShortActive] = useState(false);
+  const [isBannerActive, setIsBannerActive] = useState(false);
+
   const [enableVideoUpload, setEnableVideoUpload] = useState(false);
   const [enableBannerBoost, setEnableBannerBoost] = useState(false);
 
   const [postingCredits, setPostingCredits] = useState(0);
   const [featuredCredits, setFeaturedCredits] = useState(0);
   const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Thêm state lưu thời gian tạo sản phẩm và phút còn lại để sửa
+  const [productCreatedAt, setProductCreatedAt] = useState<string | null>(null);
+  const [editTimeLeft, setEditTimeLeft] = useState<number | null>(null);
 
   const totalFeaturedCreditsUsed = (enableVideoUpload ? 1 : 0) + (enableBannerBoost ? 1 : 0);
 
@@ -144,9 +154,22 @@ export default function SellProductPage() {
               setEnableVideoUpload(true);
               setUploadedVideo(prod.videoUrl);
             }
-            if (prod.isPremium) {
+            if (prod.isPremium || prod.bannerUrl) {
               setEnableBannerBoost(true);
-              // prod.bannerUrl might not be in ProductDetailResponseDto if not populated, but we can try
+              if (prod.bannerUrl) setUploadedBanner(prod.bannerUrl);
+            }
+            
+            if (prod.shortExpiredAt) {
+              const shortExp = new Date(prod.shortExpiredAt + (prod.shortExpiredAt.endsWith('Z') ? '' : 'Z')).getTime();
+              if (shortExp > new Date().getTime()) setIsShortActive(true);
+            }
+            if (prod.bannerExpiredAt) {
+              const bannerExp = new Date(prod.bannerExpiredAt + (prod.bannerExpiredAt.endsWith('Z') ? '' : 'Z')).getTime();
+              if (bannerExp > new Date().getTime()) setIsBannerActive(true);
+            }
+            
+            if (prod.createdAt) {
+              setProductCreatedAt(prod.createdAt);
             }
           }
         }
@@ -157,7 +180,26 @@ export default function SellProductPage() {
       }
     };
     fetchData();
-  }, []);
+  }, [isEditMode, editId]);
+
+  useEffect(() => {
+    if (isEditMode && productCreatedAt) {
+      const calculateTimeLeft = () => {
+        // Appending 'Z' if missing ensures it's parsed as UTC if backend returns UTC string without Z
+        const utcDateStr = productCreatedAt + (productCreatedAt.endsWith('Z') ? '' : 'Z');
+        const createdDate = new Date(utcDateStr);
+        const now = new Date();
+        const diffMs = now.getTime() - createdDate.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const remaining = 30 - diffMins;
+        setEditTimeLeft(remaining > 0 ? remaining : 0);
+      };
+
+      calculateTimeLeft();
+      const interval = setInterval(calculateTimeLeft, 60000); // Cập nhật mỗi phút
+      return () => clearInterval(interval);
+    }
+  }, [isEditMode, productCreatedAt]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -349,7 +391,22 @@ export default function SellProductPage() {
           <div className="lg:col-span-2 space-y-6">
 
             {/* THÔNG TIN SẢN PHẨM */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 relative">
+              
+              {isEditMode && editTimeLeft !== null && (
+                <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${editTimeLeft > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                  <Info className={`w-5 h-5 shrink-0 ${editTimeLeft > 0 ? 'text-amber-500' : 'text-red-500'}`} />
+                  <div>
+                    <h3 className="font-semibold text-sm">
+                      {editTimeLeft > 0 ? `Bạn còn ${editTimeLeft} phút để sửa toàn bộ thông tin` : 'Đã hết thời gian sửa Tên và Danh mục'}
+                    </h3>
+                    <p className="text-sm mt-1">
+                      Theo quy định, bạn có 30 phút sau khi đăng để sửa mọi thông tin. Sau thời gian này, Tên sản phẩm và Danh mục không thể thay đổi.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <h2 className="text-xl text-gray-900 mb-6 font-semibold">Thông Tin Sản Phẩm</h2>
               <div className="space-y-6">
                 <div>
@@ -359,8 +416,9 @@ export default function SellProductPage() {
                     value={formData.title}
                     onChange={handleChange}
                     type="text"
+                    disabled={isEditMode && editTimeLeft === 0}
                     placeholder="Ví dụ: Áo Khoác Da Vintage"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -371,8 +429,8 @@ export default function SellProductPage() {
                       name="categoryId"
                       value={formData.categoryId}
                       onChange={handleChange}
-                      disabled={isLoadingData}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors bg-white disabled:bg-gray-50"
+                      disabled={isLoadingData || (isEditMode && editTimeLeft === 0)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value={0}>{isLoadingData ? "Đang tải danh mục..." : "Chọn danh mục"}</option>
                       {categories.map((cat) => (
@@ -446,7 +504,7 @@ export default function SellProductPage() {
             </div>
 
             {/* VIDEO SHORTS PREMIUM */}
-            {!isEditMode && (
+            {(!isEditMode || isShortActive) && (
                 <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${enableVideoUpload ? 'border-[#2D5A3D] bg-[#2D5A3D]/[0.02]' : 'border-gray-100'}`}>
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
@@ -458,10 +516,14 @@ export default function SellProductPage() {
                         <p className="text-sm text-gray-500">Người dùng sẽ xem review ngay trên bảng feed</p>
                       </div>
                     </div>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
-                      <input type="checkbox" checked={enableVideoUpload} onChange={(e) => setEnableVideoUpload(e.target.checked)} disabled={featuredCredits === 0} className="w-5 h-5 accent-[#2D5A3D] rounded border-gray-300 cursor-pointer disabled:cursor-not-allowed" />
-                    </label>
+                    {isEditMode ? (
+                      <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full whitespace-nowrap">Sửa Video (Còn hạn)</span>
+                    ) : (
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
+                        <input type="checkbox" checked={enableVideoUpload} onChange={(e) => setEnableVideoUpload(e.target.checked)} disabled={featuredCredits === 0} className="w-5 h-5 accent-[#2D5A3D] rounded border-gray-300 cursor-pointer disabled:cursor-not-allowed" />
+                      </label>
+                    )}
                   </div>
 
                   {enableVideoUpload && (
@@ -494,7 +556,7 @@ export default function SellProductPage() {
             )}
 
             {/* BANNER BOOST PREMIUM */}
-            {!isEditMode && (
+            {(!isEditMode || isBannerActive) && (
                 <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${enableBannerBoost ? 'border-orange-500 bg-orange-50/30' : 'border-gray-100'}`}>
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
@@ -506,10 +568,14 @@ export default function SellProductPage() {
                         <p className="text-sm text-gray-500">Chiếm trọn sự chú ý trong 24 giờ đầu</p>
                       </div>
                     </div>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
-                      <input type="checkbox" checked={enableBannerBoost} onChange={(e) => setEnableBannerBoost(e.target.checked)} disabled={featuredCredits - (enableVideoUpload ? 1 : 0) === 0} className="w-5 h-5 accent-orange-500 rounded border-gray-300 cursor-pointer disabled:cursor-not-allowed" />
-                    </label>
+                    {isEditMode ? (
+                      <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full whitespace-nowrap">Sửa Ảnh (Còn hạn)</span>
+                    ) : (
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
+                        <input type="checkbox" checked={enableBannerBoost} onChange={(e) => setEnableBannerBoost(e.target.checked)} disabled={featuredCredits - (enableVideoUpload ? 1 : 0) === 0} className="w-5 h-5 accent-orange-500 rounded border-gray-300 cursor-pointer disabled:cursor-not-allowed" />
+                      </label>
+                    )}
                   </div>
 
                   {enableBannerBoost && (
@@ -606,19 +672,42 @@ export default function SellProductPage() {
                           <span className="text-gray-600">Đăng tin:</span>
                           <span className="font-bold text-blue-600">{Math.max(0, postingCredits - 1)}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-sm mb-4">
                           <span className="text-gray-600">Nổi bật:</span>
                           <span className="font-bold text-orange-600">{Math.max(0, featuredCredits - totalFeaturedCreditsUsed)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm bg-green-50 p-2.5 rounded-xl border border-green-100">
+                          <span className="text-green-700 font-medium">Tin tồn tại đến:</span>
+                          <span className="font-bold text-green-700">
+                            {(() => {
+                              const d = new Date();
+                              d.setDate(d.getDate() + (totalFeaturedCreditsUsed > 0 ? 60 : 30));
+                              return d.toLocaleDateString('vi-VN');
+                            })()}
+                          </span>
                         </div>
                       </div>
                     </div>
                   </div>
               )}
 
+              <div className="mt-6 flex items-start gap-3">
+                <input 
+                  type="checkbox" 
+                  id="acceptRules" 
+                  checked={acceptRules} 
+                  onChange={(e) => setAcceptRules(e.target.checked)} 
+                  className="mt-1 w-5 h-5 accent-[#2D5A3D] rounded border-gray-300 cursor-pointer" 
+                />
+                <label htmlFor="acceptRules" className="text-sm text-gray-600 cursor-pointer select-none">
+                  Tôi đã đọc và đồng ý với <span onClick={(e) => { e.preventDefault(); setShowRulesModal(true); }} className="text-[#2D5A3D] font-semibold hover:underline">Quy định đăng tin</span>
+                </label>
+              </div>
+
               <button
                 type="submit"
-                disabled={isSubmitting || (!isEditMode && postingCredits < 1)}
-                className="w-full mt-8 bg-[#2D5A3D] text-white py-4 rounded-2xl font-semibold text-sm hover:bg-[#234830] hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none flex items-center justify-center gap-2"
+                disabled={isSubmitting || (!isEditMode && postingCredits < 1) || !acceptRules}
+                className="w-full mt-5 bg-[#2D5A3D] text-white py-4 rounded-2xl font-semibold text-sm hover:bg-[#234830] hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>{isEditMode ? 'Đang cập nhật...' : 'Hệ thống đang xuất bản...'}</>
@@ -630,6 +719,47 @@ export default function SellProductPage() {
           </div>
         </div>
       </form>
+
+      {/* Rules Modal */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#2D5A3D]/10 flex items-center justify-center text-[#2D5A3D]">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Quy định đăng tin</h3>
+              </div>
+              <button onClick={() => setShowRulesModal(false)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <div className="space-y-5 text-sm text-gray-600">
+                <div className="flex gap-3">
+                  <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#2D5A3D] shrink-0" />
+                  <p><strong className="text-gray-900">Thời gian chỉnh sửa:</strong> 30 phút sau khi đăng tin, bạn được phép sửa tất cả thông tin. Sau 30 phút, bạn sẽ không thể thay đổi <strong className="text-gray-900">Tên sản phẩm</strong> và <strong className="text-gray-900">Danh mục</strong>.</p>
+                </div>
+                <div className="flex gap-3">
+                  <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#2D5A3D] shrink-0" />
+                  <p><strong className="text-gray-900">Sản phẩm Cơ bản (1 Credit Đăng tin):</strong> Mặc định hiển thị liên tục trên hệ thống trong vòng 30 ngày.</p>
+                </div>
+                <div className="flex gap-3">
+                  <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#2D5A3D] shrink-0" />
+                  <p><strong className="text-gray-900">Sản phẩm Nổi bật (Sử dụng Credit Nổi bật):</strong> Sản phẩm của bạn sẽ được ưu tiên hiển thị trong 60 ngày, có viền nổi bật bắt mắt, và cơ hội xuất hiện trên Bảng Xếp Hạng (BXH) Tuần.</p>
+                </div>
+                <p className="pt-2 text-xs italic text-gray-500 text-center border-t border-gray-100">Việc tuân thủ quy định giúp tạo ra môi trường giao dịch minh bạch và an toàn cho mọi người.</p>
+              </div>
+            </div>
+            <div className="p-6 pt-4 bg-gray-50 border-t border-gray-100">
+              <button onClick={() => { setAcceptRules(true); setShowRulesModal(false); }} className="w-full bg-[#2D5A3D] text-white py-3 rounded-xl font-semibold hover:bg-[#234830] transition-colors">
+                Đã hiểu & Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

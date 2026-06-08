@@ -4,6 +4,7 @@ import { UserSummaryDto } from '../../../../features/profile/types';
 import { useFollowers, useFollowing, useToggleFollow } from '../../../../features/profile/hooks/useFollow';
 import { useAuth } from '../../../../providers/authProvider/AuthContext';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 interface FollowListModalProps {
   isOpen: boolean;
@@ -81,7 +82,14 @@ export default function FollowListModal({ isOpen, onClose, userId, type, onFollo
     }
   }, [isOpen]);
 
+
+
   const handleToggleFollow = async (targetUserId: number) => {
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để theo dõi.');
+      window.location.href = '/login';
+      return;
+    }
     setLoadingToggleId(targetUserId);
     const result = await toggleFollow(targetUserId);
     if (result) {

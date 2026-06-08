@@ -1,6 +1,9 @@
 import { Heart, Eye, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useWishlist } from '../../../providers/wishlistProvider/WishlistContext';
+import toast from 'react-hot-toast';
+import { useAuth } from '../../../providers/authProvider/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface ProductCardProps {
   productId: number;
@@ -36,12 +39,21 @@ export default function ProductCard({
   createdAt,
 }: ProductCardProps) {
 
+
+
   const { wishlistIds, toggleWishlist, isWishlisted } = useWishlist();
   const wishlisted = isWishlisted(productId);
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault(); // Ngăn Link trigger
     e.stopPropagation();
+    if (!currentUser) {
+      toast.error('Vui lòng đăng nhập để thêm vào yêu thích.');
+      navigate('/login');
+      return;
+    }
     toggleWishlist(productId);
   };
 

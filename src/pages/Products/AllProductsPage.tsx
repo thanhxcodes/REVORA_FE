@@ -4,7 +4,7 @@ import ProductCard from './components/ProductCard';
 import { getFilteredProductsAPI, getCategoriesAPI } from '../../features/products/services/productApi';
 import { useSearchParams } from 'react-router-dom';
 import { ProductResponseDto } from '../../features/products/types';
-
+  
 const LOCATIONS = ['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng'];
 const BRANDS = ['Gucci', 'Chanel', 'Apple', 'Samsung', '5TheWay', 'First News', 'Logitech', 'No Brand'];
 const CONDITIONS = ['Mới 100%', 'Như Mới', 'Tuyệt Vời', 'Tốt', 'Khá'];

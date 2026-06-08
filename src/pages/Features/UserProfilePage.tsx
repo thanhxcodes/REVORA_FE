@@ -559,6 +559,11 @@ export default function UserProfilePage() {
                   <>
                     <button
                       onClick={async () => {
+                        if (!currentUser) {
+                          toast.error('Vui lòng đăng nhập để theo dõi.');
+                          navigate('/login');
+                          return;
+                        }
                         if (userProfile) {
                           const result = await toggleFollow(userProfile.userId);
                           if (result) {
