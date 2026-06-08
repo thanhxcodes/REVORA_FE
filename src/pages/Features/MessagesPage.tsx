@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, X, Send, ChevronLeft, Check, CheckCheck, ImagePlus, MoreVertical, Edit2, Trash2, Ban, Search, Phone, Video, MoreHorizontal, Mail, BellOff, CircleUser } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { MessageCircle, X, Send, ChevronLeft, Check, CheckCheck, ImagePlus, MoreVertical, Edit2, Trash2, Ban, Search, Phone, Video, MoreHorizontal, Mail, BellOff, CircleUser, CheckCircle2 } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import * as signalR from '@microsoft/signalr';
 import authClient from '../../providers/authProvider/authService';
@@ -55,8 +55,11 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const location = useLocation();
+  const [attachedProduct, setAttachedProduct] = useState<ProductRef | null>(location.state?.product || null);
   
   // Dropdown states
   const [openConvDropdown, setOpenConvDropdown] = useState<number | null>(null);
@@ -69,6 +72,7 @@ export default function MessagesPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeChatRef = useRef<Conversation | null>(null);
+  const prevMessagesLengthRef = useRef(0);
 
   useEffect(() => {
     activeChatRef.current = activeChat;
@@ -78,7 +82,12 @@ export default function MessagesPage() {
     try {
       const res = await authClient.get('/Chat/conversations');
       if (res.data.success) {
-        setConversations(res.data.data);
+        setConversations(prev => {
+          const apiConvs = res.data.data;
+          // Keep fake conversations if the API didn't return a real one for that user
+          const tempConvs = prev.filter(c => c.conversationId < 0 && !apiConvs.find((a: any) => a.partner.userId === c.partner.userId));
+          return [...tempConvs, ...apiConvs];
+        });
       }
     } catch (e) {
       console.error('Failed to fetch conversations', e);
@@ -165,8 +174,45 @@ export default function MessagesPage() {
     fetchConversations();
   }, [fetchConversations]);
 
+  // Handle auto-select conversation if passed from location.state
+  useEffect(() => {
+    if (location.state?.targetUserId && conversations.length >= 0) {
+      const conv = conversations.find(c => c.partner.userId === location.state.targetUserId);
+      if (conv) {
+        if (activeChat?.conversationId !== conv.conversationId) {
+          setActiveChat(conv);
+        }
+      } else {
+        // Create a temporary conversation
+        const tempConv: Conversation = {
+          conversationId: -Date.now(), // Fake ID
+          lastMessageAt: new Date().toISOString(),
+          unreadCount: 0,
+          partner: {
+            userId: location.state.targetUserId,
+            fullName: location.state.targetUserName || 'Người dùng',
+            avatarUrl: location.state.targetUserAvatar || 'U',
+          },
+          lastMessage: null
+        };
+        // Avoid infinite loop by checking if we already added a fake one for this user
+        if (!conversations.find(c => c.partner.userId === tempConv.partner.userId)) {
+          setConversations(prev => [tempConv, ...prev]);
+        }
+        if (activeChat?.partner.userId !== tempConv.partner.userId) {
+          setActiveChat(tempConv);
+        }
+      }
+      
+      // Clear location state to prevent getting stuck on this chat
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, conversations, activeChat, navigate]);
+
   useEffect(() => {
     if (activeChat) {
+      setMessages([]);
+      prevMessagesLengthRef.current = 0;
       fetchMessages(activeChat.partner.userId);
       markAsRead(activeChat.partner.userId);
     }
@@ -223,6 +269,15 @@ export default function MessagesPage() {
           fetchConversations();
         });
 
+        newConnection.on('MessagesRead', (readerId: number) => {
+          const currentChat = activeChatRef.current;
+          if (currentChat && readerId === currentChat.partner.userId) {
+            setMessages(prev => prev.map(m => 
+              m.senderId === currentUser.id ? { ...m, read: true } : m
+            ));
+          }
+        });
+
       })
       .catch(e => console.log('Connection failed: ', e));
 
@@ -231,11 +286,14 @@ export default function MessagesPage() {
     };
   }, [fetchConversations, currentUser]);
 
-  useEffect(() => {
+
+  useLayoutEffect(() => {
     if (activeChat) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const behavior = prevMessagesLengthRef.current === 0 ? 'auto' : 'smooth';
+      messagesEndRef.current?.scrollIntoView({ behavior });
+      prevMessagesLengthRef.current = messages.length;
     }
-  }, [activeChat, messages.length, isTyping, editingMsgId]);
+  }, [activeChat, messages.length, isSending, editingMsgId]);
 
   useEffect(() => {
     if (activeChat) {
@@ -247,7 +305,7 @@ export default function MessagesPage() {
     const file = e.target.files?.[0];
     if (!file || !activeChat || editingMsgId) return;
 
-    setIsTyping(true);
+    setIsSending(true);
     try {
       const formData = new FormData();
       formData.append('files', file);
@@ -277,19 +335,20 @@ export default function MessagesPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsTyping(false);
+      setIsSending(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const sendMessage = async () => {
-    if (!inputText.trim() || isTyping || !activeChat) return;
+    if (!inputText.trim() || isSending || !activeChat) return;
     
     const content = inputText.trim();
+    const currentProduct = attachedProduct;
     
     if (editingMsgId) {
       // Gửi sửa tin nhắn
-      setIsTyping(true);
+      setIsSending(true);
       try {
         const res = await authClient.put(`/Chat/message/${editingMsgId}`, { content });
         if (res.data.success) {
@@ -302,24 +361,37 @@ export default function MessagesPage() {
         console.error(err);
         toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi sửa tin nhắn');
       } finally {
-        setIsTyping(false);
+        setIsSending(false);
       }
       return;
     }
 
     // Gửi tin mới
     setInputText('');
-    setIsTyping(true);
+    setAttachedProduct(null); // Xóa attached product sau khi gửi
+    setIsSending(true);
 
     try {
-      const res = await authClient.post('/Chat/send', {
+      const payload: any = {
         receiverId: activeChat.partner.userId,
         content: content,
-      });
+      };
+      // Giả lập frontend: thêm productRefId nếu API hỗ trợ, hoặc đính kèm vào payload gửi lên
+      if (currentProduct) {
+        payload.productRefId = currentProduct.id;
+      }
+      
+      const res = await authClient.post('/Chat/send', payload);
       if (res.data.success) {
+        // Nếu API không trả về thông tin product trong response, chúng ta tự gắn (mock) vào tin nhắn trả về để UI hiển thị được ngay lập tức
+        const newMsg = res.data.data;
+        if (currentProduct && !newMsg.product) {
+          newMsg.product = currentProduct;
+        }
+        
         setMessages(prev => {
-            if (!prev.find(m => m.id === res.data.data.id)) {
-                return [...prev, res.data.data];
+            if (!prev.find(m => m.id === newMsg.id)) {
+                return [...prev, newMsg];
             }
             return prev;
         });
@@ -328,7 +400,7 @@ export default function MessagesPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsTyping(false);
+      setIsSending(false);
     }
   };
 
@@ -408,8 +480,8 @@ export default function MessagesPage() {
                         onClick={() => setActiveChat(conv)}
                         className={`flex w-full items-center gap-3.5 rounded-3xl p-3.5 text-left transition-all ${
                           active
-                            ? "bg-[#2D5A3D] text-white shadow-md"
-                            : "bg-white/80 text-gray-900 shadow-sm hover:bg-white"
+                            ? "bg-[#EBF4F0] text-gray-900"
+                            : "bg-white text-gray-900 hover:bg-gray-50"
                         }`}
                       >
                         <div className="relative shrink-0">
@@ -422,8 +494,8 @@ export default function MessagesPage() {
                           </div>
                           {/* Online status indicator mock */}
                           <span
-                            className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 ${
-                              active ? "border-[#2D5A3D] bg-emerald-400" : "border-white bg-[#2D5A3D]"
+                            className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 bg-emerald-400 ${
+                              active ? "border-[#EBF4F0]" : "border-white"
                             }`}
                           />
                         </div>
@@ -431,16 +503,12 @@ export default function MessagesPage() {
                         <div className="min-w-0 flex-1 pr-4">
                           <div className="flex items-baseline justify-between gap-2">
                             <span className="truncate font-semibold">{conv.partner.fullName || 'User'}</span>
-                            <span className={`shrink-0 text-xs ${active ? "text-white/80" : "text-gray-500"}`}>
+                            <span className="shrink-0 text-xs text-gray-500">
                               {new Date(conv.lastMessageAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                             </span>
                           </div>
                           <div className="mt-0.5 flex items-center justify-between gap-2">
-                            <p
-                              className={`truncate text-sm ${
-                                active ? "text-white/85" : "text-gray-500"
-                              }`}
-                            >
+                            <p className="truncate text-sm text-gray-500">
                               {conv.lastMessage?.senderId === currentUser?.id ? 'Bạn: ' : ''}
                               {conv.lastMessage?.isRevoked ? 'Đã thu hồi một tin nhắn' : (conv.lastMessage?.content || 'Hình ảnh đính kèm')}
                             </p>
@@ -550,138 +618,99 @@ export default function MessagesPage() {
                   <div className="flex justify-center mb-6">
                     <span className="rounded-full bg-gray-200/50 px-3 py-1 text-xs font-medium text-gray-500 backdrop-blur-sm">Hôm nay</span>
                   </div>
-                  {messages.map((msg, index) => {
+                  {(() => {
+                    const lastReadMessageIndex = [...messages].reverse().findIndex(m => m.senderId === currentUser?.id && m.read === true);
+                    const lastReadMessageId = lastReadMessageIndex !== -1 ? messages[messages.length - 1 - lastReadMessageIndex].id : null;
+
+                    return messages.map((msg, index) => {
                     const isMe = msg.senderId === currentUser?.id;
                     const prevMsg = messages[index - 1];
                     const showName = !prevMsg || prevMsg.senderId !== msg.senderId;
 
                     return (
                       <div key={msg.id} className={`flex w-full gap-3 ${isMe ? "justify-end" : "justify-start"} group`}>
-                        {msg.product ? (
-                           <div className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}>
-                              <div className={`flex max-w-[78%] gap-3 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                                {!isMe && <div className="w-9 shrink-0" />}
-                                <div className="w-full min-w-[300px]">
-                                  <div className="w-full overflow-hidden rounded-3xl border-2 border-[#2D5A3D] bg-white p-2.5 shadow-sm">
-                                    <div className="flex gap-3.5 p-2">
-                                      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gray-100">
-                                        <img src={msg.product.image} alt={msg.product.name} className="h-full w-full object-cover" />
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <h4 className="text-lg font-semibold leading-tight text-gray-900 text-balance line-clamp-2">
-                                          {msg.product.name}
-                                        </h4>
-                                        <dl className="mt-1.5 space-y-0.5 text-sm text-gray-500">
-                                          <div>
-                                            <span>Trade Value: </span>
-                                            <span className="font-semibold text-[#2D5A3D]">{msg.product.price}</span>
-                                          </div>
-                                        </dl>
-                                      </div>
-                                    </div>
-                                    <button type="button" className="mt-1.5 w-full rounded-2xl bg-[#2D5A3D] py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#2D5A3D]/90">
-                                      View Item
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                           </div>
-                        ) : (
-                          <div className={`flex w-full gap-3 ${isMe ? "justify-end" : "justify-start"}`}>
-                            {!isMe && (
-                              <div className="h-9 w-9 shrink-0 self-start overflow-hidden rounded-full font-bold flex items-center justify-center bg-gray-200 text-gray-600">
-                                {showName ? (
-                                  activeChat.partner.avatarUrl && activeChat.partner.avatarUrl !== "U" ? (
-                                    <img src={activeChat.partner.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
-                                  ) : (activeChat.partner.fullName?.charAt(0) || 'U')
-                                ) : null}
-                              </div>
-                            )}
-
-                            {/* Dropdown Menu Left (for IsMe) */}
-                            {isMe && !msg.isRevoked && (
-                               <div className="relative opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 self-center">
-                                 <button onClick={(e) => { e.stopPropagation(); setOpenMsgDropdown(openMsgDropdown === msg.id ? null : msg.id); }} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-200">
-                                    <MoreVertical className="w-4 h-4" />
-                                 </button>
-                                 {openMsgDropdown === msg.id && (
-                                    <div className="absolute right-0 bottom-full mb-1 w-36 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-50 py-1">
-                                      <button onClick={() => startEditMessage(msg)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        <Edit2 className="w-3.5 h-3.5" /> Sửa
-                                      </button>
-                                      <button onClick={() => revokeMessage(msg.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                                        <Ban className="w-3.5 h-3.5" /> Thu hồi
-                                      </button>
-                                    </div>
-                                 )}
-                               </div>
-                            )}
-
-                            <div className={`max-w-[72%] ${isMe ? "items-end" : "items-start"}`}>
-                              {msg.isRevoked ? (
-                                <div className="rounded-3xl rounded-br-md px-4 py-3 text-[15px] border border-gray-200 text-gray-400 italic bg-transparent mb-1 shadow-sm">
-                                  Tin nhắn đã bị thu hồi
-                                </div>
-                              ) : (
-                                <div
-                                  className={`rounded-3xl px-4 py-3 text-[15px] leading-relaxed shadow-sm ${
-                                    isMe
-                                      ? "rounded-tr-md bg-[#2D5A3D] text-white"
-                                      : "rounded-tl-md border border-gray-200 bg-white text-gray-800"
-                                  }`}
-                                >
-                                  {showName && (
-                                    <div className="mb-0.5 flex items-baseline justify-between gap-6">
-                                      <span className={`text-sm font-semibold ${isMe ? "text-white" : "text-gray-900"}`}>
-                                        {isMe ? "You" : activeChat.partner.fullName}
-                                      </span>
-                                      <span className={`text-xs ${isMe ? "text-white/70" : "text-gray-500"}`}>
-                                        {msg.time}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {!showName && (
-                                    <div className={`text-[10px] mb-1 ${isMe ? 'text-white/60 text-right' : 'text-gray-400 text-left'}`}>
-                                      {msg.time}
-                                    </div>
-                                  )}
-
-                                  {msg.imageUrl && (
-                                    <img
-                                      src={msg.imageUrl}
-                                      alt="Sent image"
-                                      className="max-w-sm w-full rounded-xl mb-2 object-cover"
-                                    />
-                                  )}
-                                  <p className="whitespace-pre-wrap">{msg.text}</p>
-                                </div>
-                              )}
-                            </div>
+                        {!isMe && (
+                          <div className={`shrink-0 self-start ${showName ? 'h-9 w-9 overflow-hidden rounded-full font-bold flex items-center justify-center bg-gray-200 text-gray-600' : 'w-9'}`}>
+                            {showName ? (
+                              activeChat.partner.avatarUrl && activeChat.partner.avatarUrl !== "U" ? (
+                                <img src={activeChat.partner.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                              ) : (activeChat.partner.fullName?.charAt(0) || 'U')
+                            ) : null}
                           </div>
                         )}
-                      </div>
-                    );
-                  })}
 
-                  {/* Typing Indicator */}
-                  {isTyping && !editingMsgId && (
-                    <div className="flex w-full gap-3 justify-start">
-                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full flex items-center justify-center font-bold bg-gray-200 text-gray-600">
-                        {activeChat.partner.avatarUrl && activeChat.partner.avatarUrl !== "U" ? (
-                          <img src={activeChat.partner.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
-                        ) : (activeChat.partner.fullName?.charAt(0) || 'U')}
-                      </div>
-                      <div className="max-w-[72%] items-start">
-                        <div className="rounded-3xl rounded-tl-md border border-gray-100 bg-white px-4 py-3.5 shadow-sm">
-                           <div className="flex space-x-1.5 items-center h-4">
-                            {[0, 150, 300].map((delay) => (
-                              <div key={delay} className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${delay}ms` }} />
-                            ))}
-                          </div>
+                        {/* Dropdown Menu Left (for IsMe) */}
+                        {isMe && !msg.isRevoked && (
+                           <div className="relative opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 self-center">
+                             <button onClick={(e) => { e.stopPropagation(); setOpenMsgDropdown(openMsgDropdown === msg.id ? null : msg.id); }} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-200">
+                                <MoreVertical className="w-4 h-4" />
+                             </button>
+                             {openMsgDropdown === msg.id && (
+                                <div className="absolute right-0 bottom-full mb-1 w-36 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-50 py-1">
+                                  <button onClick={() => startEditMessage(msg)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                    <Edit2 className="w-3.5 h-3.5" /> Sửa
+                                  </button>
+                                  <button onClick={() => revokeMessage(msg.id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                    <Ban className="w-3.5 h-3.5" /> Thu hồi
+                                  </button>
+                                </div>
+                             )}
+                           </div>
+                        )}
+
+                        <div className={`max-w-[72%] ${isMe ? "items-end" : "items-start"}`}>
+                          {msg.isRevoked ? (
+                            <div className="rounded-3xl rounded-br-md px-4 py-3 text-[15px] border border-gray-200 text-gray-400 italic bg-transparent mb-1 shadow-sm">
+                              Tin nhắn đã bị thu hồi
+                            </div>
+                          ) : (
+                            <>
+                              <div
+                                className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm ${
+                                  isMe
+                                    ? "rounded-tr-sm bg-[#EBF4F0] text-gray-900"
+                                    : "rounded-tl-sm border border-gray-200 bg-white text-gray-900"
+                                }`}
+                              >
+
+                              {msg.product && (
+                                <Link to={`/product/${msg.product.id}`} className="block mb-2.5 flex gap-3 relative pl-3 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-[#E2A62C] before:rounded-full hover:opacity-80 transition-opacity">
+                                  <img src={msg.product.image} alt={msg.product.name} className="w-12 h-12 rounded-md object-cover bg-white flex-shrink-0 border border-black/5" />
+                                  <div className="min-w-0 flex flex-col justify-center">
+                                    <h4 className="text-[14px] font-semibold text-gray-900 line-clamp-2 leading-snug">{msg.product.name}</h4>
+                                    <p className="text-[13px] font-bold text-[#2D5A3D] mt-0.5">{msg.product.price}</p>
+                                  </div>
+                                </Link>
+                              )}
+
+                              {msg.imageUrl && (
+                                <img
+                                  src={msg.imageUrl}
+                                  alt="Sent image"
+                                  className="max-w-sm w-full rounded-xl mb-2 object-cover border border-black/5"
+                                />
+                              )}
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            </div>
+                              <div className={`mt-1 flex items-center gap-1.5 text-[11px] text-gray-500 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                <span>{msg.time}</span>
+                                {isMe && msg.id === lastReadMessageId && (
+                                  <>
+                                    <span className="text-gray-400">|</span>
+                                    <span>Đã đọc</span>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-gray-500" />
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  });
+                })()}
+
+
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -699,6 +728,25 @@ export default function MessagesPage() {
 
                 {/* Composer */}
                 <div className="border-t border-gray-200 bg-white px-6 py-4">
+                  {attachedProduct && (
+                    <div className="mb-3 relative rounded-xl border border-gray-200 bg-white p-3 shadow-sm flex flex-col gap-2 max-w-sm">
+                      <div className="text-xs font-bold text-gray-900">Tư vấn sản phẩm</div>
+                      <div className="flex gap-3 relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-yellow-400 before:rounded-l-sm pl-3">
+                        <img src={attachedProduct.image} alt={attachedProduct.name} className="w-12 h-12 rounded object-cover flex-shrink-0 bg-gray-100" />
+                        <div className="flex-1 min-w-0 pr-6">
+                          <h4 className="text-sm text-gray-800 line-clamp-1 truncate">{attachedProduct.name}</h4>
+                          <p className="text-sm font-semibold text-[#2D5A3D]">{attachedProduct.price}</p>
+                        </div>
+                        <button 
+                          onClick={() => setAttachedProduct(null)}
+                          className="absolute right-0 top-1/2 -translate-y-1/2 p-1 bg-black text-white rounded-full hover:bg-gray-800 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex items-end gap-2.5 rounded-3xl border border-gray-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-[#2D5A3D]/20 transition-all">
                     <input
                       ref={fileInputRef}
@@ -710,7 +758,7 @@ export default function MessagesPage() {
                     {!editingMsgId && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={isTyping}
+                        disabled={isSending}
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-40"
                       >
                         <ImagePlus className="h-5 w-5" />
@@ -727,17 +775,17 @@ export default function MessagesPage() {
                           sendMessage();
                         }
                       }}
-                      placeholder={editingMsgId ? "Nhập nội dung mới..." : "Write a message..."}
+                      placeholder={attachedProduct ? "Nhập tin nhắn..." : (editingMsgId ? "Nhập nội dung mới..." : "Write a message...")}
                       className="w-full bg-transparent text-[15px] text-gray-900 outline-none placeholder:text-gray-400 resize-none min-h-[40px] max-h-32 py-2.5"
                       rows={1}
                     />
                     
                     <button
                       onClick={sendMessage}
-                      disabled={!inputText.trim() || isTyping}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2D5A3D] text-white transition-colors hover:bg-[#2D5A3D]/90 disabled:opacity-50"
+                      disabled={!inputText.trim() || isSending}
+                      className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-[#2D5A3D] text-white transition-colors hover:bg-[#2D5A3D]/90 disabled:bg-gray-200 disabled:text-gray-400"
                     >
-                      {editingMsgId ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4 ml-0.5" />}
+                      {editingMsgId ? <Check className="h-4 w-4" /> : <Send className="h-5 w-5 ml-0.5" />}
                     </button>
                   </div>
                 </div>

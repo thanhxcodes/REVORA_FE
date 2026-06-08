@@ -36,6 +36,8 @@ export interface ProductResponseDto {
     location: string;
     imageUrl: string;
     sellerName: string;
+    sellerId?: number;
+    sellerAvatar?: string;
     isPremium: boolean;
     bannerUrl?: string;
     viewCount: number;

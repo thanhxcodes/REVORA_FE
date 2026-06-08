@@ -199,9 +199,6 @@ export default function FollowListModal({ isOpen, onClose, userId, type, onFollo
                         <h4 className="text-sm font-bold text-gray-900 truncate">{user.fullName}</h4>
                       </Link>
                       <p className="text-xs text-gray-500 truncate">@{user.username}</p>
-                      {user.bio && (
-                        <p className="text-xs text-gray-600 truncate mt-0.5">{user.bio}</p>
-                      )}
                     </div>
                     
                     {/* Action */}

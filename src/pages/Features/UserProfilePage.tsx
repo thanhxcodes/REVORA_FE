@@ -372,7 +372,7 @@ export default function UserProfilePage() {
   ];
 
   const visibleTabs = publicViewMode
-    ? dynamicTabs.filter(tab => ['profile', 'products', 'wishlist'].includes(tab.key))
+    ? dynamicTabs.filter(tab => ['profile', 'products'].includes(tab.key))
     : dynamicTabs;
 
   const currentBadge = AVAILABLE_BADGES.find(b => b.id === selectedBadge) || AVAILABLE_BADGES[0];
@@ -403,31 +403,29 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Banner */}
-      <div
-        className="h-52 relative overflow-hidden bg-gradient-to-r from-[#2D5A3D] via-[#3D7054] to-[#2D5A3D]"
-      >
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='40' cy='40' r='35' fill='none' stroke='white' stroke-width='0.5'/%3E%3Ccircle cx='40' cy='40' r='20' fill='none' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E")`,
-          }}
-        />
+      {/* Banner - Abstract Mesh Gradient */}
+      <div className="h-72 relative overflow-hidden bg-[#2D5A3D]">
+        {/* Animated Mesh Gradients */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-60 mix-blend-screen">
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[150%] bg-gradient-to-br from-[#3D7054] to-[#C4603A]/30 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '8s' }} />
+          <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[120%] bg-gradient-to-bl from-[#C4603A]/20 to-[#2D5A3D] rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '1s' }} />
+        </div>
+        <div className="absolute inset-0 bg-black/10" />
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Profile card */}
-        <div className="relative -mt-36 mb-6">
-          <div className="bg-white rounded-3xl shadow-xl p-8">
+        {/* Profile card - Glassmorphism */}
+        <div className="relative -mt-40 mb-8">
+          <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] p-8 md:p-10">
             {saveSuccess && (
-              <div className="mb-6 bg-green-50 border border-green-200 text-green-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5">
+              <div className="mb-6 bg-green-50/80 backdrop-blur-sm border border-green-200 text-green-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5 shadow-sm">
                 <CheckCircle className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium">Đã lưu thông tin thành công!</span>
               </div>
             )}
 
             {(profileError || updateError) && (
-              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5">
+              <div className="mb-6 bg-red-50/80 backdrop-blur-sm border border-red-200 text-red-700 rounded-2xl px-5 py-3.5 flex items-center gap-2.5 shadow-sm">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium">{profileError || updateError}</span>
               </div>
@@ -520,11 +518,6 @@ export default function UserProfilePage() {
                 </div>
                 <p className="text-gray-600 text-sm leading-relaxed max-w-2xl line-clamp-2 mb-3">{profile.bio}</p>
 
-                {/* Rating stars */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-gray-900">⭐ 4.9</span>
-                  <span className="text-sm text-gray-500">(234 đánh giá)</span>
-                </div>
               </div>
 
               {/* Actions */}
@@ -606,60 +599,60 @@ export default function UserProfilePage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6 pt-6 border-t border-gray-100">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-[#2D5A3D]">{soldCount}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Đã Bán</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-[#2D5A3D]">{sellingCount}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Đang Bán</div>
+            <div className="grid grid-cols-3 gap-4 md:gap-6 mt-8 pt-8 border-t border-gray-200/50">
+              <div className="flex flex-col items-center p-4 rounded-2xl hover:bg-white/50 transition-colors">
+                <div className="text-3xl font-black text-[#2D5A3D] drop-shadow-sm">{sellingCount}</div>
+                <div className="text-sm font-medium text-gray-500 mt-1 uppercase tracking-wider">Đang Bán</div>
               </div>
               <div 
-                className="text-center cursor-pointer hover:bg-gray-50 rounded-xl transition-colors py-1"
+                className="flex flex-col items-center p-4 rounded-2xl hover:bg-[#2D5A3D]/5 hover:scale-105 transition-all cursor-pointer group"
                 onClick={() => {
                   setFollowModalType('followers');
                   setIsFollowModalOpen(true);
                 }}
               >
-                <div className="text-2xl font-bold text-[#2D5A3D]">{formattedFollowers}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Follower</div>
+                <div className="text-3xl font-black text-[#2D5A3D] drop-shadow-sm group-hover:text-[#3D7054] transition-colors">{formattedFollowers}</div>
+                <div className="text-sm font-medium text-gray-500 mt-1 uppercase tracking-wider group-hover:text-[#2D5A3D] transition-colors">Follower</div>
               </div>
               <div 
-                className="text-center cursor-pointer hover:bg-gray-50 rounded-xl transition-colors py-1"
+                className="flex flex-col items-center p-4 rounded-2xl hover:bg-[#2D5A3D]/5 hover:scale-105 transition-all cursor-pointer group"
                 onClick={() => {
                   setFollowModalType('following');
                   setIsFollowModalOpen(true);
                 }}
               >
-                <div className="text-2xl font-bold text-[#2D5A3D]">{formattedFollowing}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Đã Follow</div>
+                <div className="text-3xl font-black text-[#2D5A3D] drop-shadow-sm group-hover:text-[#3D7054] transition-colors">{formattedFollowing}</div>
+                <div className="text-sm font-medium text-gray-500 mt-1 uppercase tracking-wider group-hover:text-[#2D5A3D] transition-colors">Đã Follow</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-6 overflow-x-auto pb-1">
-          <div className="bg-white rounded-2xl shadow-sm p-1.5 inline-flex gap-1">
+        {/* Tabs - Pill format */}
+        <div className="mb-8 flex justify-center overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+          <div className="bg-white/60 backdrop-blur-md rounded-full shadow-sm p-1.5 inline-flex gap-2 border border-white/40">
             {visibleTabs.map((tab) => {
               if (!isOwnProfile && (tab.key === 'security' || tab.key === 'wishlist')) return null;
+              const isActive = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                    activeTab === tab.key
-                      ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50'
+                  className={`flex items-center gap-2.5 px-6 py-2.5 rounded-full text-[15px] font-semibold transition-all whitespace-nowrap relative ${
+                    isActive
+                      ? 'text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                   }`}
                 >
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] rounded-full -z-10 shadow-[0_4px_12px_rgba(45,90,61,0.3)]" />
+                  )}
                   {tab.icon}
                   <span>{tab.label}</span>
                   {tab.badge && (
                     <span
-                      className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                        activeTab === tab.key ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-600'
+                      className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                        isActive ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-600'
                       }`}
                     >
                       {tab.badge}
