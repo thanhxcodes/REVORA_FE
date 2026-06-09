@@ -25,6 +25,8 @@ export interface UserCreditSummaryApi {
   hasActivePaidCredits: boolean;
   hasPendingPaidOrder: boolean;
   pendingPaidPackageId: number | null;
+  pendingOrderCheckoutUrl: string | null;
+  pendingOrderExpiredAt: string | null;
   canPurchasePaidPackage: boolean;
   purchaseBlockReason: string | null;
   batches: UserCreditBatchItemApi[];

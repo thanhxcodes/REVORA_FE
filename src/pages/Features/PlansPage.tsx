@@ -179,11 +179,13 @@ interface Package {
   tier: number;
 }
 
-type PackagePurchaseState = 'in_use' | 'available' | 'locked';
+type PackagePurchaseState = 'in_use' | 'available' | 'locked' | 'pending';
 
 interface CreditTypePurchaseStatus {
   isTypeLocked: boolean;
   activePackageId: string | null;
+  pendingOrderCheckoutUrl?: string | null;
+  pendingOrderExpiredAt?: string | null;
 }
 
 const resolveActivePackageId = (
@@ -243,6 +245,8 @@ const computeCreditTypePurchaseStatus = (
     return {
       isTypeLocked: true,
       activePackageId: pendingPackage?.id ?? null,
+      pendingOrderCheckoutUrl: summary.pendingOrderCheckoutUrl,
+      pendingOrderExpiredAt: summary.pendingOrderExpiredAt,
     };
   }
 
@@ -270,10 +274,44 @@ const getPackagePurchaseState = (
   }
 
   if (status.activePackageId === packageId) {
-    return 'in_use';
+    return status.pendingOrderCheckoutUrl ? 'pending' : 'in_use';
   }
 
   return 'locked';
+};
+
+const useCountdown = (expiredAt: string | null | undefined) => {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!expiredAt) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const targetDate = new Date(expiredAt).getTime();
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const difference = targetDate - now;
+      if (difference <= 0) {
+        setTimeLeft(0);
+      } else {
+        setTimeLeft(Math.floor(difference / 1000));
+      }
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+
+    return () => clearInterval(timer);
+  }, [expiredAt]);
+
+  if (timeLeft === null || timeLeft <= 0) return null;
+
+  const m = Math.floor(timeLeft / 60);
+  const s = timeLeft % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 const postingPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
@@ -448,12 +486,49 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
   return { posting, featured };
 };
 
+const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?: string | null, checkoutUrl?: string | null, variant: CreditType }) => {
+  const countdown = useCountdown(expiredAt);
+  
+  if (!countdown) {
+    // If expired, reload the page to get the latest status
+    useEffect(() => {
+      window.location.reload();
+    }, []);
+    return (
+      <button
+        disabled
+        className="w-full bg-gray-300 text-gray-600 py-4 rounded-xl font-bold cursor-not-allowed flex items-center justify-center space-x-2"
+      >
+        <span>Đã hết hạn</span>
+      </button>
+    );
+  }
+
+  const buyButtonClass =
+    variant === 'posting'
+      ? 'w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all animate-pulse'
+      : 'w-full bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all animate-pulse';
+
+  return (
+    <button 
+      type="button" 
+      onClick={() => {
+        if (checkoutUrl) window.location.href = checkoutUrl;
+      }} 
+      className={buyButtonClass}
+    >
+      Tiếp tục thanh toán ({countdown})
+    </button>
+  );
+};
+
 const renderPackagePurchaseButton = (
   purchaseState: PackagePurchaseState,
   onBuy: () => void,
   variant: CreditType,
   isLoading: boolean,
-  isAnyLoading: boolean
+  isAnyLoading: boolean,
+  status?: CreditTypePurchaseStatus
 ) => {
   if (purchaseState === 'in_use') {
     return (
@@ -464,6 +539,10 @@ const renderPackagePurchaseButton = (
         Đang Sử Dụng
       </button>
     );
+  }
+
+  if (purchaseState === 'pending' && status) {
+    return <PendingPurchaseButton expiredAt={status.pendingOrderExpiredAt} checkoutUrl={status.pendingOrderCheckoutUrl} variant={variant} />;
   }
 
   if (purchaseState === 'locked' || isAnyLoading) {
@@ -820,7 +899,8 @@ export default function PlansPage() {
                           () => handleSelectPackage(pkg),
                           'posting',
                           loadingPackageId === pkg.paidCreditPackageId,
-                          isCheckoutLoading
+                          isCheckoutLoading,
+                          postingPurchaseStatus
                         )}
                       </div>
                     </div>
@@ -921,7 +1001,8 @@ export default function PlansPage() {
                           () => handleSelectPackage(pkg),
                           'featured',
                           loadingPackageId === pkg.paidCreditPackageId,
-                          isCheckoutLoading
+                          isCheckoutLoading,
+                          featuredPurchaseStatus
                         )}
                       </div>
                     </div>
