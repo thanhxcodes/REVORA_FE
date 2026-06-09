@@ -457,7 +457,8 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
 const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?: string | null, checkoutUrl?: string | null, variant: CreditType }) => {
   let formattedTime = '';
   if (expiredAt) {
-    const d = new Date(expiredAt);
+    const utcExpiredAt = expiredAt.endsWith('Z') ? expiredAt : `${expiredAt}Z`;
+    const d = new Date(utcExpiredAt);
     formattedTime = d.toLocaleString('vi-VN', {
       timeZone: 'Asia/Ho_Chi_Minh',
       hour: '2-digit',
