@@ -221,60 +221,7 @@ const resolveActivePackageId = (
   return null;
 };
 
-const computeCreditTypePurchaseStatus = (
-  summary: UserCreditSummaryApi | null,
-  packages: Package[],
-  creditType: CreditType
-): CreditTypePurchaseStatus => {
-  if (!summary) {
-    return { isTypeLocked: false, activePackageId: null };
-  }
 
-  // Không còn paid credits và không có đơn chờ → mở khóa toàn bộ gói paid
-  if (!summary.hasActivePaidCredits && !summary.hasPendingPaidOrder) {
-    return { isTypeLocked: false, activePackageId: null };
-  }
-
-  if (summary.hasPendingPaidOrder && summary.pendingPaidPackageId != null) {
-    const pendingPackage = packages.find(
-      (pkg) => pkg.paidCreditPackageId === summary.pendingPaidPackageId
-    );
-
-    return {
-      isTypeLocked: true,
-      activePackageId: pendingPackage?.id ?? null,
-    };
-  }
-
-  const activePaidBatch = summary.batches.find(
-    (batch) => batch.isPaid && batch.remainingCredits > 0
-  );
-
-  if (activePaidBatch) {
-    return {
-      isTypeLocked: true,
-      activePackageId: resolveActivePackageId(activePaidBatch, packages, creditType),
-    };
-  }
-
-  // Backend báo còn paid nhưng không có batch khớp — không khóa nhầm UI
-  return { isTypeLocked: false, activePackageId: null };
-};
-
-const getPackagePurchaseState = (
-  packageId: string,
-  status: CreditTypePurchaseStatus
-): PackagePurchaseState => {
-  if (!status.isTypeLocked) {
-    return 'available';
-  }
-
-  if (status.activePackageId === packageId) {
-    return 'in_use';
-  }
-
-  return 'locked';
-};
 
 const postingPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
   1: {
@@ -449,24 +396,12 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
 };
 
 const renderPackagePurchaseButton = (
-  purchaseState: PackagePurchaseState,
   onBuy: () => void,
   variant: CreditType,
   isLoading: boolean,
   isAnyLoading: boolean
 ) => {
-  if (purchaseState === 'in_use') {
-    return (
-      <button
-        disabled
-        className="w-full bg-gray-300 text-gray-600 py-4 rounded-xl font-bold cursor-not-allowed"
-      >
-        Đang Sử Dụng
-      </button>
-    );
-  }
-
-  if (purchaseState === 'locked' || isAnyLoading) {
+  if (isAnyLoading) {
     return (
       <button
         disabled
@@ -646,15 +581,7 @@ export default function PlansPage() {
 
   const { posting: postingPackages, featured: featuredPackages } = mapCreditPackages(creditPackages);
 
-  const postingPurchaseStatus = useMemo(
-    () => computeCreditTypePurchaseStatus(creditSummaries.posting, postingPackages, 'posting'),
-    [creditSummaries.posting, postingPackages]
-  );
 
-  const featuredPurchaseStatus = useMemo(
-    () => computeCreditTypePurchaseStatus(creditSummaries.featured, featuredPackages, 'featured'),
-    [creditSummaries.featured, featuredPackages]
-  );
 
   const handleSelectPackage = (pkg: Package) => {
     void initiateCheckout(pkg.paidCreditPackageId);
@@ -729,9 +656,7 @@ export default function PlansPage() {
                 <h2 className="text-3xl text-gray-900">Gói Credits Đăng Tin</h2>
               </div>
               {packageError && <p className="mb-4 text-sm text-amber-600">{packageError}</p>}
-              {creditSummaries.posting?.purchaseBlockReason && (
-                <p className="mb-4 text-sm text-amber-600">{creditSummaries.posting.purchaseBlockReason}</p>
-              )}
+
               {checkoutError && (
                 <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
@@ -749,18 +674,10 @@ export default function PlansPage() {
                     Đang tải danh sách gói credits...
                   </div>
                 ) : postingPackages.length > 0 ? postingPackages.map((pkg) => {
-                  const purchaseState = getPackagePurchaseState(pkg.id, postingPurchaseStatus);
-                  const isInUse = purchaseState === 'in_use';
-
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${isInUse
-                        ? 'ring-4 ring-blue-500 scale-105'
-                        : purchaseState === 'available'
-                          ? 'hover:shadow-2xl hover:scale-105'
-                          : 'opacity-90'
-                        }`}
+                      className="relative bg-white rounded-3xl shadow-lg p-8 transition-all hover:shadow-2xl hover:scale-105"
                     >
                       {/* Badge */}
                       <div className="absolute top-6 right-6">
@@ -768,16 +685,6 @@ export default function PlansPage() {
                           {pkg.badge}
                         </span>
                       </div>
-
-                      {/* Active Plan Badge */}
-                      {isInUse && (
-                        <div className="absolute top-6 left-6">
-                          <span className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-                            <Check className="w-3 h-3" />
-                            <span>Đang Dùng</span>
-                          </span>
-                        </div>
-                      )}
 
                       <div className="mt-8">
                         <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>
@@ -816,7 +723,6 @@ export default function PlansPage() {
                         </ul>
 
                         {renderPackagePurchaseButton(
-                          purchaseState,
                           () => handleSelectPackage(pkg),
                           'posting',
                           loadingPackageId === pkg.paidCreditPackageId,
@@ -841,27 +747,16 @@ export default function PlansPage() {
                 </div>
                 <h2 className="text-3xl text-gray-900">Gói Credits Nổi Bật</h2>
               </div>
-              {creditSummaries.featured?.purchaseBlockReason && (
-                <p className="mb-4 text-sm text-amber-600">{creditSummaries.featured.purchaseBlockReason}</p>
-              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {isPackageLoading ? (
                   <div className="md:col-span-3 bg-white rounded-3xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
                     Đang tải danh sách gói credits...
                   </div>
                 ) : featuredPackages.length > 0 ? featuredPackages.map((pkg) => {
-                  const purchaseState = getPackagePurchaseState(pkg.id, featuredPurchaseStatus);
-                  const isInUse = purchaseState === 'in_use';
-
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${isInUse
-                        ? 'ring-4 ring-[#C4603A] scale-105'
-                        : purchaseState === 'available'
-                          ? 'hover:shadow-2xl hover:scale-105'
-                          : 'opacity-90'
-                        }`}
+                      className="relative bg-white rounded-3xl shadow-lg p-8 transition-all hover:shadow-2xl hover:scale-105"
                     >
                       {/* Badge */}
                       <div className="absolute top-6 right-6">
@@ -869,16 +764,6 @@ export default function PlansPage() {
                           {pkg.badge}
                         </span>
                       </div>
-
-                      {/* Active Plan Badge */}
-                      {isInUse && (
-                        <div className="absolute top-6 left-6">
-                          <span className="bg-[#C4603A] text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-                            <Check className="w-3 h-3" />
-                            <span>Đang Dùng</span>
-                          </span>
-                        </div>
-                      )}
 
                       <div className="mt-8">
                         <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>
@@ -917,7 +802,6 @@ export default function PlansPage() {
                         </ul>
 
                         {renderPackagePurchaseButton(
-                          purchaseState,
                           () => handleSelectPackage(pkg),
                           'featured',
                           loadingPackageId === pkg.paidCreditPackageId,

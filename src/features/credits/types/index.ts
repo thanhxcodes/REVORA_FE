@@ -23,10 +23,7 @@ export interface UserCreditSummaryApi {
   paidRemainingCredits: number;
   freeRemainingCredits: number;
   hasActivePaidCredits: boolean;
-  hasPendingPaidOrder: boolean;
-  pendingPaidPackageId: number | null;
-  canPurchasePaidPackage: boolean;
-  purchaseBlockReason: string | null;
+
   batches: UserCreditBatchItemApi[];
 }
 
