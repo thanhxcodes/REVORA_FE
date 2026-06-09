@@ -46,7 +46,7 @@ export interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (dto: LoginDto) => Promise<void>;
+  login: (dto: LoginDto) => Promise<{ isFirstLogin?: boolean }>;
   register: (dto: RegisterDto) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (dto: ChangePasswordDto) => Promise<void>;

@@ -280,39 +280,7 @@ const getPackagePurchaseState = (
   return 'locked';
 };
 
-const useCountdown = (expiredAt: string | null | undefined) => {
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!expiredAt) {
-      setTimeLeft(null);
-      return;
-    }
-
-    const targetDate = new Date(expiredAt).getTime();
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const difference = targetDate - now;
-      if (difference <= 0) {
-        setTimeLeft(0);
-      } else {
-        setTimeLeft(Math.floor(difference / 1000));
-      }
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
-  }, [expiredAt]);
-
-  if (timeLeft === null || timeLeft <= 0) return null;
-
-  const m = Math.floor(timeLeft / 60);
-  const s = timeLeft % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
 
 const postingPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
   1: {
@@ -487,38 +455,43 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
 };
 
 const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?: string | null, checkoutUrl?: string | null, variant: CreditType }) => {
-  const countdown = useCountdown(expiredAt);
-  
-  if (!countdown) {
-    // If expired, reload the page to get the latest status
-    useEffect(() => {
-      window.location.reload();
-    }, []);
-    return (
-      <button
-        disabled
-        className="w-full bg-gray-300 text-gray-600 py-4 rounded-xl font-bold cursor-not-allowed flex items-center justify-center space-x-2"
-      >
-        <span>Đã hết hạn</span>
-      </button>
-    );
+  let formattedTime = '';
+  if (expiredAt) {
+    const utcExpiredAt = expiredAt.endsWith('Z') ? expiredAt : `${expiredAt}Z`;
+    const d = new Date(utcExpiredAt);
+    formattedTime = d.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   }
 
   const buyButtonClass =
     variant === 'posting'
-      ? 'w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all animate-pulse'
-      : 'w-full bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all animate-pulse';
+      ? 'w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all'
+      : 'w-full bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all';
 
   return (
-    <button 
-      type="button" 
-      onClick={() => {
-        if (checkoutUrl) window.location.href = checkoutUrl;
-      }} 
-      className={buyButtonClass}
-    >
-      Tiếp tục thanh toán ({countdown})
-    </button>
+    <div className="flex flex-col items-center">
+      <button 
+        type="button" 
+        onClick={() => {
+          if (checkoutUrl) window.location.href = checkoutUrl;
+        }} 
+        className={buyButtonClass}
+      >
+        Tiếp tục thanh toán
+      </button>
+      {formattedTime && (
+        <div className="mt-3 text-red-500 text-sm font-semibold">
+          Hết hạn vào {formattedTime}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -809,7 +782,15 @@ export default function PlansPage() {
               </div>
               {packageError && <p className="mb-4 text-sm text-amber-600">{packageError}</p>}
               {creditSummaries.posting?.purchaseBlockReason && (
-                <p className="mb-4 text-sm text-amber-600">{creditSummaries.posting.purchaseBlockReason}</p>
+                <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-800">Thông báo</h4>
+                    <p className="text-sm text-amber-700 mt-0.5">{creditSummaries.posting.purchaseBlockReason}</p>
+                  </div>
+                </div>
               )}
               {checkoutError && (
                 <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
@@ -922,7 +903,15 @@ export default function PlansPage() {
                 <h2 className="text-3xl text-gray-900">Gói Credits Nổi Bật</h2>
               </div>
               {creditSummaries.featured?.purchaseBlockReason && (
-                <p className="mb-4 text-sm text-amber-600">{creditSummaries.featured.purchaseBlockReason}</p>
+                <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-800">Thông báo</h4>
+                    <p className="text-sm text-amber-700 mt-0.5">{creditSummaries.featured.purchaseBlockReason}</p>
+                  </div>
+                </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {isPackageLoading ? (

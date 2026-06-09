@@ -76,14 +76,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Đăng nhập người dùng bằng email và password
    */
-  const login = async (dto: LoginDto): Promise<void> => {
+  const login = async (dto: LoginDto): Promise<{ isFirstLogin?: boolean }> => {
     // Gửi yêu cầu đăng nhập và tự động lưu Access Token vào RAM thông qua loginAPI
     const apiResponse = await loginAPI(dto);
-    const { accessToken } = apiResponse.data;
+    const { accessToken, isFirstLogin } = apiResponse.data as any;
     
     // Giải mã thông tin người dùng và cập nhật state React
     const user = decodeJwtToUser(accessToken);
     setCurrentUser(user);
+    
+    return { isFirstLogin };
   };
 
   /**
