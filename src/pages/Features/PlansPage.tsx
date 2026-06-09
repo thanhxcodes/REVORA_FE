@@ -280,39 +280,7 @@ const getPackagePurchaseState = (
   return 'locked';
 };
 
-const useCountdown = (expiredAt: string | null | undefined) => {
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!expiredAt) {
-      setTimeLeft(null);
-      return;
-    }
-
-    const targetDate = new Date(expiredAt).getTime();
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const difference = targetDate - now;
-      if (difference <= 0) {
-        setTimeLeft(0);
-      } else {
-        setTimeLeft(Math.floor(difference / 1000));
-      }
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
-  }, [expiredAt]);
-
-  if (timeLeft === null || timeLeft <= 0) return null;
-
-  const m = Math.floor(timeLeft / 60);
-  const s = timeLeft % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
 
 const postingPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
   1: {
@@ -487,21 +455,10 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
 };
 
 const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?: string | null, checkoutUrl?: string | null, variant: CreditType }) => {
-  const countdown = useCountdown(expiredAt);
-  
-  if (!countdown) {
-    // If expired, reload the page to get the latest status
-    useEffect(() => {
-      window.location.reload();
-    }, []);
-    return (
-      <button
-        disabled
-        className="w-full bg-gray-300 text-gray-600 py-4 rounded-xl font-bold cursor-not-allowed flex items-center justify-center space-x-2"
-      >
-        <span>Đã hết hạn</span>
-      </button>
-    );
+  let formattedTime = '';
+  if (expiredAt) {
+    const d = new Date(expiredAt);
+    formattedTime = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   }
 
   const buyButtonClass =
@@ -517,7 +474,7 @@ const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?
       }} 
       className={buyButtonClass}
     >
-      Tiếp tục thanh toán ({countdown})
+      Tiếp tục thanh toán {formattedTime ? `(Hết hạn ${formattedTime})` : ''}
     </button>
   );
 };
