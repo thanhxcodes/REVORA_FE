@@ -32,6 +32,7 @@ import AdminUsersPage from './pages/Admin/AdminUsersPage';
 import AdminPostsPage from './pages/Admin/AdminPostsPage';
 import AdminNotificationsPage from './pages/Admin/AdminNotificationsPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import FirstLoginRewardPopup from './components/common/FirstLoginRewardPopup';
 
 export interface AdminContextType {
   onLogout: () => void;
@@ -70,6 +71,10 @@ function UserLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [showFirstLoginPopup, setShowFirstLoginPopup] = useState(
+    (location.state as any)?.isFirstLogin === true
+  );
+
   const isLoggedIn = currentUser !== null;
   const isShortsRoute = location.pathname === '/shorts';
   const isMessagesRoute = location.pathname === '/messages';
@@ -77,6 +82,13 @@ function UserLayout() {
   const handleLogout = async () => {
     await logout();
     navigate('/login', { replace: true, state: null });
+  };
+
+  const handleCloseFirstLoginPopup = () => {
+    setShowFirstLoginPopup(false);
+    const stateCopy = { ...(location.state as any) };
+    delete stateCopy.isFirstLogin;
+    navigate(location.pathname, { replace: true, state: stateCopy });
   };
 
   return (
@@ -101,6 +113,10 @@ function UserLayout() {
 
       {isLoggedIn && currentUser?.role.toLowerCase() === 'user' && !isMessagesRoute && (
         <ChatBox currentUser={currentUser} />
+      )}
+
+      {showFirstLoginPopup && (
+        <FirstLoginRewardPopup onClose={handleCloseFirstLoginPopup} />
       )}
     </div>
   );
