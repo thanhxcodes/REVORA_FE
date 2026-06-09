@@ -95,6 +95,7 @@ export default function TopNavbar({
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const [searchQuery, setSearchQuery] = useState('');
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const navigate = useNavigate();
 
   // --- Real-time Notifications Fetching & SignalR ---
@@ -121,15 +122,30 @@ export default function TopNavbar({
     }
   };
 
+  const fetchUnreadChat = async () => {
+    try {
+      const res = await authClient.get('/Chat/conversations');
+      if (res.data.success) {
+        const count = res.data.data.reduce((acc: number, c: any) => acc + (c.unreadCount || 0), 0);
+        setUnreadChatCount(count);
+      }
+    } catch (e) {
+      console.error('Failed to fetch unread chat count', e);
+    }
+  };
+
   useEffect(() => {
     if (!isLoggedIn) return;
     
     // Initial fetch
     fetchInterestInbox();
+    fetchUnreadChat();
 
     // Listen to custom window event if triggered locally
     const handleLocalInterest = () => fetchInterestInbox();
+    const handleChatUpdate = () => fetchUnreadChat();
     window.addEventListener('revora_match_interest_received', handleLocalInterest);
+    window.addEventListener('chat_update', handleChatUpdate);
 
     // Global SignalR Connection for the Header (if they aren't on MatchPage)
     const token = getAccessToken();
@@ -147,6 +163,9 @@ export default function TopNavbar({
           hubConnection!.on('InterestNotificationReceived', () => {
             fetchInterestInbox();
           });
+          hubConnection!.on('ReceiveMessage', () => {
+            fetchUnreadChat();
+          });
           hubConnection!.on('MatchPoolUpdated', () => {
             window.dispatchEvent(new Event('revora_match_pool_updated'));
           });
@@ -162,6 +181,7 @@ export default function TopNavbar({
 
     return () => {
       window.removeEventListener('revora_match_interest_received', handleLocalInterest);
+      window.removeEventListener('chat_update', handleChatUpdate);
       if (hubConnection) {
         hubConnection.stop();
       }
@@ -268,11 +288,16 @@ export default function TopNavbar({
             <div className="hidden sm:flex items-center">
               <Link
                 to="/messages"
-                className="bg-white text-gray-900 border border-gray-200 px-4 py-[7px] rounded-full hover:bg-gray-100 hover:shadow-md transition-all text-[15px] font-semibold flex items-center gap-2"
+                className="relative bg-white text-gray-900 border border-gray-200 px-4 py-[7px] rounded-full hover:bg-gray-100 hover:shadow-md transition-all text-[15px] font-semibold flex items-center gap-2"
                 onClick={closeAll}
               >
                 <MessageCircle className="w-5 h-5 text-gray-800" strokeWidth={2.5} />
                 Liên hệ
+                {unreadChatCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 bg-[#C4603A] rounded-full text-[11px] flex items-center justify-center text-white font-bold border-2 border-white shadow-sm">
+                    {unreadChatCount}
+                  </span>
+                )}
               </Link>
             </div>
 

@@ -99,7 +99,7 @@ function UserLayout() {
         </main>
       </div>
 
-      {isLoggedIn && currentUser?.role.toLowerCase() === 'user' && (
+      {isLoggedIn && currentUser?.role.toLowerCase() === 'user' && !isMessagesRoute && (
         <ChatBox currentUser={currentUser} />
       )}
     </div>

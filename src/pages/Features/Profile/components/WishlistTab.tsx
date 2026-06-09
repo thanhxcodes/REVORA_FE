@@ -10,11 +10,21 @@ import { useNavigate } from 'react-router-dom';
 
 interface WishlistTabProps {
   publicViewMode: boolean;
+  userAvatarFallback?: string;
+  userNameFallback?: string;
+  userUsernameFallback?: string;
 }
 
 export const WishlistTab: React.FC<WishlistTabProps> = ({
   publicViewMode,
+  userAvatarFallback,
+  userNameFallback,
+  userUsernameFallback,
 }) => {
+  const matchName = (n1?: string | null, n2?: string | null) => {
+    if (!n1 || !n2) return false;
+    return n1.trim().toLowerCase() === n2.trim().toLowerCase();
+  };
   const [wishlistProducts, setWishlistProducts] = useState<ProductResponseDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isChatLoading, setIsChatLoading] = useState<number | null>(null);
@@ -72,6 +82,36 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
       const res = await getMyWishlistAPI();
       if (res.success && res.data) {
         setWishlistProducts(res.data);
+        
+        // Asynchronously fetch missing seller details (e.g. avatar, sellerId) since wishlist API might omit them
+        const productsToUpdate = [...res.data];
+        let hasUpdates = false;
+        
+        Promise.all(
+          productsToUpdate.map(async (p, index) => {
+            if (!p.sellerAvatar || !p.sellerId) {
+              try {
+                const detailRes = await getProductDetailAPI(p.productId);
+                if (detailRes.success && detailRes.data) {
+                  if (detailRes.data.sellerAvatar || detailRes.data.sellerId) {
+                    productsToUpdate[index] = {
+                      ...p,
+                      sellerAvatar: detailRes.data.sellerAvatar || p.sellerAvatar,
+                      sellerId: detailRes.data.sellerId || p.sellerId,
+                    };
+                    hasUpdates = true;
+                  }
+                }
+              } catch (e) {
+                // Ignore individual errors
+              }
+            }
+          })
+        ).then(() => {
+          if (hasUpdates) {
+            setWishlistProducts([...productsToUpdate]);
+          }
+        });
       }
     } catch (error) {
       console.error('Failed to fetch wishlist', error);
@@ -128,6 +168,11 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
                 title={product.title}
                 price={product.price}
                 sellerName={product.sellerName}
+                sellerAvatar={
+                  product.sellerAvatar || 
+                  (matchName(userNameFallback, product.sellerName) || matchName(userUsernameFallback, product.sellerName) ? userAvatarFallback : undefined) ||
+                  (currentUser && (matchName(currentUser.name, product.sellerName) || matchName(currentUser.username, product.sellerName)) ? currentUser.avatarUrl : undefined)
+                }
                 location={product.location}
                 hideAbsoluteWishlist={true} // Hide the top-right absolute heart
                 actionButtons={
@@ -147,6 +192,7 @@ export const WishlistTab: React.FC<WishlistTabProps> = ({
                         className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 bg-[#2D5A3D] hover:bg-[#3D7054] text-white rounded-xl text-sm font-semibold transition-colors shadow-sm disabled:opacity-50"
                         disabled={isChatLoading === product.productId}
                         onClick={() => handleOpenChat(product)}
+                        title="Chat với người bán"
                       >
                         {isChatLoading === product.productId ? (
                           <Loader2 className="w-4 h-4 animate-spin" />

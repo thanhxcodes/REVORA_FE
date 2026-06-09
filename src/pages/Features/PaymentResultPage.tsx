@@ -117,7 +117,7 @@ const StateSuccess = ({ data }: { data: PaymentStatusResponse | null }) => {
 
       <div className="w-full space-y-3">
         <button 
-          onClick={() => navigate('/plans?tab=history')}
+          onClick={() => navigate('/sell')}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
         >
           Đăng tin ngay

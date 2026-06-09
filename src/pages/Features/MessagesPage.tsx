@@ -103,6 +103,7 @@ export default function MessagesPage() {
       setMessages(prev => prev.map(m => 
         m.senderId === partnerId ? { ...m, read: true } : m
       ));
+      window.dispatchEvent(new Event('chat_update'));
     } catch (e) {
       console.error('Failed to mark messages as read', e);
     }
@@ -114,6 +115,7 @@ export default function MessagesPage() {
     try {
       await authClient.post(`/Chat/${partnerId}/unread`);
       fetchConversations();
+      window.dispatchEvent(new Event('chat_update'));
     } catch (e) {
       console.error('Failed to mark as unread', e);
     }

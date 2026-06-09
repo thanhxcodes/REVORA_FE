@@ -614,7 +614,7 @@ export default function PlansPage() {
 
       try {
         const response = await authClient.get<ApiResponse<CreditPackageApi[]>>(
-          'https://localhost:7015/api/CreditPackages/active',
+          '/CreditPackages/active',
           { skipAuthRefresh: true }
         );
 

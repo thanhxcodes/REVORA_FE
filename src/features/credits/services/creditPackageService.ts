@@ -2,10 +2,7 @@ import { authClient } from '../../../providers/authProvider/authService';
 import type { ApiResponse } from '../../auth/types';
 import type { CreditBatch, UserCreditBatches, UserCreditSummaryApi } from '../types';
 
-const getApiRoot = () =>
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/v1\/?$/, '') || 'https://localhost:7015';
-
-const creditPackagesUrl = (path: string) => `${getApiRoot()}/api/CreditPackages/${path}`;
+const creditPackagesUrl = (path: string) => `/CreditPackages/${path}`;
 
 const formatDate = (expiresAt: string) =>
   new Intl.DateTimeFormat('vi-VN').format(new Date(expiresAt));
