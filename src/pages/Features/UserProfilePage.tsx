@@ -123,14 +123,14 @@ export default function UserProfilePage() {
   } = useMyProducts(id);
 
   const { wishlistIds } = useWishlist();
-  const { changePassword } = useAuth();
+  const { currentUser, changePassword } = useAuth();
   const { updateProfile, isUpdating, updateError } = useUpdateProfile();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string; phone?: string; birthday?: string }>({});
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const soldCount = userProfile?.soldCount ?? 156;
-  const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : myProducts.length;
+  const sellingCount = isProductsLoading ? (userProfile?.sellingCount ?? 0) : myProducts.filter(p => p.productStatus === 'Public').length;
   
   const [localFollowerCount, setLocalFollowerCount] = useState(0);
   const [localFollowingCount, setLocalFollowingCount] = useState(0);
@@ -170,7 +170,6 @@ export default function UserProfilePage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
   // Follow UI states
-  const { currentUser } = useAuth();
   const isOwnProfile = !id || (currentUser?.id && id && currentUser.id.toString() === id);
   const { toggleFollow, isLoading: isToggleFollowLoading } = useToggleFollow();
   const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
@@ -689,12 +688,17 @@ export default function UserProfilePage() {
               isLoading={isProductsLoading}
               error={productsError}
               onRetry={refetchProducts}
+              isOwnProfile={isOwnProfile}
+              sellerAvatarFallback={userProfile?.avatarUrl}
             />
           )}
 
           {activeTab === 'wishlist' && (
             <WishlistTab
               publicViewMode={publicViewMode}
+              userAvatarFallback={userProfile?.avatarUrl || currentUser?.avatarUrl}
+              userNameFallback={userProfile?.fullName || currentUser?.name}
+              userUsernameFallback={userProfile?.username || currentUser?.username}
             />
           )}
 
