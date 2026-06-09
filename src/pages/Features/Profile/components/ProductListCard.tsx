@@ -13,6 +13,7 @@ interface ProductListCardProps {
   viewCount?: number;
   isPremium?: boolean;
   sellerName?: string;
+  sellerAvatar?: string;
   createdAt?: string;
   expiredAt?: string;
   hideAbsoluteWishlist?: boolean;
@@ -30,6 +31,7 @@ export const ProductListCard: React.FC<ProductListCardProps> = ({
   viewCount,
   isPremium,
   sellerName,
+  sellerAvatar,
   createdAt,
   expiredAt,
   hideAbsoluteWishlist,
@@ -111,9 +113,13 @@ export const ProductListCard: React.FC<ProductListCardProps> = ({
         <div className="flex flex-wrap items-center gap-3 mt-auto pt-2">
           {sellerName && (
             <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-700 bg-gray-100 px-2 py-1 rounded-full">
-              <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#2D5A3D] to-[#4CAF50] text-white flex items-center justify-center text-[8px] font-bold">
-                {sellerName.charAt(0).toUpperCase()}
-              </div>
+              {sellerAvatar ? (
+                <img src={sellerAvatar} alt={sellerName} className="w-4 h-4 rounded-full object-cover shadow-sm" />
+              ) : (
+                <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#2D5A3D] to-[#4CAF50] text-white flex items-center justify-center text-[8px] font-bold shadow-sm">
+                  {sellerName.charAt(0).toUpperCase()}
+                </div>
+              )}
               <span className="truncate max-w-[80px] sm:max-w-[100px]">{sellerName}</span>
             </div>
           )}
