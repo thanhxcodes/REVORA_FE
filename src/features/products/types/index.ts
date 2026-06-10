@@ -48,6 +48,10 @@ export interface ProductResponseDto {
     createdAt: string;
     productExpiredAt?: string;
     productStatus?: string;
+    shortId?: number;
+    shortStatus?: string;
+    bannerExpiredAt?: string;
+    shortExpiredAt?: string;
 }
 
 export interface PagedResult<T> {

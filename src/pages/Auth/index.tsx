@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import logoImg from '../../assets/images/logo1.jpg';
+import logoImg from '../../assets/images/logo.png';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import { AUTH_PAGE_TXT } from './constants/auth';
@@ -40,7 +40,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link to={HOME_PATH} className="inline-block group">
             <div className="flex items-center justify-center gap-3 mb-3">
-              <img src={logoImg} alt={AUTH_PAGE_TXT.logoAlt} className="w-[52px] h-[52px] rounded-xl" />
+              <img src={logoImg} alt={AUTH_PAGE_TXT.logoAlt} className="w-[52px] h-[52px] rounded-full" />
               <div className="text-left">
                 <h1 className="text-4xl font-black text-white leading-none" style={BRAND_STYLE}>
                   {AUTH_PAGE_TXT.brandName}
