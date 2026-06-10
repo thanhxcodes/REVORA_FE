@@ -950,8 +950,8 @@ export default function ManageProductsPage() {
 
                   <div className="space-y-4">
                     {/* Renew Product */}
-                    <label className="flex items-start space-x-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
-                      <input type="checkbox" checked={renewProductOption} onChange={(e) => setRenewProductOption(e.target.checked)} className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300" disabled={isRenewing} />
+                    <label className={`flex items-start space-x-3 p-3 border rounded-xl transition-colors ${(isRenewing || isProductExpired || renewShortOption) ? 'opacity-70 cursor-not-allowed bg-gray-50' : 'hover:bg-gray-50 cursor-pointer'}`}>
+                      <input type="checkbox" checked={renewProductOption} onChange={(e) => setRenewProductOption(e.target.checked)} className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300" disabled={isRenewing || isProductExpired || renewShortOption} />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="block text-sm font-semibold text-gray-900">Gia hạn Sản Phẩm</span>

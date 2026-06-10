@@ -7,7 +7,7 @@ import { getAccessToken } from '../../features/auth/services/tokenService';
 import type { User as UserType } from '../../features/auth/types';
 import { useUserCreditBatches } from '../../features/credits/hooks/useUserCreditBatches';
 import NavbarCreditBadge from './NavbarCreditBadge';
-import logoImg from '../../assets/images/logo1.jpg';
+import logoImg from '../../assets/images/logo.png';
 
 interface Notification {
   id: number;
@@ -162,6 +162,7 @@ export default function TopNavbar({
         .then(() => {
           hubConnection!.on('InterestNotificationReceived', () => {
             fetchInterestInbox();
+            window.dispatchEvent(new Event('revora_match_interest_received'));
           });
           hubConnection!.on('ReceiveMessage', () => {
             fetchUnreadChat();
@@ -174,6 +175,15 @@ export default function TopNavbar({
           });
           hubConnection!.on('MutualMatchCreated', (matchSummary: any) => {
             window.dispatchEvent(new CustomEvent('revora_mutual_match_created', { detail: matchSummary }));
+          });
+          hubConnection!.on('PartnerNegotiateConfirmed', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_trade_partner_negotiated', { detail: data }));
+          });
+          hubConnection!.on('ChatCreated', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_trade_chat_created', { detail: data }));
+          });
+          hubConnection!.on('TradeCancelled', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_trade_cancelled', { detail: data }));
           });
         })
         .catch(err => console.error('SignalR Header connection failure: ', err));
@@ -232,7 +242,7 @@ export default function TopNavbar({
             <Menu className="w-6 h-6" />
           </button>
           <Link to="/" className="flex items-center gap-2.5" onClick={closeAll}>
-            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-lg" />
+            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-full" />
             <div className="flex flex-col leading-none">
               <span className="text-white text-xl font-bold tracking-widest" style={{ fontFamily: 'Raleway, sans-serif', letterSpacing: '0.22em' }}>REVORA</span>
               <span className="text-white/50 text-[8px] tracking-[0.18em] uppercase">Revive Your Aura</span>

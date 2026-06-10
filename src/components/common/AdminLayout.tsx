@@ -1,7 +1,7 @@
 import { DollarSign, TrendingUp, CreditCard, Users, LogOut, Home, Shield, FileText, Bell } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAdminContext } from '../../App';
-import logoImg from '../../assets/images/logo1.jpg';
+import logoImg from '../../assets/images/logo.png';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Logo + User */}
           <div className="p-6 border-b border-gray-100">
             <div className="flex items-center gap-2.5 mb-5">
-              <img src={logoImg} alt="REVORA Logo" className="w-8 h-8 rounded-lg" />
+              <img src={logoImg} alt="REVORA Logo" className="w-8 h-8 rounded-full" />
               <div>
                 <h1 className="text-lg font-black text-gray-900 leading-none">REVORA</h1>
                 <p className="text-[10px] text-[#2D5A3D] font-semibold uppercase tracking-wider">Admin Panel</p>
