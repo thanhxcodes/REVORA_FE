@@ -120,6 +120,10 @@ interface TradeMatchSummaryDto {
   status: string; // Active, Completed, Cancelled
   myConfirmed: boolean;
   partnerConfirmed: boolean;
+  myNegotiateConfirmed: boolean;
+  partnerNegotiateConfirmed: boolean;
+  mySelectedProductIds: number[];
+  partnerSelectedProductIds: number[];
   createdAt: string;
 }
 
@@ -260,33 +264,70 @@ export default function RevoraMatchPage() {
 
   // Set up real-time SignalR listeners for Match events
   useEffect(() => {
-    const handleMatchPoolUpdated = () => window.dispatchEvent(new Event('revora_match_pool_updated'));
-    window.addEventListener('revora_match_pool_updated', () => {
-      // Handled elsewhere if needed, or trigger fetch Preview Stats
-    });
-
-    const handleProductsRemoved = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const productIds: number[] = customEvent.detail;
-      setTymList((prev) => prev.filter((p) => !productIds.includes(p.productId)));
-      // Note: we don't need to re-dispatch since we are consuming the global one now
+    const handleProductsRemoved = (e: any) => {
+      const removedIds: number[] = e.detail;
+      setTymList((prev) => prev.filter((p) => !removedIds.includes(p.productId)));
+      if (currentSwipeCard && removedIds.includes(currentSwipeCard.productId)) {
+        if (activeSession) fetchNextSwipeCard(activeSession.matchSessionId);
+      }
     };
-    window.addEventListener('revora_match_products_removed', handleProductsRemoved);
 
-    const handleMutualMatch = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const matchSummary: TradeMatchSummaryDto = customEvent.detail;
-      setNewMutualMatch(matchSummary);
+    const handleMutualMatch = (e: any) => {
+      setNewMutualMatch(e.detail);
+      setShowMatchModal(false);
       setShowMutualMatchPopup(true);
     };
+
+    const handlePartnerNegotiated = (e: any) => {
+      setNewMutualMatch((prev) => {
+        if (prev && prev.tradeMatchId === e.detail.tradeMatchId) {
+          return { 
+            ...prev, 
+            partnerNegotiateConfirmed: true,
+            partnerSelectedProductIds: e.detail.selectedProductIds || prev.partnerSelectedProductIds
+          };
+        }
+        return prev;
+      });
+    };
+
+    const handleChatCreated = (e: any) => {
+      setNewMutualMatch((prev) => {
+        if (prev && prev.tradeMatchId === e.detail.tradeMatchId) {
+          const updated = { ...prev, conversationId: e.detail.conversationId, myNegotiateConfirmed: true, partnerNegotiateConfirmed: true };
+          setShowMutualMatchPopup(false);
+          setShowChat(true);
+          return updated;
+        }
+        return prev;
+      });
+    };
+
+    const handleTradeCancelled = (e: any) => {
+      setNewMutualMatch((prev) => {
+        if (prev && prev.tradeMatchId === e.detail.tradeMatchId) {
+          toast.error('Đối phương đã hủy yêu cầu trao đổi.');
+          setShowMutualMatchPopup(false);
+          return null;
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('revora_match_products_removed', handleProductsRemoved);
     window.addEventListener('revora_mutual_match_created', handleMutualMatch);
+    window.addEventListener('revora_trade_partner_negotiated', handlePartnerNegotiated);
+    window.addEventListener('revora_trade_chat_created', handleChatCreated);
+    window.addEventListener('revora_trade_cancelled', handleTradeCancelled);
 
     return () => {
-      window.removeEventListener('revora_match_pool_updated', handleMatchPoolUpdated);
       window.removeEventListener('revora_match_products_removed', handleProductsRemoved);
       window.removeEventListener('revora_mutual_match_created', handleMutualMatch);
+      window.removeEventListener('revora_trade_partner_negotiated', handlePartnerNegotiated);
+      window.removeEventListener('revora_trade_chat_created', handleChatCreated);
+      window.removeEventListener('revora_trade_cancelled', handleTradeCancelled);
     };
-  }, []);
+  }, [step, isSwipeLoading, activeSession, currentSwipeCard]);
 
   // Update virtual stats when real stats are loaded
   useEffect(() => {
@@ -569,28 +610,66 @@ export default function RevoraMatchPage() {
     setIsSwipeLoading(true);
     try {
       const likedProductIds = Array.from(negotiateSelectedIds);
-      const passedProductIds = negotiateProducts
-        .map(p => p.productId)
-        .filter(id => !negotiateSelectedIds.has(id));
 
-      const res = await authClient.post(`/match-trade/sessions/${activeSession.matchSessionId}/bulk-swipe`, {
+      const res = await authClient.post('/match-trade/notifications/bulk-swipe', {
         targetUserId: negotiateUser.id,
-        likedProductIds,
-        passedProductIds,
+        productIds: likedProductIds
       });
 
       if (res.data.success) {
-        toast.success('Đã gửi phản hồi.');
+        const result = res.data.data;
         setNegotiateUser(null);
-        // The mutual match popup will be handled by signalR if there is a match
-        // Also re-fetch the inbox to update unread counts
         fetchInterestInbox();
+
+        if (result?.isMutualMatch && result?.newMatch) {
+          // Mutual match detected! Show the Match Success popup for this user (User B)
+          setNewMutualMatch(result.newMatch);
+          setShowMatchModal(false);
+          setShowMutualMatchPopup(true);
+        } else {
+          toast.success('Đã gửi phản hồi.');
+        }
       }
     } catch (e: any) {
       console.error(e);
       toast.error(e.response?.data?.message || 'Có lỗi xảy ra.');
     } finally {
       setIsSwipeLoading(false);
+    }
+  };
+
+  // --- Mutual Match Actions ---
+  const handleNegotiateMatch = async (selectedIds: number[]) => {
+    if (!newMutualMatch) return;
+    try {
+      const res = await authClient.post(`/match-trade/matches/${newMutualMatch.tradeMatchId}/negotiate`, {
+        selectedProductIds: selectedIds
+      });
+      if (res.data.success) {
+        setNewMutualMatch(prev => prev ? { ...prev, myNegotiateConfirmed: true, mySelectedProductIds: selectedIds } : null);
+        toast.success('Đã gửi yêu cầu thương lượng.');
+        if (res.data.data?.isCompleted) {
+           // If somehow it's already completed (e.g. partner confirmed simultaneously), SignalR will handle ChatCreated
+        }
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.response?.data?.message || 'Có lỗi xảy ra.');
+    }
+  };
+
+  const handleCancelMatch = async () => {
+    if (!newMutualMatch) return;
+    try {
+      const res = await authClient.post(`/match-trade/matches/${newMutualMatch.tradeMatchId}/leave`);
+      if (res.data.success) {
+        toast.success('Đã hủy trao đổi. Bạn có thể tiếp tục xem sản phẩm khác.');
+        setShowMutualMatchPopup(false);
+        setNewMutualMatch(null);
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.response?.data?.message || 'Có lỗi xảy ra khi hủy.');
     }
   };
 
@@ -1496,11 +1575,8 @@ export default function RevoraMatchPage() {
       {showMutualMatchPopup && newMutualMatch && (
         <MatchSuccessModal
           match={newMutualMatch}
-          onClose={() => setShowMutualMatchPopup(false)}
-          onOpenChat={() => {
-            setShowMutualMatchPopup(false);
-            setShowChat(true);
-          }}
+          onNegotiate={handleNegotiateMatch}
+          onCancel={handleCancelMatch}
         />
       )}
 
@@ -1582,67 +1658,121 @@ export default function RevoraMatchPage() {
 // --- Dynamic Modal for Mutual Match Success ---
 function MatchSuccessModal({
   match,
-  onOpenChat,
-  onClose,
+  onNegotiate,
+  onCancel,
 }: {
   match: TradeMatchSummaryDto;
-  onOpenChat: () => void;
-  onClose: () => void;
+  onNegotiate: (selectedPartnerProductIds: number[]) => void;
+  onCancel: () => void;
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set(match.mySelectedProductIds || []));
+
+  const togglePartnerProduct = (productId: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-      <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="relative max-w-2xl w-full bg-gradient-to-br from-gray-900 to-[#1a0611] rounded-3xl p-8 shadow-2xl border border-white/10">
-        <div className="text-center text-6xl mb-4">🔥</div>
-        <h2 className="text-3xl font-bold text-center mb-2 bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent animate-bounce">
-          Match Thành Công!
-        </h2>
-        <p className="text-white/60 text-center mb-2 text-sm">
-          Cả hai cùng thích sản phẩm của nhau — không cần giá trị tương đương, hai bên tự thỏa thuận.
-        </p>
-        <p className="text-white/40 text-center mb-6 text-xs">
-          REVORA không xử lý thanh toán hay vận chuyển. Trao đổi diễn ra trực tiếp giữa hai người dùng.
-        </p>
+      <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="relative max-w-2xl w-full bg-gradient-to-br from-gray-900 to-[#1a0611] rounded-3xl p-8 shadow-2xl border border-white/10 max-h-[90vh] flex flex-col">
+        {match.myNegotiateConfirmed ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-16 h-16 rounded-full border-t-2 border-orange-500 border-solid animate-spin mb-4"></div>
+            <h2 className="text-2xl font-bold text-white mb-2">Đang chờ đối phương xác nhận...</h2>
+            <p className="text-white/60 text-center">
+              Bạn đã chọn sản phẩm và gửi yêu cầu thương lượng. Vui lòng giữ màn hình này chờ @{match.partnerName} phản hồi.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex-shrink-0">
+              <div className="text-center text-6xl mb-4">🔥</div>
+              <h2 className="text-3xl font-bold text-center mb-2 bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent animate-bounce">
+                Match Thành Công!
+              </h2>
+              <p className="text-white/60 text-center mb-6 text-sm">
+                Chọn các sản phẩm của đối phương mà bạn muốn thêm vào cuộc thương lượng.
+              </p>
+            </div>
 
-        <div className="flex items-center justify-center gap-4 mb-8">
-          <div className="text-center flex-1">
-            <div className="flex justify-center flex-wrap gap-2 mb-2">
-              {match.myProducts.map(p => (
-                <div key={p.productId} className="relative">
-                  <img src={p.imageUrl} alt={p.title} className="w-14 h-14 object-cover rounded-xl border border-orange-500" />
-                  <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-4 h-4 flex items-center justify-center border border-gray-900">
-                    <CheckCircle2 className="w-3 h-3 text-white" />
+            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-[150px]">
+              <div className="flex flex-col gap-6">
+                {/* Partner's Products (Selectable) */}
+                <div>
+                  <h3 className="text-white text-sm font-semibold mb-3 text-center">Sản phẩm của @{match.partnerName} (Bạn có thể chọn)</h3>
+                  <div className="flex justify-center flex-wrap gap-3">
+                    {match.partnerProducts.map(p => {
+                      const isSelected = selectedIds.has(p.productId);
+                      return (
+                        <div 
+                          key={p.productId} 
+                          onClick={() => togglePartnerProduct(p.productId)}
+                          className={`relative w-24 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${isSelected ? 'border-orange-500 scale-[1.05]' : 'border-white/10 opacity-60 hover:opacity-100 hover:border-white/30'}`}
+                        >
+                          <img src={p.imageUrl} alt={p.title} className="w-full h-24 object-cover" />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 backdrop-blur-sm">
+                            <p className="text-white text-[10px] font-semibold truncate">{p.title}</p>
+                          </div>
+                          {isSelected && (
+                            <div className="absolute top-1 right-1 bg-green-500 rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
-            </div>
-            <p className="text-white text-xs font-semibold">Sản phẩm của bạn</p>
-          </div>
-          <div className="text-3xl text-white/40 animate-pulse">⇄</div>
-          <div className="text-center flex-1">
-            <div className="flex justify-center flex-wrap gap-2 mb-2">
-              {match.partnerProducts.map(p => (
-                <div key={p.productId} className="relative">
-                  <img src={p.imageUrl} alt={p.title} className="w-14 h-14 object-cover rounded-xl border border-orange-500" />
-                  <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-4 h-4 flex items-center justify-center border border-gray-900">
-                    <CheckCircle2 className="w-3 h-3 text-white" />
+
+                <div className="flex items-center justify-center">
+                  <div className="text-3xl text-white/20">⇄</div>
+                </div>
+
+                {/* My Products (View only) */}
+                <div>
+                  <h3 className="text-white text-sm font-semibold mb-3 text-center">Sản phẩm của bạn (Đối phương sẽ chọn)</h3>
+                  <div className="flex justify-center flex-wrap gap-3">
+                    {match.myProducts.map(p => {
+                      const isPartnerSelected = match.partnerSelectedProductIds?.includes(p.productId);
+                      return (
+                        <div key={p.productId} className={`relative w-24 rounded-xl overflow-hidden border-2 transition-all ${isPartnerSelected ? 'border-orange-500' : 'border-white/10 opacity-50'}`}>
+                          <img src={p.imageUrl} alt={p.title} className="w-full h-24 object-cover" />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 backdrop-blur-sm">
+                            <p className="text-white text-[10px] font-semibold truncate">{p.title}</p>
+                          </div>
+                          {isPartnerSelected && (
+                            <div className="absolute top-1 right-1 bg-green-500 rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
-            <p className="text-white text-xs font-semibold">@{match.partnerName}</p>
-          </div>
-        </div>
 
-        <div className="flex space-x-4">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all">
-            Để sau
-          </button>
-          <button onClick={onOpenChat} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-            <MessageCircle className="w-5 h-5 animate-pulse" />
-            Thương lượng
-          </button>
-        </div>
+            <div className="flex space-x-4 mt-6 flex-shrink-0">
+              <button onClick={onCancel} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all">
+                Hủy
+              </button>
+              <button 
+                onClick={() => onNegotiate(Array.from(selectedIds))} 
+                disabled={selectedIds.size === 0}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Thương lượng ({selectedIds.size})
+              </button>
+            </div>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -1668,25 +1798,29 @@ function ChatInterface({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [showConfirmRequest, setShowConfirmRequest] = useState(false);
-  const [mutualLikes, setMutualLikes] = useState<{ myLikedProducts: MatchOfferingProductDto[], partnerLikedProducts: MatchOfferingProductDto[] } | null>(null);
+  const [matchData, setMatchData] = useState<TradeMatchSummaryDto>(match);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch mutual likes
-  useEffect(() => {
-    const fetchMutualLikes = async () => {
-      try {
-        const res = await authClient.get(`/match-trade/matches/${match.tradeMatchId}/mutual-likes`);
-        if (res.data.success) {
-          setMutualLikes(res.data.data);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchMutualLikes();
-  }, [match.tradeMatchId]);
+  // Compute the products to show in chat header based on negotiated selections
+  const myNegotiatedProducts = useMemo(() => {
+    // Products of mine that the partner selected (what partner wants from me)
+    const partnerSelectedIds = matchData.partnerSelectedProductIds || [];
+    if (partnerSelectedIds.length > 0) {
+      return matchData.myProducts.filter(p => partnerSelectedIds.includes(p.productId));
+    }
+    return matchData.myProducts;
+  }, [matchData]);
+
+  const partnerNegotiatedProducts = useMemo(() => {
+    // Products of partner that I selected (what I want from partner)
+    const mySelectedIds = matchData.mySelectedProductIds || [];
+    if (mySelectedIds.length > 0) {
+      return matchData.partnerProducts.filter(p => mySelectedIds.includes(p.productId));
+    }
+    return matchData.partnerProducts;
+  }, [matchData]);
 
   // 1. Fetch chat history between the 2 users
   const fetchHistory = useCallback(async () => {
@@ -1702,12 +1836,13 @@ function ChatInterface({
     }
   }, [match.partnerUserId]);
 
-  // 2. Fetch trade summary updates (confirm status of both parties)
+  // 2. Fetch trade summary updates (confirm status + negotiated product selections)
   const fetchMatchStatus = useCallback(async () => {
     try {
       const res = await authClient.get(`/match-trade/matches/${match.tradeMatchId}`);
       if (res.data.success && res.data.data) {
         const data: TradeMatchSummaryDto = res.data.data;
+        setMatchData(data);
         setMyConfirmed(data.myConfirmed);
         setPartnerConfirmed(data.partnerConfirmed);
         if (data.status === 'Completed') {
@@ -1924,15 +2059,15 @@ function ChatInterface({
         </div>
       </div>
 
-      {/* Products Summary Header - Shows ALL mutual likes */}
+      {/* Products Summary Header - Shows negotiated products */}
       <div className="bg-gradient-to-r from-[#2D5A3D]/20 to-purple-500/20 border-b border-white/10 p-4">
         <p className="text-white/60 text-xs text-center mb-3">Tất cả sản phẩm đã Tym nhau</p>
         <div className="flex items-center justify-center gap-6">
-          {/* Partner Liked Products (These are YOUR products that they liked) */}
+          {/* My products that partner selected */}
           <div className="flex flex-col items-center max-w-[45%]">
             <p className="text-white text-xs font-semibold mb-2">Sản phẩm của bạn</p>
             <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 max-w-full">
-              {(mutualLikes?.partnerLikedProducts || match.myProducts).map(p => (
+              {myNegotiatedProducts.map(p => (
                 <a key={p.productId} href={`/product/${p.productId}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" title={p.title}>
                   <img src={p.imageUrl} alt="" className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border border-white/10 hover:opacity-80 hover:border-orange-500 transition-all" />
                 </a>
@@ -1942,11 +2077,11 @@ function ChatInterface({
           
           <div className="text-2xl text-white/40 font-light flex-shrink-0">⇄</div>
           
-          {/* My Liked Products (These are PARTNER's products that you liked) */}
+          {/* Partner's products that I selected */}
           <div className="flex flex-col items-center max-w-[45%]">
-            <p className="text-white text-xs font-semibold mb-2">@{match.partnerName}</p>
+            <p className="text-white text-xs font-semibold mb-2">@{matchData.partnerName}</p>
             <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 max-w-full">
-              {(mutualLikes?.myLikedProducts || match.partnerProducts).map(p => (
+              {partnerNegotiatedProducts.map(p => (
                 <a key={p.productId} href={`/product/${p.productId}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" title={p.title}>
                   <img src={p.imageUrl} alt="" className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border border-white/10 hover:opacity-80 hover:border-orange-500 transition-all" />
                 </a>

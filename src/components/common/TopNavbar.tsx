@@ -162,6 +162,7 @@ export default function TopNavbar({
         .then(() => {
           hubConnection!.on('InterestNotificationReceived', () => {
             fetchInterestInbox();
+            window.dispatchEvent(new Event('revora_match_interest_received'));
           });
           hubConnection!.on('ReceiveMessage', () => {
             fetchUnreadChat();
@@ -174,6 +175,15 @@ export default function TopNavbar({
           });
           hubConnection!.on('MutualMatchCreated', (matchSummary: any) => {
             window.dispatchEvent(new CustomEvent('revora_mutual_match_created', { detail: matchSummary }));
+          });
+          hubConnection!.on('PartnerNegotiateConfirmed', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_trade_partner_negotiated', { detail: data }));
+          });
+          hubConnection!.on('ChatCreated', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_trade_chat_created', { detail: data }));
+          });
+          hubConnection!.on('TradeCancelled', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_trade_cancelled', { detail: data }));
           });
         })
         .catch(err => console.error('SignalR Header connection failure: ', err));
