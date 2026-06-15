@@ -100,6 +100,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const logout = async (): Promise<void> => {
     try {
+      // Chủ động dọn dẹp phiên Match đang hoạt động (nếu có) trước khi xóa Token
+      try {
+        await authClient.delete('/match-trade/sessions/active');
+      } catch (matchError) {
+        // Bỏ qua lỗi nếu token đã hết hạn hoặc không có phiên nào
+        console.warn('Không thể dọn dẹp phiên Match hoặc không có phiên Active', matchError);
+      }
+
       await logoutAPI();
     } catch (error) {
       console.error('Lỗi khi gọi API đăng xuất:', error);

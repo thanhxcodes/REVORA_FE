@@ -116,11 +116,14 @@ export default function TopNavbar({
             setNotifications(prev => [newNotif, ...prev]);
             setUnreadCount(prev => prev + 1);
           });
+          hubConnection!.on('InterestNotificationRemoved', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_interest_notification_removed', { detail: data }));
+          });
           hubConnection!.on('ReceiveMessage', () => {
             fetchUnreadChat();
           });
-          hubConnection!.on('MatchPoolUpdated', () => {
-            window.dispatchEvent(new Event('revora_match_pool_updated'));
+          hubConnection!.on('MatchStatsUpdated', (payload: any) => {
+            window.dispatchEvent(new CustomEvent('revora_match_stats_updated', { detail: payload }));
           });
           hubConnection!.on('ProductsRemoved', (productIds: number[]) => {
             window.dispatchEvent(new CustomEvent('revora_match_products_removed', { detail: productIds }));
@@ -136,6 +139,12 @@ export default function TopNavbar({
           });
           hubConnection!.on('TradeCancelled', (data: any) => {
             window.dispatchEvent(new CustomEvent('revora_trade_cancelled', { detail: data }));
+          });
+          hubConnection!.on('MatchCancelled', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_match_cancelled', { detail: data }));
+          });
+          hubConnection!.on('SessionTerminated', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_session_terminated', { detail: data }));
           });
         })
         .catch(err => console.error('SignalR Header connection failure: ', err));
