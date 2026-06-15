@@ -1,4 +1,4 @@
-import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCircle, Star, Zap, ListChecks, Heart, Plus, History, BellRing, MessageSquareText } from 'lucide-react';
+import { Search, Bell, Menu, User, LogOut, Sparkles, X, ShoppingBag, MessageCircle, Star, Zap, ListChecks, Heart, Plus, History, BellRing, MessageSquareText, AlertTriangle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import * as signalR from '@microsoft/signalr';
@@ -11,7 +11,7 @@ import logoImg from '../../assets/images/logo.png';
 
 interface Notification {
   id: string;
-  type: 'post' | 'credit' | 'follow' | 'like' | 'system' | 'comment' | 'buy' | 'view';
+  type: 'post' | 'credit' | 'follow' | 'like' | 'system' | 'comment' | 'buy' | 'view' | 'warning';
   title: string;
   message: string;
   time: string;
@@ -28,6 +28,7 @@ const NOTIF_ICONS: Record<string, { icon: React.ReactNode; bg: string }> = {
   buy: { icon: <ShoppingBag className="w-4 h-4 text-green-600" />, bg: 'bg-green-50' },
   comment: { icon: <MessageCircle className="w-4 h-4 text-blue-600" />, bg: 'bg-blue-50' },
   view: { icon: <Sparkles className="w-4 h-4 text-[#2D5A3D]" />, bg: 'bg-green-50' },
+  warning: { icon: <AlertTriangle className="w-4 h-4 text-orange-600" />, bg: 'bg-orange-50' },
 };
 
 import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
@@ -345,7 +346,10 @@ export default function TopNavbar({
                             onClick={() => {
                               markRead(notif.id);
                               if (notif.referenceId) {
-                                if (notif.type === 'post') {
+                                if (notif.referenceId.startsWith('/')) {
+                                  navigate(notif.referenceId);
+                                  setShowNotifications(false);
+                                } else if (notif.type === 'post') {
                                   navigate(`/product/${notif.referenceId}`);
                                   setShowNotifications(false);
                                 } else if (notif.type === 'comment' || notif.type === 'like') {

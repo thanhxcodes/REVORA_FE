@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, MessageCircle, Star, Zap, Sparkles, User, Filter, Check, Bell, ArrowLeft, Trash2 } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Star, Zap, Sparkles, User, Filter, Check, Bell, ArrowLeft, Trash2, AlertTriangle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authClient } from '../../providers/authProvider/authService';
 
 interface Notification {
   id: string;
-  type: 'post' | 'credit' | 'follow' | 'like' | 'system' | 'comment' | 'buy' | 'view';
+  type: 'post' | 'credit' | 'follow' | 'like' | 'system' | 'comment' | 'buy' | 'view' | 'warning';
   title: string;
   message: string;
   time: string;
@@ -22,9 +22,10 @@ const NOTIF_ICONS: Record<string, { icon: React.ReactNode; bg: string; label: st
   buy: { icon: <ShoppingBag className="w-5 h-5 text-green-600" />, bg: 'bg-green-50', label: 'Mua bán' },
   comment: { icon: <MessageCircle className="w-5 h-5 text-blue-600" />, bg: 'bg-blue-50', label: 'Bình luận' },
   view: { icon: <Sparkles className="w-5 h-5 text-[#2D5A3D]" />, bg: 'bg-green-50', label: 'Lượt xem' },
+  warning: { icon: <AlertTriangle className="w-5 h-5 text-orange-600" />, bg: 'bg-orange-50', label: 'Cảnh báo' },
 };
 
-type FilterType = 'all' | 'unread' | 'post' | 'credit' | 'like' | 'follow' | 'system' | 'comment' | 'buy' | 'view';
+type FilterType = 'all' | 'unread' | 'post' | 'credit' | 'like' | 'follow' | 'system' | 'comment' | 'buy' | 'view' | 'warning';
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -139,7 +140,7 @@ export default function NotificationsPage() {
             })}
             
             {/* Display other types only if they have notifications */}
-            {['buy', 'comment', 'view'].map((key) => {
+            {['buy', 'comment', 'view', 'warning'].map((key) => {
               const count = notifications.filter(n => n.type === key).length;
               if (count === 0) return null;
               const config = NOTIF_ICONS[key];
@@ -186,7 +187,9 @@ export default function NotificationsPage() {
                       onClick={() => {
                         if (!notif.read) markRead(notif.id);
                         if (notif.referenceId) {
-                          if (notif.type === 'post') {
+                          if (notif.referenceId.startsWith('/')) {
+                            navigate(notif.referenceId);
+                          } else if (notif.type === 'post') {
                             navigate(`/product/${notif.referenceId}`);
                           } else if (notif.type === 'comment' || notif.type === 'like') {
                             if (notif.title?.includes('Shorts')) {
