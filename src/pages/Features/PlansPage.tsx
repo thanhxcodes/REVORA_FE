@@ -1004,35 +1004,18 @@ export default function PlansPage() {
               </div>
             </div>
 
-            {/* FAQ Section */}
-            <div className="bg-white rounded-3xl shadow-lg p-8">
-              <h2 className="text-2xl text-gray-900 mb-6 text-center">Câu Hỏi Thường Gặp</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Credits có hết hạn không?</h3>
-                  <p className="text-sm text-gray-600">
-                    Có, credits sẽ hết hạn theo thời gian của gói bạn đã mua (1/7/30 ngày). Hãy sử dụng trước khi hết hạn.
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Tôi có thể mua nhiều gói cùng lúc?</h3>
-                  <p className="text-sm text-gray-600">
-                    Bạn chỉ có thể mua tối đa 1 gói Đăng Tin và 1 gói Nổi Bật (paid) cùng lúc. Khi credits paid của loại đó về 0, bạn có thể mua gói mới cùng loại. Credits free không chặn mua gói mới nếu paid đã hết; nếu còn cả free và paid thì các gói paid khác sẽ bị khóa cho đến khi paid hết.
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Phương thức thanh toán nào được hỗ trợ?</h3>
-                  <p className="text-sm text-gray-600">
-                    Hiện tại chúng tôi hỗ trợ thanh toán qua PayOS (chuyển khoản, QR Code và các phương thức liên kết).
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Thanh toán thành công thì credits được cộng thế nào?</h3>
-                  <p className="text-sm text-gray-600">
-                    Hệ thống đối chiếu số tiền thực nhận với giá gói: chuyển đủ thì cộng credits ngay; chuyển thừa thì vẫn cộng credits (phần thừa không hoàn lại); chuyển thiếu thì không cộng credits và số tiền đã chuyển cũng không được hoàn. REVORA hiện không hỗ trợ hoàn tiền cho các giao dịch mua gói credits.
-                  </p>
-                </div>
-              </div>
+            {/* Payment Guide Link */}
+            <div className="bg-white rounded-3xl shadow-lg p-8 flex flex-col items-center justify-center text-center">
+              <h2 className="text-2xl text-gray-900 mb-4">Câu Hỏi Thường Gặp & Hướng Dẫn</h2>
+              <p className="text-gray-600 mb-6 max-w-2xl">
+                Bạn cần tìm hiểu thêm về cách thức thanh toán, chính sách hoàn tiền hoặc cách sử dụng credits sau khi mua?
+              </p>
+              <button
+                onClick={() => window.location.href = '/payment-guide'}
+                className="bg-[#2D5A3D] text-white px-8 py-3 rounded-full font-semibold hover:bg-green-800 transition-colors"
+              >
+                Xem Hướng Dẫn Thanh Toán
+              </button>
             </div>
           </>
         )}

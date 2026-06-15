@@ -7,7 +7,7 @@ import { getAccessToken } from '../../features/auth/services/tokenService';
 import type { User as UserType } from '../../features/auth/types';
 import { useUserCreditBatches } from '../../features/credits/hooks/useUserCreditBatches';
 import NavbarCreditBadge from './NavbarCreditBadge';
-import logoImg from '../../assets/images/logo.png';
+import logoImg from '../../assets/images/logo.jpg';
 
 interface Notification {
   id: string;
@@ -204,7 +204,7 @@ export default function TopNavbar({
             <Menu className="w-6 h-6" />
           </button>
           <Link to="/" className="flex items-center gap-2.5" onClick={closeAll}>
-            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-full" />
+            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-full object-cover" />
             <div className="flex flex-col leading-none">
               <span className="text-white text-xl font-bold tracking-widest" style={{ fontFamily: 'Raleway, sans-serif', letterSpacing: '0.22em' }}>REVORA</span>
               <span className="text-white/50 text-[8px] tracking-[0.18em] uppercase">Revive Your Aura</span>

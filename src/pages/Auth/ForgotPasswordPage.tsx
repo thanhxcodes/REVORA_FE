@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle, KeyRound } from 'lucide-react';
-import logoImg from '../../assets/images/logo.png';
+import logoImg from '../../assets/images/logo.jpg';
 
 type Step = 'email' | 'otp' | 'newPassword' | 'success';
 
@@ -118,7 +118,7 @@ export default function ForgotPasswordPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-3 mb-4">
-            <img src={logoImg} alt="REVORA Logo" className="w-16 h-16 rounded-full shadow-lg" />
+            <img src={logoImg} alt="REVORA Logo" className="w-16 h-16 rounded-full shadow-lg object-cover" />
           </Link>
           <h1 className="text-white text-3xl font-bold tracking-widest" style={{ fontFamily: 'Raleway, sans-serif', letterSpacing: '0.22em' }}>
             REVORA

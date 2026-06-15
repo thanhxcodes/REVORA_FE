@@ -24,6 +24,9 @@ import AllProductsPage from './pages/Products/AllProductsPage';
 import NotificationsPage from './pages/Features/NotificationsPage';
 import MessagesPage from './pages/Features/MessagesPage';
 import ErrorPage from './pages/Features/ErrorPage';
+import TermsOfUsePage from './pages/Features/TermsOfUsePage';
+import PrivacyPolicyPage from './pages/Features/PrivacyPolicyPage';
+import PaymentGuidePage from './pages/Features/PaymentGuidePage';
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import AdminRevenuePage from './pages/Admin/AdminRevenuePage';
@@ -177,6 +180,11 @@ function AppContent() {
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/category/:name" element={<HomePage />} />
         <Route path="/profile/:id" element={<UserProfilePage />} />
+        
+        {/* Static content pages */}
+        <Route path="/terms-of-use" element={<TermsOfUsePage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/payment-guide" element={<PaymentGuidePage />} />
         
         {/* System Error Pages */}
         <Route path="/error/404" element={<ErrorPage errorCode="404" />} />
