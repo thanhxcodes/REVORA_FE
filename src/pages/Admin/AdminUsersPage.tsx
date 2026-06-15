@@ -1,468 +1,373 @@
-import { useState } from 'react';
-import { Search, Shield, Ban, Eye, X, CreditCard, Package, ChevronRight, TrendingUp, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Shield, Ban, AlertCircle, RefreshCw, Check } from 'lucide-react';
 import AdminLayout from '../../components/common/AdminLayout';
+import { getAdminUsersAPI, toggleUserStatusAPI, getUserTransactionsAPI } from '../../features/admin/services/adminApi';
+import toast from 'react-hot-toast';
+import { Eye, CreditCard, Calendar, CheckCircle2, Clock, XCircle, X } from 'lucide-react';
 
-interface UserData {
-  id: number;
-  username: string;
-  email: string;
-  phone: string;
-  joinDate: string;
-  status: 'active' | 'suspended';
-  credits: { posting: number; featured: number };
-  totalSpent: number;
-  itemsSold: number;
-  avatar: string;
-  transactions: Transaction[];
+import UserDetailModal from '../../components/admin/UserDetailModal';
+import { AdminUserResponseDto, TransactionResponseDto } from '../../types/admin';
+
+interface PagedResult {
+  items: AdminUserResponseDto[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
 }
 
-interface Transaction {
-  id: string;
-  date: string;
-  package: string;
-  type: 'posting' | 'featured';
-  credits: number;
-  amount: number;
-  status: 'success' | 'pending' | 'failed';
-}
+function BanUnbanModal({ user, onClose, onSuccess }: { user: AdminUserResponseDto, onClose: () => void, onSuccess: () => void }) {
+  const [reason, setReason] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const isBanning = user.isActive;
 
-const mockUsers: UserData[] = [
-  {
-    id: 1,
-    username: 'fashionista_22',
-    email: 'fashionista@example.com',
-    phone: '0901234567',
-    joinDate: '15/03/2023',
-    status: 'active',
-    credits: { posting: 35, featured: 18 },
-    totalSpent: 428000,
-    itemsSold: 156,
-    avatar: 'FA',
-    transactions: [
-      { id: 'TXN001', date: '28/05/2024', package: 'Posting Month', type: 'posting', credits: 120, amount: 199000, status: 'success' },
-      { id: 'TXN002', date: '10/04/2024', package: 'Featured Week', type: 'featured', credits: 15, amount: 149000, status: 'success' },
-      { id: 'TXN003', date: '02/03/2024', package: 'Posting Week', type: 'posting', credits: 30, amount: 79000, status: 'success' },
-      { id: 'TXN004', date: '15/01/2024', package: 'Featured Day', type: 'featured', credits: 3, amount: 49000, status: 'success' },
-    ],
-  },
-  {
-    id: 2,
-    username: 'vintage_style',
-    email: 'vintage@example.com',
-    phone: '0912345678',
-    joinDate: '20/04/2023',
-    status: 'active',
-    credits: { posting: 12, featured: 5 },
-    totalSpent: 298000,
-    itemsSold: 89,
-    avatar: 'VS',
-    transactions: [
-      { id: 'TXN010', date: '20/05/2024', package: 'Posting Week', type: 'posting', credits: 30, amount: 79000, status: 'success' },
-      { id: 'TXN011', date: '05/04/2024', package: 'Featured Week', type: 'featured', credits: 15, amount: 149000, status: 'success' },
-      { id: 'TXN012', date: '12/02/2024', package: 'Posting Day', type: 'posting', credits: 5, amount: 19000, status: 'failed' },
-    ],
-  },
-  {
-    id: 3,
-    username: 'sneaker_head',
-    email: 'sneakers@example.com',
-    phone: '0923456789',
-    joinDate: '10/05/2023',
-    status: 'active',
-    credits: { posting: 8, featured: 0 },
-    totalSpent: 99000,
-    itemsSold: 45,
-    avatar: 'SH',
-    transactions: [
-      { id: 'TXN020', date: '15/05/2024', package: 'Posting Week', type: 'posting', credits: 30, amount: 79000, status: 'success' },
-      { id: 'TXN021', date: '10/03/2024', package: 'Posting Day', type: 'posting', credits: 5, amount: 19000, status: 'success' },
-    ],
-  },
-  {
-    id: 4,
-    username: 'luxury_deals',
-    email: 'luxury@example.com',
-    phone: '0934567890',
-    joinDate: '05/02/2023',
-    status: 'active',
-    credits: { posting: 50, featured: 25 },
-    totalSpent: 697000,
-    itemsSold: 234,
-    avatar: 'LD',
-    transactions: [
-      { id: 'TXN030', date: '29/05/2024', package: 'Posting Month', type: 'posting', credits: 120, amount: 199000, status: 'success' },
-      { id: 'TXN031', date: '01/05/2024', package: 'Featured Month', type: 'featured', credits: 50, amount: 349000, status: 'success' },
-      { id: 'TXN032', date: '05/03/2024', package: 'Posting Month', type: 'posting', credits: 120, amount: 199000, status: 'success' },
-    ],
-  },
-  {
-    id: 5,
-    username: 'thrift_queen',
-    email: 'thrift@example.com',
-    phone: '0945678901',
-    joinDate: '12/01/2023',
-    status: 'suspended',
-    credits: { posting: 0, featured: 0 },
-    totalSpent: 149000,
-    itemsSold: 12,
-    avatar: 'TQ',
-    transactions: [
-      { id: 'TXN040', date: '01/02/2024', package: 'Posting Week', type: 'posting', credits: 30, amount: 79000, status: 'success' },
-      { id: 'TXN041', date: '15/01/2024', package: 'Featured Day', type: 'featured', credits: 3, amount: 49000, status: 'success' },
-    ],
-  },
-];
-
-function UserDetailModal({ user, onClose }: { user: UserData; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'transactions'>('overview');
+  const handleSubmit = async () => {
+    if (reason.length < 5) return;
+    setIsLoading(true);
+    try {
+      await toggleUserStatusAPI(user.userId, !isBanning, reason);
+      toast.success(`Đã ${isBanning ? 'khóa' : 'mở khóa'} tài khoản ${user.username} thành công`);
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trạng thái');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] p-6 text-white flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center text-white text-lg font-bold">
-              {user.avatar}
-            </div>
-            <div>
-              <h3 className="text-xl font-bold">{user.username}</h3>
-              <p className="text-white/80 text-sm">{user.email}</p>
-              <p className="text-white/70 text-xs mt-0.5">{user.phone} · Tham gia {user.joinDate}</p>
-            </div>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+        <div className={`p-6 text-white flex items-center space-x-3 ${isBanning ? 'bg-gradient-to-r from-red-600 to-red-500' : 'bg-gradient-to-r from-green-600 to-green-500'}`}>
+          <div className="bg-white/20 p-2 rounded-xl">
+            {isBanning ? <Ban className="w-6 h-6" /> : <Shield className="w-6 h-6" />}
           </div>
-          <button onClick={onClose} className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+          <h3 className="text-xl font-bold">{isBanning ? 'Xác nhận Khóa Tài Khoản' : 'Xác nhận Mở Khóa'}</h3>
         </div>
-
-        {/* Status badge */}
-        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-          <div className="flex space-x-2">
+        <div className="p-6">
+          <p className="text-gray-600 mb-6 leading-relaxed">
+            Bạn đang chuẩn bị {isBanning ? 'khóa' : 'mở khóa'} tài khoản <strong>@{user.username}</strong> ({user.email}). Hành động này sẽ được ghi nhận vào hệ thống lưu vết.
+          </p>
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Lý do (Bắt buộc, tối thiểu 5 ký tự) <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none shadow-sm"
+              style={{ minHeight: '100px' }}
+              placeholder={isBanning ? "Ví dụ: Vi phạm quy định đăng tin rác nhiều lần..." : "Ví dụ: Đã xử lý xong vi phạm..."}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end space-x-3">
             <button
-              onClick={() => setActiveTab('overview')}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-[#2D5A3D] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              onClick={onClose}
+              disabled={isLoading}
+              className="px-5 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors font-semibold"
             >
-              Tổng quan
+              Hủy bỏ
             </button>
             <button
-              onClick={() => setActiveTab('transactions')}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${activeTab === 'transactions' ? 'bg-[#2D5A3D] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              onClick={handleSubmit}
+              disabled={reason.length < 5 || isLoading}
+              className={`px-5 py-2.5 text-white rounded-xl flex items-center space-x-2 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg ${
+                isBanning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+              }`}
             >
-              Lịch sử giao dịch ({user.transactions.length})
+              {isLoading && <RefreshCw className="w-4 h-4 animate-spin" />}
+              <span>{isLoading ? 'Đang xử lý...' : 'Xác nhận'}</span>
             </button>
           </div>
-          <span className={`text-xs px-3 py-1 rounded-full font-medium ${user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {user.status === 'active' ? 'Hoạt động' : 'Bị khóa'}
-          </span>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === 'overview' && (
-            <div className="p-6 space-y-6">
-              {/* Stats cards */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CreditCard className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-blue-700 font-medium">Credit Đăng Tin</span>
-                  </div>
-                  <div className="text-3xl font-bold text-blue-600">{user.credits.posting}</div>
-                  <div className="text-xs text-blue-500 mt-1">credits còn lại</div>
-                </div>
-                <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-[#C4603A]" />
-                    <span className="text-sm text-orange-700 font-medium">Credit Nổi Bật</span>
-                  </div>
-                  <div className="text-3xl font-bold text-[#C4603A]">{user.credits.featured}</div>
-                  <div className="text-xs text-orange-500 mt-1">credits còn lại</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">{user.totalSpent.toLocaleString('vi-VN')}đ</div>
-                  <div className="text-xs text-gray-500 mt-1">Tổng chi tiêu</div>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
-                  <div className="text-2xl font-bold text-gray-900">{user.itemsSold}</div>
-                  <div className="text-xs text-gray-500 mt-1">Sản phẩm đăng</div>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
-                  <div className="text-2xl font-bold text-[#2D5A3D]">{user.transactions.length}</div>
-                  <div className="text-xs text-gray-500 mt-1">Giao dịch</div>
-                </div>
-              </div>
-
-              {/* Quick transaction preview */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                  <Package className="w-4 h-4 mr-2 text-[#2D5A3D]" />
-                  Giao dịch gần đây
-                </h4>
-                <div className="space-y-2">
-                  {user.transactions.slice(0, 3).map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'posting' ? 'bg-blue-100' : 'bg-orange-100'}`}>
-                          <CreditCard className={`w-4 h-4 ${tx.type === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'}`} />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{tx.package}</div>
-                          <div className="text-xs text-gray-500">{tx.date}</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-green-600">+{tx.credits} credits</div>
-                        <div className="text-xs text-gray-500">{tx.amount.toLocaleString('vi-VN')}đ</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {user.transactions.length > 3 && (
-                  <button
-                    onClick={() => setActiveTab('transactions')}
-                    className="w-full mt-2 text-sm text-[#2D5A3D] hover:underline flex items-center justify-center py-2"
-                  >
-                    Xem tất cả {user.transactions.length} giao dịch <ChevronRight className="w-4 h-4 ml-1" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'transactions' && (
-            <div className="p-6">
-              <div className="space-y-3">
-                {user.transactions.map((tx) => (
-                  <div key={tx.id} className="border border-gray-200 rounded-2xl p-4 hover:border-[#2D5A3D]/30 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'posting' ? 'bg-blue-100' : 'bg-orange-100'}`}>
-                          <CreditCard className={`w-5 h-5 ${tx.type === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'}`} />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{tx.package}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {tx.id} · {tx.date}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-sm font-bold ${tx.type === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'}`}>
-                          +{tx.credits} credits
-                        </div>
-                        <div className="text-sm font-bold text-gray-900 mt-0.5">{tx.amount.toLocaleString('vi-VN')}đ</div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
-                          tx.status === 'success' ? 'bg-green-100 text-green-700' :
-                          tx.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {tx.status === 'success' ? 'Thành công' : tx.status === 'pending' ? 'Đang xử lý' : 'Thất bại'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6 bg-[#2D5A3D]/5 rounded-2xl p-4 border border-[#2D5A3D]/10">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Tổng chi tiêu:</span>
-                  <span className="text-lg font-bold text-[#2D5A3D]">{user.totalSpent.toLocaleString('vi-VN')}đ</span>
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-sm font-medium text-gray-700">Số giao dịch thành công:</span>
-                  <span className="text-sm font-bold text-gray-900">{user.transactions.filter(t => t.status === 'success').length}/{user.transactions.length}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
-          <div className="flex space-x-2">
-            {user.status === 'active' ? (
-              <button className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-sm font-medium">
-                <Ban className="w-4 h-4" />
-                <span>Khóa tài khoản</span>
-              </button>
-            ) : (
-              <button className="flex items-center space-x-2 px-4 py-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors text-sm font-medium">
-                <Shield className="w-4 h-4" />
-                <span>Mở khóa</span>
-              </button>
-            )}
-            <button className="flex items-center space-x-2 px-4 py-2 bg-yellow-50 text-yellow-600 rounded-xl hover:bg-yellow-100 transition-colors text-sm font-medium">
-              <AlertCircle className="w-4 h-4" />
-              <span>Cảnh báo</span>
-            </button>
-          </div>
-          <button onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-            Đóng
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
+
+
 export default function AdminUsersPage() {
-  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [users, setUsers] = useState<AdminUserResponseDto[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Filters
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const filtered = mockUsers.filter((u) => {
-    const matchSearch = u.username.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || u.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  // Modal
+  const [selectedUserForToggle, setSelectedUserForToggle] = useState<AdminUserResponseDto | null>(null);
+  const [selectedUserForDetail, setSelectedUserForDetail] = useState<AdminUserResponseDto | null>(null);
+
+  // Debounce logic
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(1); // Reset page on new search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Handle status filter change
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const isActive = statusFilter === 'all' ? undefined : statusFilter === 'active';
+      const data = await getAdminUsersAPI({
+        page: currentPage,
+        pageSize: 10,
+        search: debouncedSearch,
+        isActive: isActive
+      });
+      if (data.success && data.data) {
+        setUsers(data.data.items || []);
+        setTotalCount(data.data.totalCount || 0);
+        setTotalPages(data.data.totalPages || 1);
+      }
+    } catch (error) {
+      console.error("Failed to fetch users", error);
+      toast.error("Không thể tải danh sách người dùng. Vui lòng thử lại sau.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleToggleSuccess = () => {
+    setSelectedUserForToggle(null);
+    fetchUsers(); // Refresh list
+  };
 
   return (
     <AdminLayout>
-      {selectedUser && <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />}
+      {selectedUserForToggle && (
+        <BanUnbanModal 
+          user={selectedUserForToggle} 
+          onClose={() => setSelectedUserForToggle(null)} 
+          onSuccess={handleToggleSuccess} 
+        />
+      )}
 
-      <div className="mb-8">
-        <h2 className="text-3xl text-gray-900 mb-2">Quản Lý Người Dùng</h2>
-        <p className="text-gray-600">Theo dõi, quản lý tài khoản và xem lịch sử giao dịch</p>
+      {selectedUserForDetail && (
+        <UserDetailModal
+          user={selectedUserForDetail}
+          onClose={() => setSelectedUserForDetail(null)}
+          onBanClick={() => {
+            setSelectedUserForDetail(null);
+            setSelectedUserForToggle(selectedUserForDetail);
+          }}
+        />
+      )}
+
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between">
+        <div>
+          <h2 className="text-3xl text-gray-900 mb-2 font-bold tracking-tight">Quản Lý Người Dùng</h2>
+          <p className="text-gray-600">Theo dõi, quản lý trạng thái và phân quyền tài khoản thành viên</p>
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center bg-[#2D5A3D]/5 text-[#2D5A3D] px-4 py-2 rounded-xl border border-[#2D5A3D]/10 font-medium text-sm">
+          <Shield className="w-4 h-4 mr-2" />
+          Quyền: Administrator
+        </div>
       </div>
 
       {/* Search & Filter */}
-      <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
-        <div className="flex items-center space-x-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+      <div className="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-gray-100 transition-all hover:shadow-md">
+        <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+          <div className="flex-1 relative w-full group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-[#2D5A3D] transition-colors" />
             <input
               type="text"
               placeholder="Tìm kiếm theo tên, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]"
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-all bg-gray-50 hover:bg-white text-gray-800 font-medium"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]"
+            onChange={handleStatusChange}
+            className="w-full md:w-48 px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-all bg-gray-50 hover:bg-white cursor-pointer text-gray-700 font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23131313%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[position:right_1rem_center]"
           >
             <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
+            <option value="active">Đang hoạt động</option>
             <option value="suspended">Bị khóa</option>
           </select>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <div className="text-sm text-gray-600 mb-1">Tổng Người Dùng</div>
-          <div className="text-3xl font-bold text-gray-900">1,234</div>
-        </div>
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <div className="text-sm text-gray-600 mb-1">Hoạt Động</div>
-          <div className="text-3xl font-bold text-green-600">1,189</div>
-        </div>
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <div className="text-sm text-gray-600 mb-1">Bị Khóa</div>
-          <div className="text-3xl font-bold text-red-600">45</div>
-        </div>
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <div className="text-sm text-gray-600 mb-1">Người Dùng Mới (T5)</div>
-          <div className="text-3xl font-bold text-blue-600">156</div>
-        </div>
-      </div>
-
       {/* Users Table */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left py-4 px-6 text-sm text-gray-600">Người Dùng</th>
-                <th className="text-left py-4 px-6 text-sm text-gray-600">Email</th>
-                <th className="text-left py-4 px-6 text-sm text-gray-600">Ngày Tham Gia</th>
-                <th className="text-left py-4 px-6 text-sm text-gray-600">Credits</th>
-                <th className="text-left py-4 px-6 text-sm text-gray-600">Chi Tiêu</th>
-                <th className="text-left py-4 px-6 text-sm text-gray-600">Đã Đăng</th>
-                <th className="text-left py-4 px-6 text-sm text-gray-600">Trạng Thái</th>
-                <th className="text-right py-4 px-6 text-sm text-gray-600">Chi Tiết</th>
+              <tr className="border-b border-gray-100 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className="py-5 px-6">Người Dùng</th>
+                <th className="py-5 px-6">Email</th>
+                <th className="py-5 px-6">Chức Vụ</th>
+                <th className="py-5 px-6">Ngày Tham Gia</th>
+                <th className="py-5 px-6">Lượt GD</th>
+                <th className="py-5 px-6">Trạng Thái</th>
+                <th className="py-5 px-6 text-right">Thao Tác</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((user) => (
-                <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedUser(user)}>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-sm font-bold">
-                        {user.avatar}
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-900 font-medium">{user.username}</div>
-                        <div className="text-xs text-gray-500">ID: #{user.id}</div>
-                      </div>
+            <tbody className="divide-y divide-gray-50">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="py-20 text-center">
+                    <div className="relative w-12 h-12 mx-auto mb-4">
+                      <div className="absolute inset-0 border-4 border-[#2D5A3D]/20 rounded-full"></div>
+                      <div className="absolute inset-0 border-4 border-[#2D5A3D] rounded-full border-t-transparent animate-spin"></div>
                     </div>
-                  </td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{user.email}</td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{user.joinDate}</td>
-                  <td className="py-4 px-6">
-                    <div className="text-xs space-y-1">
-                      <div className="flex items-center space-x-1">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                        <span className="text-blue-600 font-medium">{user.credits.posting} đăng tin</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <span className="w-2 h-2 bg-[#C4603A] rounded-full"></span>
-                        <span className="text-[#C4603A] font-medium">{user.credits.featured} nổi bật</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-sm font-bold text-green-600">
-                    {user.totalSpent.toLocaleString('vi-VN')}đ
-                  </td>
-                  <td className="py-4 px-6 text-sm text-gray-900">{user.itemsSold}</td>
-                  <td className="py-4 px-6">
-                    {user.status === 'active' ? (
-                      <span className="bg-green-100 text-green-800 text-xs px-3 py-1 rounded-full flex items-center space-x-1 w-fit">
-                        <Shield className="w-3 h-3" />
-                        <span>Hoạt động</span>
-                      </span>
-                    ) : (
-                      <span className="bg-red-100 text-red-800 text-xs px-3 py-1 rounded-full flex items-center space-x-1 w-fit">
-                        <Ban className="w-3 h-3" />
-                        <span>Bị khóa</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center justify-end">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedUser(user); }}
-                        className="flex items-center space-x-1.5 text-[#2D5A3D] hover:bg-[#2D5A3D]/10 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>Xem</span>
-                      </button>
-                    </div>
+                    <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
                   </td>
                 </tr>
-              ))}
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-24 text-center">
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100">
+                      <Search className="w-10 h-10 text-gray-300" />
+                    </div>
+                    <p className="text-gray-700 font-bold text-lg">Không tìm thấy người dùng</p>
+                    <p className="text-gray-400 text-sm mt-2 max-w-sm mx-auto">Chưa có dữ liệu người dùng nào phù hợp với bộ lọc và từ khóa hiện tại của bạn.</p>
+                  </td>
+                </tr>
+              ) : (
+                users.map((user) => (
+                  <tr key={user.userId} className="hover:bg-green-50/30 transition-colors group">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-2xl shadow-sm flex items-center justify-center text-white text-base font-bold uppercase overflow-hidden ring-4 ring-white group-hover:ring-green-50 transition-all">
+                          {user.avatarUrl ? <img src={user.avatarUrl} alt="avatar" className="w-full h-full object-cover" /> : user.username.substring(0, 2)}
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-900 font-bold">{user.fullName || user.username}</div>
+                          <div className="text-xs text-gray-500 font-medium mt-0.5">@{user.username}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-600 font-medium">{user.email}</td>
+                    <td className="py-4 px-6">
+                      <span className={`text-xs px-3 py-1.5 rounded-lg font-bold flex items-center w-fit ${user.roleName === 'Admin' ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
+                        {user.roleName === 'Admin' ? <Shield className="w-3 h-3 mr-1" /> : null}
+                        {user.roleName}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500 font-medium">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td className="py-4 px-6 text-sm font-bold text-[#2D5A3D] bg-green-50/30">
+                      {user.tradeSuccessCount} <span className="text-xs font-normal text-gray-400">lượt</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      {user.isActive ? (
+                        <span className="bg-green-50 border border-green-200 text-green-700 text-xs px-3 py-1.5 rounded-xl flex items-center space-x-1.5 w-fit font-bold shadow-sm">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Hoạt động</span>
+                        </span>
+                      ) : (
+                        <span className="bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-1.5 rounded-xl flex items-center space-x-1.5 w-fit font-bold shadow-sm">
+                          <Ban className="w-3.5 h-3.5" />
+                          <span>Bị khóa</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => setSelectedUserForDetail(user)}
+                          className="flex items-center space-x-1 text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>Xem</span>
+                        </button>
+                        
+                        {user.isActive ? (
+                          <button
+                            onClick={() => setSelectedUserForToggle(user)}
+                            className="flex items-center space-x-1.5 text-red-600 bg-white border border-red-100 hover:bg-red-50 hover:border-red-200 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
+                            title="Khóa tài khoản này"
+                          >
+                            <Ban className="w-4 h-4" />
+                            <span>Khóa</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedUserForToggle(user)}
+                            className="flex items-center space-x-1.5 text-[#2D5A3D] bg-white border border-green-100 hover:bg-green-50 hover:border-green-200 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
+                            title="Mở khóa tài khoản này"
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span>Mở khóa</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-          <div className="text-sm text-gray-600">Hiển thị {filtered.length} trong 1,234 người dùng</div>
-          <div className="flex items-center space-x-2">
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">Trước</button>
-            <button className="px-4 py-2 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-lg text-sm">1</button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">2</button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">3</button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">Sau</button>
+        {!isLoading && users.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between px-8 py-5 bg-gray-50/80 border-t border-gray-100">
+            <div className="text-sm text-gray-500 font-medium mb-4 sm:mb-0 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100">
+              Tổng cộng <span className="text-[#2D5A3D] font-bold text-base mx-1">{totalCount}</span> người dùng
+            </div>
+            <div className="flex items-center space-x-2">
+              <button 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-4 py-2 border border-gray-200 bg-white rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow active:scale-95"
+              >
+                Trước
+              </button>
+              
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum = i + 1;
+                  if (totalPages > 5) {
+                    if (currentPage > 3) pageNum = currentPage - 2 + i;
+                    if (pageNum > totalPages) pageNum = totalPages - 4 + i;
+                  }
+                  
+                  return (
+                    <button 
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95 ${
+                        currentPage === pageNum 
+                          ? 'bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] text-white border-transparent shadow-md' 
+                          : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-[#2D5A3D]'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button 
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="px-4 py-2 border border-gray-200 bg-white rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow active:scale-95"
+              >
+                Sau
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </AdminLayout>
   );
