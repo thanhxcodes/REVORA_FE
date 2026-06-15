@@ -10,65 +10,24 @@ import NavbarCreditBadge from './NavbarCreditBadge';
 import logoImg from '../../assets/images/logo.png';
 
 interface Notification {
-  id: number;
-  type: 'comment' | 'buy' | 'credit' | 'follow' | 'view' | 'like';
+  id: string;
+  type: 'post' | 'credit' | 'follow' | 'like' | 'system' | 'comment' | 'buy' | 'view';
+  title: string;
   message: string;
   time: string;
   read: boolean;
+  referenceId?: string;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: 1,
-    type: 'buy',
-    message: 'Có người muốn mua Áo Khoác Da Vintage của bạn',
-    time: '2 phút trước',
-    read: false,
-  },
-  {
-    id: 2,
-    type: 'comment',
-    message: 'Thu Hà đã bình luận: "Bạn có thể giảm giá không?"',
-    time: '18 phút trước',
-    read: false,
-  },
-  {
-    id: 3,
-    type: 'credit',
-    message: 'Gói Credit Nổi Bật của bạn sắp hết hạn — còn 3 ngày',
-    time: '1 giờ trước',
-    read: false,
-  },
-  {
-    id: 4,
-    type: 'like',
-    message: 'Video của bạn nhận được 200 lượt thích mới 🎉',
-    time: '3 giờ trước',
-    read: true,
-  },
-  {
-    id: 5,
-    type: 'follow',
-    message: 'style_hunter99 đã bắt đầu theo dõi bạn',
-    time: '5 giờ trước',
-    read: true,
-  },
-  {
-    id: 6,
-    type: 'view',
-    message: 'Sản phẩm của bạn đã đạt 1.000 lượt xem — tuyệt vời!',
-    time: '1 ngày trước',
-    read: true,
-  },
-];
-
 const NOTIF_ICONS: Record<string, { icon: React.ReactNode; bg: string }> = {
-  buy: { icon: <ShoppingBag className="w-4 h-4 text-[#2D5A3D]" />, bg: 'bg-red-50' },
-  comment: { icon: <MessageCircle className="w-4 h-4 text-blue-600" />, bg: 'bg-blue-50' },
+  post: { icon: <Sparkles className="w-4 h-4 text-indigo-600" />, bg: 'bg-indigo-50' },
   credit: { icon: <Zap className="w-4 h-4 text-amber-600" />, bg: 'bg-amber-50' },
   like: { icon: <Star className="w-4 h-4 text-pink-600" />, bg: 'bg-pink-50' },
   follow: { icon: <User className="w-4 h-4 text-purple-600" />, bg: 'bg-purple-50' },
-  view: { icon: <Sparkles className="w-4 h-4 text-green-600" />, bg: 'bg-green-50' },
+  system: { icon: <Bell className="w-4 h-4 text-gray-600" />, bg: 'bg-gray-50' },
+  buy: { icon: <ShoppingBag className="w-4 h-4 text-green-600" />, bg: 'bg-green-50' },
+  comment: { icon: <MessageCircle className="w-4 h-4 text-blue-600" />, bg: 'bg-blue-50' },
+  view: { icon: <Sparkles className="w-4 h-4 text-[#2D5A3D]" />, bg: 'bg-green-50' },
 };
 
 import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
@@ -93,32 +52,20 @@ export default function TopNavbar({
   const { wishlistIds } = useWishlist();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const navigate = useNavigate();
 
   // --- Real-time Notifications Fetching & SignalR ---
-  const fetchInterestInbox = async () => {
+  const fetchNotifications = async () => {
     try {
-      const res = await authClient.get('/match-trade/interest-inbox');
-      if (res.data.success && Array.isArray(res.data.data)) {
-        const mappedNotifs: Notification[] = res.data.data.map((item: any) => ({
-          id: item.notificationId || Math.random(),
-          type: 'like',
-          message: `${item.interestedUserName || 'Ai đó'} đã thả tym sản phẩm của bạn`,
-          time: new Date(item.createdAt).toLocaleString('vi-VN'),
-          read: item.isRead
-        }));
-        // Merge with mock or replace. Let's just replace the MOCK entirely with real data for 'like' type, 
-        // or prepend to MOCK. We'll prepend for demo.
-        setNotifications((prev) => {
-          const others = prev.filter(p => p.type !== 'like');
-          return [...mappedNotifs, ...others];
-        });
+      const res = await authClient.get('/Notifications');
+      if (res.data.success) {
+        setNotifications(res.data.data.slice(0, 10)); // Take top 10 for navbar
       }
     } catch (e) {
-      console.error('Failed to fetch interest inbox', e);
+      console.error('Failed to fetch notifications', e);
     }
   };
 
@@ -138,11 +85,11 @@ export default function TopNavbar({
     if (!isLoggedIn) return;
     
     // Initial fetch
-    fetchInterestInbox();
+    fetchNotifications();
     fetchUnreadChat();
 
     // Listen to custom window event if triggered locally
-    const handleLocalInterest = () => fetchInterestInbox();
+    const handleLocalInterest = () => fetchNotifications();
     const handleChatUpdate = () => fetchUnreadChat();
     window.addEventListener('revora_match_interest_received', handleLocalInterest);
     window.addEventListener('chat_update', handleChatUpdate);
@@ -161,8 +108,12 @@ export default function TopNavbar({
       hubConnection.start()
         .then(() => {
           hubConnection!.on('InterestNotificationReceived', () => {
-            fetchInterestInbox();
+            fetchNotifications();
             window.dispatchEvent(new Event('revora_match_interest_received'));
+          });
+          hubConnection!.on('NewNotification', (newNotif: Notification) => {
+            setNotifications(prev => [newNotif, ...prev]);
+            setUnreadCount(prev => prev + 1);
           });
           hubConnection!.on('ReceiveMessage', () => {
             fetchUnreadChat();
@@ -201,14 +152,24 @@ export default function TopNavbar({
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    try {
+      await authClient.put('/Notifications/read-all');
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (e) {
+      console.error('Failed to mark all as read', e);
+    }
   };
 
-  const markRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  const markRead = async (id: string) => {
+    try {
+      await authClient.put(`/Notifications/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch (e) {
+      console.error('Failed to mark as read', e);
+    }
   };
 
   const handleLogout = () => {
@@ -381,7 +342,23 @@ export default function TopNavbar({
                         return (
                           <button
                             key={notif.id}
-                            onClick={() => markRead(notif.id)}
+                            onClick={() => {
+                              markRead(notif.id);
+                              if (notif.referenceId) {
+                                if (notif.type === 'post') {
+                                  navigate(`/product/${notif.referenceId}`);
+                                  setShowNotifications(false);
+                                } else if (notif.type === 'comment' || notif.type === 'like') {
+                                  if (notif.title?.includes('Shorts')) {
+                                    navigate(`/shorts`);
+                                    setShowNotifications(false);
+                                  } else {
+                                    navigate(`/product/${notif.referenceId}`);
+                                    setShowNotifications(false);
+                                  }
+                                }
+                              }
+                            }}
                             className={`w-full flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left ${
                               !notif.read ? 'bg-[#2D5A3D]/[0.04]' : ''
                             }`}
@@ -393,8 +370,15 @@ export default function TopNavbar({
                             </div>
                             <div className="flex-1 min-w-0">
                               <p
-                                className={`text-sm leading-snug ${
-                                  !notif.read ? 'text-gray-900 font-medium' : 'text-gray-600'
+                                className={`text-sm leading-snug font-semibold ${
+                                  !notif.read ? 'text-gray-900' : 'text-gray-700'
+                                }`}
+                              >
+                                {notif.title}
+                              </p>
+                              <p
+                                className={`text-sm leading-snug mt-0.5 ${
+                                  !notif.read ? 'text-gray-800' : 'text-gray-500'
                                 }`}
                               >
                                 {notif.message}
