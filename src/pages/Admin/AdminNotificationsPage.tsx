@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Send, Bell, Users, Calendar, Gift, AlertTriangle, Megaphone, Star, Tag, Trash2, Clock, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import AdminLayout from '../../components/common/AdminLayout';
+import { sendNotificationsAPI, searchUsersAPI } from '../../features/admin/services/adminApi';
 
 type NotifType = 'promotion' | 'announcement' | 'warning' | 'event' | 'feature';
-type NotifTarget = 'all' | 'active' | 'new' | 'posting_users' | 'featured_users';
+type NotifTarget = 'all' | 'active' | 'new' | 'posting_users' | 'featured_users' | 'specific';
 
 interface NotifTemplate {
   id: string;
@@ -40,6 +41,7 @@ const targetOptions: { value: NotifTarget; label: string; desc: string; count: n
   { value: 'new', label: 'Người dùng mới', desc: 'Tham gia trong 7 ngày qua', count: 156 },
   { value: 'posting_users', label: 'Người dùng có Credit Đăng Tin', desc: 'Đang có credit đăng tin', count: 547 },
   { value: 'featured_users', label: 'Người dùng có Credit Nổi Bật', desc: 'Đang có credit nổi bật', count: 213 },
+  { value: 'specific', label: 'Người dùng cụ thể', desc: 'Tìm và chọn tài khoản', count: 0 },
 ];
 
 const mockSentNotifs: SentNotif[] = [
@@ -60,6 +62,25 @@ export default function AdminNotificationsPage() {
   const [showHistory, setShowHistory] = useState(true);
   const [sentNotifs, setSentNotifs] = useState<SentNotif[]>(mockSentNotifs);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const currentTemplate = templates.find(t => t.id === selectedType)!;
   const currentTarget = targetOptions.find(t => t.value === selectedTarget)!;
   const TemplateIcon = currentTemplate.icon;
@@ -70,27 +91,47 @@ export default function AdminNotificationsPage() {
     setContent(t.sampleContent);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!title.trim() || !content.trim()) return;
     setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setSent(true);
-      const newNotif: SentNotif = {
-        id: `N${Date.now()}`,
-        title,
-        content,
+    try {
+      let scheduleIso = undefined;
+      if (scheduleMode && scheduledAt) {
+        scheduleIso = new Date(scheduledAt).toISOString();
+      }
+
+      const response = await sendNotificationsAPI({
         type: selectedType,
         target: selectedTarget,
-        sentAt: new Date().toLocaleString('vi-VN'),
-        recipientCount: currentTarget.count,
-        readRate: 0,
-      };
-      setSentNotifs([newNotif, ...sentNotifs]);
-      setTitle('');
-      setContent('');
-      setTimeout(() => setSent(false), 3000);
-    }, 1500);
+        title,
+        content,
+        scheduledAt: scheduleIso,
+        specificUserIds: selectedTarget === 'specific' ? selectedUsers.map(u => u.id) : undefined
+      });
+      
+      if (response.success) {
+        setSent(true);
+        const newNotif: SentNotif = {
+          id: `N${Date.now()}`,
+          title,
+          content,
+          type: selectedType,
+          target: selectedTarget,
+          sentAt: scheduleMode && scheduledAt ? new Date(scheduledAt).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN'),
+          recipientCount: response.count || (selectedTarget === 'specific' ? selectedUsers.length : currentTarget.count),
+          readRate: 0,
+        };
+        setSentNotifs([newNotif, ...sentNotifs]);
+        setTitle('');
+        setContent('');
+        setTimeout(() => setSent(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+      alert('Đã xảy ra lỗi khi gửi thông báo. Vui lòng thử lại.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const typeConfig: Record<NotifType, { label: string; color: string }> = {
@@ -99,6 +140,35 @@ export default function AdminNotificationsPage() {
     warning: { label: 'Cảnh báo', color: 'text-yellow-600' },
     event: { label: 'Sự kiện', color: 'text-purple-600' },
     feature: { label: 'Tính năng mới', color: 'text-[#2D5A3D]' },
+  };
+
+  const handleSearchUsers = async (q: string) => {
+    setSearchQuery(q);
+    if (!q.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    setIsSearching(true);
+    setShowDropdown(true);
+    try {
+      const res = await searchUsersAPI(q);
+      if (res.success) {
+        setSearchResults(res.data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const toggleUser = (user: any) => {
+    if (selectedUsers.find(u => u.id === user.id)) {
+      setSelectedUsers(selectedUsers.filter(u => u.id !== user.id));
+    } else {
+      setSelectedUsers([...selectedUsers, user]);
+    }
   };
 
   return (
@@ -231,12 +301,61 @@ export default function AdminNotificationsPage() {
                       <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
                     </div>
                     <div className={`text-sm font-bold ${selectedTarget === opt.value ? 'text-[#2D5A3D]' : 'text-gray-400'}`}>
-                      {opt.count.toLocaleString()}
+                      {opt.value === 'specific' ? selectedUsers.length : opt.count.toLocaleString()}
                     </div>
                   </div>
                 </button>
               ))}
             </div>
+
+            {selectedTarget === 'specific' && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm người dùng</label>
+                <div className="relative" ref={dropdownRef}>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+                    onChange={(e) => handleSearchUsers(e.target.value)}
+                    placeholder="Nhập tên, email hoặc username..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#2D5A3D]"
+                  />
+                  {showDropdown && searchResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {searchResults.map(user => (
+                        <div
+                          key={user.id}
+                          onClick={() => toggleUser(user)}
+                          className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center space-x-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!selectedUsers.find(u => u.id === user.id)}
+                            readOnly
+                            className="rounded text-[#2D5A3D] focus:ring-[#2D5A3D]"
+                          />
+                          <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`} alt="" className="w-6 h-6 rounded-full" />
+                          <div className="text-sm">
+                            <div className="font-medium">{user.username}</div>
+                            <div className="text-xs text-gray-500">{user.email}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedUsers.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedUsers.map(user => (
+                      <span key={user.id} className="inline-flex items-center px-2 py-1 rounded bg-[#2D5A3D]/10 text-[#2D5A3D] text-xs font-medium">
+                        {user.username}
+                        <button onClick={() => toggleUser(user)} className="ml-1 text-[#2D5A3D] hover:text-red-500">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Summary + Send */}

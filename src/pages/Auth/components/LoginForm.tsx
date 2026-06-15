@@ -36,6 +36,8 @@ export default function LoginForm({
   
   const { login, currentUser } = useAuth();
 
+  const [firstLogin, setFirstLogin] = useState(false);
+
   // Hiệu ứng lắng nghe sự thay đổi của currentUser để điều hướng phân quyền an toàn
   useEffect(() => {
     if (currentUser) {
@@ -43,10 +45,10 @@ export default function LoginForm({
       if (currentUser.role === UserRole.ADMIN) {
         navigate(from.startsWith('/admin') ? from : ADMIN_DASHBOARD, { replace: true });
       } else {
-        navigate(from, { replace: true });
+        navigate(from, { replace: true, state: { isFirstLogin: firstLogin } });
       }
     }
-  }, [currentUser, navigate, location]);
+  }, [currentUser, navigate, location, firstLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +57,10 @@ export default function LoginForm({
 
     try {
       // Call Login API
-      await login({ email: email.trim(), password });
+      const result = await login({ email: email.trim(), password });
+      if (result?.isFirstLogin) {
+        setFirstLogin(true);
+      }
     } catch (err: any) {
       console.error('Login failed:', err);
       // Extract error message from Backend

@@ -28,8 +28,8 @@ export const getUserProductsAPI = async (
   sellerId: number,
   pageNumber: number = 1,
   pageSize: number = 100
-): Promise<{ success: boolean; data: PagedResult<ProductResponse> }> => {
-  const response = await authClient.get<{ success: boolean; data: PagedResult<ProductResponse> }>(
+): Promise<{ success: boolean; data: PagedResult<ProductResponseDto> }> => {
+  const response = await authClient.get<{ success: boolean; data: PagedResult<ProductResponseDto> }>(
     `/products/seller/${sellerId}`,
     {
       params: { pageNumber, pageSize },

@@ -1,0 +1,21 @@
+# Task: Match & Trade UI/UX Enhancements
+
+- [x] Modify backend `SeedData.cs` to remove "[Mẫu]" and "demo" labels from seeded products.
+- [x] Modify frontend `Sidebar.tsx` to add participant stats and replace "COMING SOON" with "HOT".
+- [x] Modify frontend `RevoraMatchPage.tsx` Step 1: Implement pagination for selected exchangeable products.
+- [x] Modify frontend `RevoraMatchPage.tsx` Step 2: Display price and city filters side-by-side (2-column layout).
+- [x] Modify frontend `RevoraMatchPage.tsx`: Remove all occurrences of "dữ liệu mẫu", sample warnings, and edit notices.
+- [x] Modify frontend `RevoraMatchPage.tsx` Step 3/4: Update searching loader and cards finished states.
+- [x] Modify frontend `RevoraMatchPage.tsx` Step 3/4: Reposition Pass and Heart buttons to the sides, style drag offsets, and add exit animations.
+- [x] Swapped button positions so X (Pass) is on the left and Tym (Like) is on the right (matching standard Tinder layout).
+- [x] Added liked product counter badge on the right Heart (Like) button.
+- [x] Synchronized virtual stats between sidebar and match page using localStorage and events, preventing interval conflicts.
+- [x] Aligned sidebar stats side-by-side (horizontally) below the REVORA MATCH title.
+- [x] Fixed button rendering condition using showSwipeButtons to prevent them from vanishing during loading.
+- [x] Repositioned "Thoát phiên Match" link to top right as a clean icon button.
+- [x] Verify changes by building the frontend and checking logic.
+- [x] Changed Step 1 product grid to 4-column layout (2-col on mobile, 3-col on sm, 4-col on lg).
+- [x] Added hover-based "Chi tiết" link on each product card image to open in a new tab.
+- [x] Added backend endpoints: GET /sessions/{sessionId}/my-likes and GET /interest-inbox.
+- [x] Added "Tym list" expandable dropdown under Heart icon showing products liked this session.
+- [x] Added "Quan tâm tôi" inbox button + dropdown in footer showing who liked my products.

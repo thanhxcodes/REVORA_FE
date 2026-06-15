@@ -179,11 +179,13 @@ interface Package {
   tier: number;
 }
 
-type PackagePurchaseState = 'in_use' | 'available' | 'locked';
+type PackagePurchaseState = 'in_use' | 'available' | 'locked' | 'pending';
 
 interface CreditTypePurchaseStatus {
   isTypeLocked: boolean;
   activePackageId: string | null;
+  pendingOrderCheckoutUrl?: string | null;
+  pendingOrderExpiredAt?: string | null;
 }
 
 const resolveActivePackageId = (
@@ -243,6 +245,8 @@ const computeCreditTypePurchaseStatus = (
     return {
       isTypeLocked: true,
       activePackageId: pendingPackage?.id ?? null,
+      pendingOrderCheckoutUrl: summary.pendingOrderCheckoutUrl,
+      pendingOrderExpiredAt: summary.pendingOrderExpiredAt,
     };
   }
 
@@ -270,11 +274,13 @@ const getPackagePurchaseState = (
   }
 
   if (status.activePackageId === packageId) {
-    return 'in_use';
+    return status.pendingOrderCheckoutUrl ? 'pending' : 'in_use';
   }
 
   return 'locked';
 };
+
+
 
 const postingPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
   1: {
@@ -448,12 +454,54 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
   return { posting, featured };
 };
 
+const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?: string | null, checkoutUrl?: string | null, variant: CreditType }) => {
+  let formattedTime = '';
+  if (expiredAt) {
+    const utcExpiredAt = expiredAt.endsWith('Z') ? expiredAt : `${expiredAt}Z`;
+    const d = new Date(utcExpiredAt);
+    formattedTime = d.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  const buyButtonClass =
+    variant === 'posting'
+      ? 'w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all'
+      : 'w-full bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all';
+
+  return (
+    <div className="flex flex-col items-center">
+      <button 
+        type="button" 
+        onClick={() => {
+          if (checkoutUrl) window.location.href = checkoutUrl;
+        }} 
+        className={buyButtonClass}
+      >
+        Tiếp tục thanh toán
+      </button>
+      {formattedTime && (
+        <div className="mt-3 text-red-500 text-sm font-semibold">
+          Hết hạn vào {formattedTime}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const renderPackagePurchaseButton = (
   purchaseState: PackagePurchaseState,
   onBuy: () => void,
   variant: CreditType,
   isLoading: boolean,
-  isAnyLoading: boolean
+  isAnyLoading: boolean,
+  status?: CreditTypePurchaseStatus
 ) => {
   if (purchaseState === 'in_use') {
     return (
@@ -464,6 +512,10 @@ const renderPackagePurchaseButton = (
         Đang Sử Dụng
       </button>
     );
+  }
+
+  if (purchaseState === 'pending' && status) {
+    return <PendingPurchaseButton expiredAt={status.pendingOrderExpiredAt} checkoutUrl={status.pendingOrderCheckoutUrl} variant={variant} />;
   }
 
   if (purchaseState === 'locked' || isAnyLoading) {
@@ -614,7 +666,7 @@ export default function PlansPage() {
 
       try {
         const response = await authClient.get<ApiResponse<CreditPackageApi[]>>(
-          'https://localhost:7015/api/CreditPackages/active',
+          '/CreditPackages/active',
           { skipAuthRefresh: true }
         );
 
@@ -730,7 +782,15 @@ export default function PlansPage() {
               </div>
               {packageError && <p className="mb-4 text-sm text-amber-600">{packageError}</p>}
               {creditSummaries.posting?.purchaseBlockReason && (
-                <p className="mb-4 text-sm text-amber-600">{creditSummaries.posting.purchaseBlockReason}</p>
+                <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-800">Thông báo</h4>
+                    <p className="text-sm text-amber-700 mt-0.5">{creditSummaries.posting.purchaseBlockReason}</p>
+                  </div>
+                </div>
               )}
               {checkoutError && (
                 <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
@@ -820,7 +880,8 @@ export default function PlansPage() {
                           () => handleSelectPackage(pkg),
                           'posting',
                           loadingPackageId === pkg.paidCreditPackageId,
-                          isCheckoutLoading
+                          isCheckoutLoading,
+                          postingPurchaseStatus
                         )}
                       </div>
                     </div>
@@ -842,7 +903,15 @@ export default function PlansPage() {
                 <h2 className="text-3xl text-gray-900">Gói Credits Nổi Bật</h2>
               </div>
               {creditSummaries.featured?.purchaseBlockReason && (
-                <p className="mb-4 text-sm text-amber-600">{creditSummaries.featured.purchaseBlockReason}</p>
+                <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-800">Thông báo</h4>
+                    <p className="text-sm text-amber-700 mt-0.5">{creditSummaries.featured.purchaseBlockReason}</p>
+                  </div>
+                </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {isPackageLoading ? (
@@ -921,7 +990,8 @@ export default function PlansPage() {
                           () => handleSelectPackage(pkg),
                           'featured',
                           loadingPackageId === pkg.paidCreditPackageId,
-                          isCheckoutLoading
+                          isCheckoutLoading,
+                          featuredPurchaseStatus
                         )}
                       </div>
                     </div>
