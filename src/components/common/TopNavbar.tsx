@@ -7,7 +7,7 @@ import { getAccessToken } from '../../features/auth/services/tokenService';
 import type { User as UserType } from '../../features/auth/types';
 import { useUserCreditBatches } from '../../features/credits/hooks/useUserCreditBatches';
 import NavbarCreditBadge from './NavbarCreditBadge';
-import logoImg from '../../assets/images/logo.png';
+import logoImg from '../../assets/images/logo.jpg';
 
 interface Notification {
   id: string;
@@ -116,11 +116,14 @@ export default function TopNavbar({
             setNotifications(prev => [newNotif, ...prev]);
             setUnreadCount(prev => prev + 1);
           });
+          hubConnection!.on('InterestNotificationRemoved', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_interest_notification_removed', { detail: data }));
+          });
           hubConnection!.on('ReceiveMessage', () => {
             fetchUnreadChat();
           });
-          hubConnection!.on('MatchPoolUpdated', () => {
-            window.dispatchEvent(new Event('revora_match_pool_updated'));
+          hubConnection!.on('MatchStatsUpdated', (payload: any) => {
+            window.dispatchEvent(new CustomEvent('revora_match_stats_updated', { detail: payload }));
           });
           hubConnection!.on('ProductsRemoved', (productIds: number[]) => {
             window.dispatchEvent(new CustomEvent('revora_match_products_removed', { detail: productIds }));
@@ -136,6 +139,12 @@ export default function TopNavbar({
           });
           hubConnection!.on('TradeCancelled', (data: any) => {
             window.dispatchEvent(new CustomEvent('revora_trade_cancelled', { detail: data }));
+          });
+          hubConnection!.on('MatchCancelled', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_match_cancelled', { detail: data }));
+          });
+          hubConnection!.on('SessionTerminated', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_session_terminated', { detail: data }));
           });
         })
         .catch(err => console.error('SignalR Header connection failure: ', err));
@@ -204,7 +213,7 @@ export default function TopNavbar({
             <Menu className="w-6 h-6" />
           </button>
           <Link to="/" className="flex items-center gap-2.5" onClick={closeAll}>
-            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-full" />
+            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-full object-cover" />
             <div className="flex flex-col leading-none">
               <span className="text-white text-xl font-bold tracking-widest" style={{ fontFamily: 'Raleway, sans-serif', letterSpacing: '0.22em' }}>REVORA</span>
               <span className="text-white/50 text-[8px] tracking-[0.18em] uppercase">Revive Your Aura</span>
