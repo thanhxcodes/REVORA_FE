@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Lock, ArrowRight, Eye, EyeOff, Mail } from 'lucide-react';
 import { useAuth } from '../../../providers/authProvider/AuthContext';
 import { LOGIN_TXT } from '../constants/login';
+import GoogleLoginButton from './GoogleLoginButton';
 
 const WARNING_ICON = '⚠';
 const AUTO_COMPLETE_EMAIL = 'email';
@@ -84,7 +85,7 @@ export default function LoginForm({
           <div className="relative">
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setError(''); }}
               placeholder={LOGIN_TXT.emailPlaceholder}
@@ -147,6 +148,8 @@ export default function LoginForm({
           )}
         </button>
       </form>
+
+      <GoogleLoginButton />
 
       {/* Switch to Register */}
       <p className="text-center text-sm text-gray-500 mt-5 pt-4 border-t border-gray-100">

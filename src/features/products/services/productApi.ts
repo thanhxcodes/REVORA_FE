@@ -101,6 +101,12 @@ export const getLovedProductsAPI = async (limit = 10) => {
     return response.data;
 };
 
+// API lấy sản phẩm được xem nhiều nhất
+export const getMostViewedProductsAPI = async (limit = 10) => {
+    const response = await authClient.get(`/Products/most-viewed?limit=${limit}`, { skipAuthRefresh: true });
+    return response.data;
+};
+
 export const getFilteredProductsAPI = async (params: ProductFilterParams): Promise<{ success: boolean, data: PagedResult<ProductResponseDto> }> => {
     // Dùng authClient.get và truyền params vào config
     // (skipAuthRefresh: true để guest cũng xem được mà không bị đá ra trang login)

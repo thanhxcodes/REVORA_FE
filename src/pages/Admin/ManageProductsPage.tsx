@@ -43,6 +43,12 @@ const actionConfig: Record<CreditAction, { label: string; icon: typeof Package; 
   extend_featured:{ label: 'Gia hạn nổi bật',     icon: TrendingUp, desc: 'Gia hạn thêm thời gian nổi bật' },
 };
 
+const formatVNTime = (dateStr?: string) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+  return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
 export default function ManageProductsPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'shorts' | 'credits' | 'trash'>('products');
   const [products, setProducts] = useState<ProductResponseDto[]>([]);
@@ -453,11 +459,11 @@ export default function ManageProductsPage() {
                     <div className="flex flex-col gap-2 mb-4">
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <span className="bg-gray-100 px-2 py-1 rounded">{product.location || 'Chưa cập nhật'}</span>
-                        <span className="font-medium text-[#2D5A3D]">Ngày đăng: {new Date(product.createdAt).toLocaleDateString('vi-VN')}</span>
+                        <span className="font-medium text-[#2D5A3D]">Ngày đăng: {formatVNTime(product.createdAt)}</span>
                       </div>
                       {product.productExpiredAt && (
                         <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>Hết hạn: {new Date(product.productExpiredAt).toLocaleDateString('vi-VN')}</span>
+                          <span>Hết hạn: {formatVNTime(product.productExpiredAt)}</span>
                           <span className="text-orange-600 font-semibold bg-orange-50 px-2 py-1 rounded">{formatCountdown(product.productExpiredAt)}</span>
                         </div>
                       )}
@@ -478,7 +484,7 @@ export default function ManageProductsPage() {
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-gray-600">Hạn Banner:</span>
                               <div className="flex items-center space-x-2">
-                                <span className="font-semibold">{new Date(product.bannerExpiredAt).toLocaleDateString('vi-VN')}</span>
+                                <span className="font-semibold">{formatVNTime(product.bannerExpiredAt)}</span>
                                 <span className="text-orange-600 font-semibold bg-orange-50 px-2 py-0.5 rounded text-[10px]">{formatCountdown(product.bannerExpiredAt)}</span>
                               </div>
                             </div>
@@ -492,7 +498,7 @@ export default function ManageProductsPage() {
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-gray-600">Hạn Video Short:</span>
                               <div className="flex items-center space-x-2">
-                                <span className="font-semibold">{new Date(product.shortExpiredAt).toLocaleDateString('vi-VN')}</span>
+                                <span className="font-semibold">{formatVNTime(product.shortExpiredAt)}</span>
                                 <span className="text-orange-600 font-semibold bg-orange-50 px-2 py-0.5 rounded text-[10px]">{formatCountdown(product.shortExpiredAt)}</span>
                               </div>
                             </div>
@@ -621,7 +627,7 @@ export default function ManageProductsPage() {
                       </div>
                       {product.shortExpiredAt && (
                         <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>Hết hạn Video: {new Date(product.shortExpiredAt).toLocaleDateString('vi-VN')}</span>
+                          <span>Hết hạn Video: {formatVNTime(product.shortExpiredAt)}</span>
                           <span className="text-orange-600 font-semibold bg-orange-50 px-2 py-1 rounded">{formatCountdown(product.shortExpiredAt)}</span>
                         </div>
                       )}

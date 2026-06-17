@@ -1,8 +1,8 @@
 export const LOGIN_TXT = {
   title: 'Chào mừng trở lại',
   subtitle: 'Đăng nhập để tiếp tục mua bán',
-  emailLabel: 'Email',
-  emailPlaceholder: 'email@example.com',
+  emailLabel: 'Email hoặc Tên đăng nhập',
+  emailPlaceholder: 'email@example.com hoặc username',
   passwordLabel: 'Mật khẩu',
   forgotPassword: 'Quên mật khẩu?',
   passwordPlaceholder: '••••••••',

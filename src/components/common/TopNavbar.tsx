@@ -7,7 +7,7 @@ import { getAccessToken } from '../../features/auth/services/tokenService';
 import type { User as UserType } from '../../features/auth/types';
 import { useUserCreditBatches } from '../../features/credits/hooks/useUserCreditBatches';
 import NavbarCreditBadge from './NavbarCreditBadge';
-import logoImg from '../../assets/images/logo.png';
+import logoImg from '../../assets/images/logo.jpg';
 
 interface Notification {
   id: string;
@@ -116,11 +116,14 @@ export default function TopNavbar({
             setNotifications(prev => [newNotif, ...prev]);
             setUnreadCount(prev => prev + 1);
           });
+          hubConnection!.on('InterestNotificationRemoved', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_interest_notification_removed', { detail: data }));
+          });
           hubConnection!.on('ReceiveMessage', () => {
             fetchUnreadChat();
           });
-          hubConnection!.on('MatchPoolUpdated', () => {
-            window.dispatchEvent(new Event('revora_match_pool_updated'));
+          hubConnection!.on('MatchStatsUpdated', (payload: any) => {
+            window.dispatchEvent(new CustomEvent('revora_match_stats_updated', { detail: payload }));
           });
           hubConnection!.on('ProductsRemoved', (productIds: number[]) => {
             window.dispatchEvent(new CustomEvent('revora_match_products_removed', { detail: productIds }));
@@ -136,6 +139,12 @@ export default function TopNavbar({
           });
           hubConnection!.on('TradeCancelled', (data: any) => {
             window.dispatchEvent(new CustomEvent('revora_trade_cancelled', { detail: data }));
+          });
+          hubConnection!.on('MatchCancelled', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_match_cancelled', { detail: data }));
+          });
+          hubConnection!.on('SessionTerminated', (data: any) => {
+            window.dispatchEvent(new CustomEvent('revora_session_terminated', { detail: data }));
           });
         })
         .catch(err => console.error('SignalR Header connection failure: ', err));
@@ -204,7 +213,7 @@ export default function TopNavbar({
             <Menu className="w-6 h-6" />
           </button>
           <Link to="/" className="flex items-center gap-2.5" onClick={closeAll}>
-            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-full" />
+            <img src={logoImg} alt="REVORA Logo" className="w-9 h-9 rounded-full object-cover" />
             <div className="flex flex-col leading-none">
               <span className="text-white text-xl font-bold tracking-widest" style={{ fontFamily: 'Raleway, sans-serif', letterSpacing: '0.22em' }}>REVORA</span>
               <span className="text-white/50 text-[8px] tracking-[0.18em] uppercase">Revive Your Aura</span>
@@ -245,13 +254,30 @@ export default function TopNavbar({
             </div>
 
             {/* Nút Đăng tin */}
-            <div className="hidden md:flex items-center">
+            <div className="hidden md:flex items-center relative">
+              <style>{`
+                @keyframes shimmer {
+                  0% { transform: translateX(-150%) skewX(-20deg); }
+                  100% { transform: translateX(150%) skewX(-20deg); }
+                }
+                .btn-sparkle::after {
+                  content: '';
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  width: 50%;
+                  height: 100%;
+                  background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent);
+                  transform: translateX(-150%) skewX(-20deg);
+                  animation: shimmer 2s infinite;
+                }
+              `}</style>
               <Link
                 to="/sell"
-                className="bg-white text-[#2D5A3D] px-5 py-2 rounded-full hover:shadow-lg transition-all text-sm font-semibold flex items-center gap-1.5"
+                className="btn-sparkle relative bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-white px-6 py-2 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.7)] hover:shadow-[0_0_25px_rgba(245,158,11,0.9)] hover:scale-105 transition-all duration-300 text-[15px] font-bold flex items-center gap-1.5 border border-amber-300/50 overflow-hidden"
                 onClick={closeAll}
               >
-                <Plus className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 text-yellow-100 animate-pulse" />
                 Đăng tin
               </Link>
             </div>

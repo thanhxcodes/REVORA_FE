@@ -36,6 +36,7 @@ interface Conversation {
     userId: number;
     fullName: string;
     avatarUrl: string;
+    isOnline?: boolean;
   };
   lastMessage: {
     content: string | null;
@@ -194,6 +195,7 @@ export default function MessagesPage() {
             userId: location.state.targetUserId,
             fullName: location.state.targetUserName || 'Người dùng',
             avatarUrl: location.state.targetUserAvatar || 'U',
+            isOnline: false,
           },
           lastMessage: null
         };
@@ -416,6 +418,9 @@ export default function MessagesPage() {
   const filteredConversations = conversations.filter(c => 
     c.partner.fullName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  const currentConversation = conversations.find(c => c.partner.userId === activeChat?.partner.userId);
+  const activePartner = currentConversation ? currentConversation.partner : activeChat?.partner;
 
   return (
     <div className="flex h-[calc(100vh-64px)] w-full flex-col overflow-hidden bg-white">
@@ -494,9 +499,9 @@ export default function MessagesPage() {
                               conv.partner.fullName?.charAt(0) || 'U'
                             )}
                           </div>
-                          {/* Online status indicator mock */}
+                          {/* Online status indicator */}
                           <span
-                            className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 bg-emerald-400 ${
+                            className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 ${conv.partner.isOnline ? 'bg-emerald-400' : 'bg-gray-400'} ${
                               active ? "border-[#EBF4F0]" : "border-white"
                             }`}
                           />
@@ -586,17 +591,17 @@ export default function MessagesPage() {
                     </button>
                     <div className="relative">
                       <div className="h-12 w-12 overflow-hidden rounded-full font-bold flex items-center justify-center bg-gray-200 text-gray-600">
-                        {activeChat.partner.avatarUrl && activeChat.partner.avatarUrl !== "U" ? (
-                          <img src={activeChat.partner.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                        {activePartner?.avatarUrl && activePartner.avatarUrl !== "U" ? (
+                          <img src={activePartner.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
                         ) : (
-                          activeChat.partner.fullName?.charAt(0) || 'U'
+                          activePartner?.fullName?.charAt(0) || 'U'
                         )}
                       </div>
-                      <span className="absolute bottom-0 right-0 h-3.5 w-3.5 animate-pulse rounded-full border-2 border-white bg-emerald-400" />
+                      <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${activePartner?.isOnline ? 'bg-emerald-400' : 'bg-gray-400'}`} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold leading-tight text-gray-900">{activeChat.partner.fullName}</h3>
-                      <p className="text-sm text-[#2D5A3D]">Online</p>
+                      <h3 className="text-xl font-semibold leading-tight text-gray-900">{activePartner?.fullName}</h3>
+                      <p className={`text-sm ${activePartner?.isOnline ? 'text-[#2D5A3D]' : 'text-gray-500'}`}>{activePartner?.isOnline ? 'Online' : 'Offline'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

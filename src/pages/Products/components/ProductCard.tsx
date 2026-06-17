@@ -13,6 +13,7 @@ interface ProductCardProps {
   condition: string;
   sellerName: string;
   viewCount?: number;
+  likeCount?: number;
   isPremium?: boolean;
   viewMode?: 'grid' | 'list';
   sellerBadge?: { icon: string; gradient: string } | null;
@@ -31,6 +32,7 @@ export default function ProductCard({
   condition,
   sellerName,
   viewCount,
+  likeCount,
   isPremium,
   viewMode = 'grid',
   sellerBadge,
@@ -127,12 +129,20 @@ export default function ProductCard({
                     <span className="text-xs text-gray-400">Đăng ngày {new Date(createdAt).toLocaleDateString('vi-VN')}</span>
                   )}
                 </div>
-                {viewCount !== undefined && (
-                  <div className="flex items-center space-x-1">
-                    <Heart className="w-4 h-4 text-[#C4603A]" />
-                    <span>{viewCount.toLocaleString()} lượt thích</span>
-                  </div>
-                )}
+                <div className="flex items-center space-x-3">
+                  {viewCount !== undefined && (
+                    <div className="flex items-center space-x-1">
+                      <Eye className="w-4 h-4 text-gray-500" />
+                      <span>{viewCount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {likeCount !== undefined && (
+                    <div className="flex items-center space-x-1">
+                      <Heart className="w-4 h-4 text-[#C4603A]" />
+                      <span>{likeCount.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -218,12 +228,20 @@ export default function ProductCard({
                 <span className="text-[10px] text-gray-400">Ngày đăng: {new Date(createdAt).toLocaleDateString('vi-VN')}</span>
               )}
             </div>
-            {viewCount !== undefined && (
-              <div className="flex items-center space-x-1">
-                <Heart className="w-3 h-3 text-[#C4603A]" />
-                <span className="text-xs">{viewCount}</span>
-              </div>
-            )}
+            <div className="flex items-center space-x-2">
+              {viewCount !== undefined && (
+                <div className="flex items-center space-x-1">
+                  <Eye className="w-3 h-3 text-gray-500" />
+                  <span className="text-xs">{viewCount}</span>
+                </div>
+              )}
+              {likeCount !== undefined && (
+                <div className="flex items-center space-x-1">
+                  <Heart className="w-3 h-3 text-[#C4603A]" />
+                  <span className="text-xs">{likeCount}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

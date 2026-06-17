@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Bell,
+  Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import authClient from '../../providers/authProvider/authService';
@@ -151,8 +152,6 @@ export default function RevoraMatchPage() {
   // Navigation Steps and general states
   const [step, setStep] = useState<MatchStep>('landing');
   const [stats, setStats] = useState<MatchCommunityStatsDto | null>(null);
-  const [virtualParticipants, setVirtualParticipants] = useState(1001);
-  const [virtualProducts, setVirtualProducts] = useState(2512);
 
   // Selection / Filter States
   const [myOfferProducts, setMyOfferProducts] = useState<MatchOfferingProductDto[]>([]);
@@ -201,6 +200,7 @@ export default function RevoraMatchPage() {
   const [negotiateUser, setNegotiateUser] = useState<{ id: number, name: string } | null>(null);
   const [negotiateProducts, setNegotiateProducts] = useState<MatchOfferingProductDto[]>([]);
   const [negotiateSelectedIds, setNegotiateSelectedIds] = useState<Set<number>>(new Set());
+  const [showInterestConfirmModal, setShowInterestConfirmModal] = useState<{ id: number, name: string } | null>(null);
 
   // Trade History Modal
   const [showTradeHistoryModal, setShowTradeHistoryModal] = useState(false);
@@ -246,6 +246,33 @@ export default function RevoraMatchPage() {
           // Populate the selected product IDs
           if (sessionData.offeringProducts) {
             setSelectedProductIds(new Set(sessionData.offeringProducts.map(p => p.productId)));
+          }
+
+          // Restore filters
+          if (sessionData.city) {
+            setSelectedCity({ city: sessionData.city, productCount: sessionData.estimatedProducts, participantCount: sessionData.estimatedParticipants });
+          }
+          if (sessionData.minPrice !== null || sessionData.maxPrice !== null) {
+            setSelectedPriceBucket({
+              label: `${sessionData.minPrice || 0} - ${sessionData.maxPrice || '∞'}`,
+              minPrice: sessionData.minPrice,
+              maxPrice: sessionData.maxPrice,
+              productCount: sessionData.estimatedProducts,
+              participantCount: sessionData.estimatedParticipants
+            });
+          }
+
+          // Calculate accurate time left
+          const startedAtStr = sessionData.startedAt.endsWith('Z') ? sessionData.startedAt : `${sessionData.startedAt}Z`;
+          const startedAtMs = new Date(startedAtStr).getTime();
+          const nowMs = Date.now();
+          const elapsedSeconds = Math.floor((nowMs - startedAtMs) / 1000);
+          const remainingSeconds = Math.max(0, 3600 - elapsedSeconds);
+          setTimeLeft(remainingSeconds);
+
+          if (remainingSeconds <= 0) {
+            handleLeaveSession();
+            return;
           }
 
           // Fetch the first swipe card
@@ -306,12 +333,42 @@ export default function RevoraMatchPage() {
     const handleTradeCancelled = (e: any) => {
       setNewMutualMatch((prev) => {
         if (prev && prev.tradeMatchId === e.detail.tradeMatchId) {
-          toast.error('Đối phương đã hủy yêu cầu trao đổi.');
+          toast.error('Đối phương đã rời khỏi đoạn chat.');
           setShowMutualMatchPopup(false);
+          setShowChat(false);
           return null;
         }
         return prev;
       });
+    };
+
+    const handleMatchCancelled = (e: any) => {
+      setNewMutualMatch((prev) => {
+        if (prev && prev.tradeMatchId === e.detail.tradeMatchId) {
+          if (e.detail.isExpired) {
+            toast.error('Phiên Match đã hết hạn do đối phương không phản hồi.');
+          } else {
+            toast.error('Đối phương đã hủy lời mời trao đổi.');
+          }
+          setShowMutualMatchPopup(false);
+          setShowChat(false);
+          return null;
+        }
+        return prev;
+      });
+    };
+
+    const handleSessionTerminated = (e: any) => {
+      toast.error(e.detail?.Reason || 'Phiên Match đã bị kết thúc.');
+      resetSession();
+      setSelectedProductIds(new Set());
+      setSelectedPriceBucket(null);
+      setSelectedCity(null);
+      setPreviewStats(null);
+      setFilterOptions(null);
+      setMyOfferProducts([]);
+      setTimeLeft(3600);
+      setStep('landing');
     };
 
     window.addEventListener('revora_match_products_removed', handleProductsRemoved);
@@ -319,6 +376,8 @@ export default function RevoraMatchPage() {
     window.addEventListener('revora_trade_partner_negotiated', handlePartnerNegotiated);
     window.addEventListener('revora_trade_chat_created', handleChatCreated);
     window.addEventListener('revora_trade_cancelled', handleTradeCancelled);
+    window.addEventListener('revora_match_cancelled', handleMatchCancelled);
+    window.addEventListener('revora_session_terminated', handleSessionTerminated);
 
     return () => {
       window.removeEventListener('revora_match_products_removed', handleProductsRemoved);
@@ -326,39 +385,25 @@ export default function RevoraMatchPage() {
       window.removeEventListener('revora_trade_partner_negotiated', handlePartnerNegotiated);
       window.removeEventListener('revora_trade_chat_created', handleChatCreated);
       window.removeEventListener('revora_trade_cancelled', handleTradeCancelled);
+      window.removeEventListener('revora_match_cancelled', handleMatchCancelled);
+      window.removeEventListener('revora_session_terminated', handleSessionTerminated);
     };
   }, [step, isSwipeLoading, activeSession, currentSwipeCard]);
 
-  // Update virtual stats when real stats are loaded
+  // Update stats from real-time SignalR event
   useEffect(() => {
-    if (stats) {
-      setVirtualParticipants(stats.activeParticipants);
-      setVirtualProducts(stats.productsWaitingTrade);
-    }
-  }, [stats]);
-
-  // Periodic random fluctuation to make numbers feel "live"
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setVirtualParticipants((prev) => {
-        const delta = Math.floor(Math.random() * 5) - 2; // -2 to +2
-        return Math.max(10, prev + delta);
-      });
-      setVirtualProducts((prev) => {
-        const delta = Math.floor(Math.random() * 7) - 3; // -3 to +3
-        return Math.max(10, prev + delta);
-      });
-    }, 3500);
-
-    return () => clearInterval(timer);
+    const handleStatsUpdate = (e: any) => {
+      const payload = e.detail;
+      if (payload && payload.communityStats) {
+        setStats(payload.communityStats);
+      }
+      if (payload && payload.filterOptions) {
+        setFilterOptions(payload.filterOptions);
+      }
+    };
+    window.addEventListener('revora_match_stats_updated', handleStatsUpdate);
+    return () => window.removeEventListener('revora_match_stats_updated', handleStatsUpdate);
   }, []);
-
-  // Synchronize virtual stats with localStorage and trigger custom event
-  useEffect(() => {
-    localStorage.setItem('revora_match_participants', String(virtualParticipants));
-    localStorage.setItem('revora_match_products', String(virtualProducts));
-    window.dispatchEvent(new Event('revora_match_stats_updated'));
-  }, [virtualParticipants, virtualProducts]);
 
   // --- Load User's Exchangeable Products on Step 1 ---
   useEffect(() => {
@@ -413,21 +458,6 @@ export default function RevoraMatchPage() {
       };
       fetchFilterOptions();
     }
-
-    const handlePoolUpdate = () => {
-      if (step === 'select-filters') {
-        const fetchFilterOptions = async () => {
-          try {
-            const res = await authClient.get('/match-trade/filter-options');
-            if (res.data.success) setFilterOptions(res.data.data);
-          } catch (e) { }
-        };
-        fetchFilterOptions();
-      }
-    };
-
-    window.addEventListener('revora_match_pool_updated', handlePoolUpdate);
-    return () => window.removeEventListener('revora_match_pool_updated', handlePoolUpdate);
   }, [step]);
 
   // --- Live filtering preview when BOTH bucket and city are selected on Step 2 ---
@@ -451,25 +481,6 @@ export default function RevoraMatchPage() {
     } else {
       setPreviewStats(null);
     }
-
-    const handlePoolUpdate = () => {
-      if (step === 'select-filters' && selectedPriceBucket && selectedCity) {
-        const fetchPreview = async () => {
-          try {
-            const res = await authClient.post('/match-trade/preview', {
-              minPrice: selectedPriceBucket.minPrice,
-              maxPrice: selectedPriceBucket.maxPrice || 0,
-              city: selectedCity.city === 'Tất cả khu vực' ? '' : selectedCity.city,
-            });
-            if (res.data.success) setPreviewStats(res.data.data);
-          } catch (e) {}
-        };
-        fetchPreview();
-      }
-    };
-
-    window.addEventListener('revora_match_pool_updated', handlePoolUpdate);
-    return () => window.removeEventListener('revora_match_pool_updated', handlePoolUpdate);
   }, [selectedPriceBucket, selectedCity, step]);
 
   // --- Helper to fetch next swiping card ---
@@ -492,14 +503,14 @@ export default function RevoraMatchPage() {
 
   // When swipe card is empty and a pool update happens, try to fetch next card
   useEffect(() => {
-    const handlePoolUpdate = () => {
+    const handleStatsUpdate = () => {
       if (step === 'swiping' && !currentSwipeCard && !isSwipeLoading && activeSession) {
         fetchNextSwipeCard(activeSession.matchSessionId);
       }
     };
 
-    window.addEventListener('revora_match_pool_updated', handlePoolUpdate);
-    return () => window.removeEventListener('revora_match_pool_updated', handlePoolUpdate);
+    window.addEventListener('revora_match_stats_updated', handleStatsUpdate);
+    return () => window.removeEventListener('revora_match_stats_updated', handleStatsUpdate);
   }, [step, currentSwipeCard, isSwipeLoading, activeSession]);
 
   // Handle products removed from pool dynamically
@@ -566,6 +577,20 @@ export default function RevoraMatchPage() {
     }
   }, []);
 
+  const handleUnlike = async (productId: number) => {
+    if (!activeSession) return;
+    try {
+      const res = await authClient.delete(`/match-trade/sessions/${activeSession.matchSessionId}/likes/${productId}`);
+      if (res.data.success) {
+        setTymList(prev => prev.filter(p => p.productId !== productId));
+        toast.success('Đã bỏ thích sản phẩm.', { icon: '🗑️' });
+      }
+    } catch (e: any) {
+      console.error('Failed to unlike', e);
+      toast.error(e.response?.data?.message || 'Không thể bỏ thích sản phẩm.');
+    }
+  };
+
   const fetchInterestInbox = useCallback(async () => {
     setIsLoadingInbox(true);
     try {
@@ -586,8 +611,19 @@ export default function RevoraMatchPage() {
       toast.success('Có người vừa quan tâm sản phẩm của bạn!', { icon: '🔔' });
     };
 
+    const handleInterestRemoved = (e: any) => {
+      const data = e.detail;
+      if (data && data.removedNotificationIds) {
+        setInterestInbox(prev => prev.filter(n => !data.removedNotificationIds.includes(n.notificationId)));
+      }
+    };
+
     window.addEventListener('revora_match_interest_received', handleInterestReceived);
-    return () => window.removeEventListener('revora_match_interest_received', handleInterestReceived);
+    window.addEventListener('revora_interest_notification_removed', handleInterestRemoved);
+    return () => {
+      window.removeEventListener('revora_match_interest_received', handleInterestReceived);
+      window.removeEventListener('revora_interest_notification_removed', handleInterestRemoved);
+    };
   }, [fetchInterestInbox]);
 
   const handleOpenInboxItem = async (userId: number, userName: string) => {
@@ -595,8 +631,16 @@ export default function RevoraMatchPage() {
       const res = await authClient.get(`/match-trade/sessions/user/${userId}/offering-products`);
       if (res.data.success) {
         setNegotiateUser({ id: userId, name: userName });
-        setNegotiateProducts(res.data.data);
-        setNegotiateSelectedIds(new Set());
+        const products = res.data.data;
+        setNegotiateProducts(products);
+        
+        // Mặc định chọn sản phẩm đầu tiên
+        const initialSelectedIds = new Set<number>();
+        if (products.length > 0) {
+          initialSelectedIds.add(products[0].productId);
+        }
+        setNegotiateSelectedIds(initialSelectedIds);
+        
         setShowInbox(false);
       }
     } catch (e) {
@@ -658,12 +702,16 @@ export default function RevoraMatchPage() {
     }
   };
 
-  const handleCancelMatch = async () => {
+  const handleCancelMatch = async (isExpired: boolean = false) => {
     if (!newMutualMatch) return;
     try {
-      const res = await authClient.post(`/match-trade/matches/${newMutualMatch.tradeMatchId}/leave`);
+      const res = await authClient.post(`/match-trade/matches/${newMutualMatch.tradeMatchId}/cancel?isExpired=${isExpired}`);
       if (res.data.success) {
-        toast.success('Đã hủy trao đổi. Bạn có thể tiếp tục xem sản phẩm khác.');
+        if (isExpired) {
+          toast.error('Phiên Match đã hết hạn do đối phương không phản hồi trong thời gian quy định.');
+        } else {
+          toast.success('Đã hủy trao đổi. Bạn có thể tiếp tục xem sản phẩm khác.');
+        }
         setShowMutualMatchPopup(false);
         setNewMutualMatch(null);
       }
@@ -731,6 +779,14 @@ export default function RevoraMatchPage() {
         setLikedCount(0);
         const sessionData: MatchSessionResponseDto = res.data.data;
         setActiveSession(sessionData);
+
+        const startedAtStr = sessionData.startedAt.endsWith('Z') ? sessionData.startedAt : `${sessionData.startedAt}Z`;
+        const startedAtMs = new Date(startedAtStr).getTime();
+        const nowMs = Date.now();
+        const elapsedSeconds = Math.floor((nowMs - startedAtMs) / 1000);
+        const remainingSeconds = Math.max(0, 3600 - elapsedSeconds);
+        setTimeLeft(remainingSeconds);
+
         await fetchNextSwipeCard(sessionData.matchSessionId);
         
         setStep('starting');
@@ -805,8 +861,23 @@ export default function RevoraMatchPage() {
     setShowChat(true);
   };
 
-  const handleTradeComplete = () => {
+  const handleTradeComplete = async () => {
+    // Delete Match Session on backend (if still exists)
+    if (activeSession) {
+      try {
+        await authClient.delete(`/match-trade/sessions/${activeSession.matchSessionId}`);
+      } catch (e) {
+        console.error('Failed to end match session', e);
+      }
+    }
     resetSession();
+    setSelectedProductIds(new Set());
+    setSelectedPriceBucket(null);
+    setSelectedCity(null);
+    setPreviewStats(null);
+    setFilterOptions(null);
+    setMyOfferProducts([]);
+    setTimeLeft(3600);
     setStep('landing');
   };
 
@@ -819,6 +890,13 @@ export default function RevoraMatchPage() {
       }
     }
     resetSession();
+    setSelectedProductIds(new Set());
+    setSelectedPriceBucket(null);
+    setSelectedCity(null);
+    setPreviewStats(null);
+    setFilterOptions(null);
+    setMyOfferProducts([]);
+    setTimeLeft(3600);
     setStep('landing');
   };
 
@@ -828,10 +906,7 @@ export default function RevoraMatchPage() {
     return (
       <ChatInterface
         match={newMutualMatch}
-        onClose={() => {
-          setShowChat(false);
-          setStep('swiping');
-        }}
+        onClose={handleTradeComplete}
         onLeaveTrade={handleTradeComplete}
         onTradeSuccess={handleTradeComplete}
       />
@@ -910,12 +985,12 @@ export default function RevoraMatchPage() {
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
               <Users className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-white">{virtualParticipants.toLocaleString('vi-VN')}</p>
+              <p className="text-3xl font-bold text-white">{(stats?.activeParticipants || 0).toLocaleString('vi-VN')}</p>
               <p className="text-white/50 text-sm mt-1">người đang tham gia</p>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
               <Package className="w-8 h-8 text-pink-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-white">{virtualProducts.toLocaleString('vi-VN')}</p>
+              <p className="text-3xl font-bold text-white">{(stats?.productsWaitingTrade || 0).toLocaleString('vi-VN')}</p>
               <p className="text-white/50 text-sm mt-1">sản phẩm chờ trao đổi</p>
             </div>
           </div>
@@ -1399,18 +1474,25 @@ export default function RevoraMatchPage() {
                         ) : (
                           <div className="space-y-2 overflow-y-auto pr-1 flex-1">
                             {interestInbox.map((item) => (
-                              <div key={item.notificationId} onClick={() => handleOpenInboxItem(item.interestedUserId, item.interestedUserName)} className={`flex items-center gap-3 rounded-xl p-2 cursor-pointer transition-colors ${item.isRead ? 'bg-white/5 hover:bg-white/10' : 'bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20'}`}>
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                  {item.interestedUserName?.charAt(0) || 'U'}
+                              <div key={item.notificationId} className={`flex flex-col gap-2 rounded-xl p-3 transition-colors ${item.isRead ? 'bg-white/5 hover:bg-white/10' : 'bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20'}`}>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    {item.interestedUserName?.charAt(0) || 'U'}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-white text-sm font-semibold block">
+                                      {item.interestedUserName} đã thích sản phẩm "{item.likedProductTitle}" của bạn
+                                    </span>
+                                  </div>
+                                  {!item.isRead && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <span className="hover:underline text-white text-xs font-semibold block">
-                                    @{item.interestedUserName}
-                                  </span>
-                                  <p className="text-white/50 text-xs truncate">Quan tâm: <span className="text-purple-300">{item.likedProductTitle}</span></p>
-                                  <p className="text-white/40 text-xs truncate">Đề nghị đổi: <span className="text-white/60">{item.offeringProductTitle}</span></p>
-                                </div>
-                                {!item.isRead && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />}
+                                
+                                <button 
+                                  onClick={() => setShowInterestConfirmModal({ id: item.interestedUserId, name: item.interestedUserName })}
+                                  className="mt-1 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all border border-white/10"
+                                >
+                                  💞 Phản hồi lời mời
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -1477,17 +1559,22 @@ export default function RevoraMatchPage() {
                       ) : (
                         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                           {tymList.map((item) => (
-                            <div key={item.productId} className="flex gap-3 bg-white/5 rounded-xl p-3 border border-white/5 hover:border-white/10 transition-colors group">
+                            <div key={item.productId} className="flex gap-3 bg-white/5 rounded-xl p-3 border border-white/5 hover:border-white/10 transition-colors group relative">
                               {item.imageUrl && (
                                 <img src={item.imageUrl} alt={item.title} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                               )}
                               <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                <p className="text-white text-sm font-semibold truncate group-hover:text-orange-300 transition-colors">{item.title}</p>
+                                <p className="text-white text-sm font-semibold truncate group-hover:text-orange-300 transition-colors pr-6">{item.title}</p>
                                 <p className="text-white/60 text-xs mt-0.5">{item.price.toLocaleString('vi-VN')}đ</p>
                               </div>
-                              <a href={`/product/${item.productId}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-orange-500/20 text-white/40 hover:text-orange-400 transition-all flex-shrink-0" title="Xem chi tiết">
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
+                              <div className="flex flex-col gap-1 items-center justify-center flex-shrink-0">
+                                <a href={`/product/${item.productId}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-orange-500/20 text-white/40 hover:text-orange-400 transition-all" title="Xem chi tiết">
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                                <button onClick={() => handleUnlike(item.productId)} className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-all" title="Bỏ thích">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1576,8 +1663,38 @@ export default function RevoraMatchPage() {
         <MatchSuccessModal
           match={newMutualMatch}
           onNegotiate={handleNegotiateMatch}
-          onCancel={handleCancelMatch}
+          onCancel={(isExpired) => handleCancelMatch(isExpired)}
         />
+      )}
+
+      {/* Interest Confirm Modal */}
+      {showInterestConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="relative max-w-sm w-full bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-2">Phản hồi lời mời?</h3>
+            <p className="text-white/70 text-sm mb-6 leading-relaxed">
+              Bạn muốn phản hồi lời mời trao đổi từ <strong className="text-white">@{showInterestConfirmModal.name}</strong>?<br/><br/>
+              Bạn sẽ được xem tất cả sản phẩm mà người này đang đem đi trao đổi.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowInterestConfirmModal(null)} 
+                className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all"
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={() => {
+                  handleOpenInboxItem(showInterestConfirmModal.id, showInterestConfirmModal.name);
+                  setShowInterestConfirmModal(null);
+                }} 
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold hover:opacity-90 transition-all"
+              >
+                Tiếp tục
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {/* Negotiate Bulk Swipe Modal */}
@@ -1621,9 +1738,21 @@ export default function RevoraMatchPage() {
                         className={`relative rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${isSelected ? 'border-orange-500 scale-[1.02]' : 'border-white/10 hover:border-white/30'}`}
                       >
                         <img src={p.imageUrl} alt="" className="w-full h-32 object-cover" />
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 backdrop-blur-sm">
-                          <p className="text-white text-xs font-semibold truncate">{p.title}</p>
-                          <p className="text-orange-300 text-[10px] font-bold">{p.price.toLocaleString('vi-VN')}đ</p>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 backdrop-blur-sm flex items-center justify-between">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <p className="text-white text-xs font-semibold truncate">{p.title}</p>
+                            <p className="text-orange-300 text-[10px] font-bold">{p.price.toLocaleString('vi-VN')}đ</p>
+                          </div>
+                          <a 
+                            href={`/product/${p.productId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white/20 hover:bg-white/40 p-1.5 rounded-md text-white transition-colors"
+                            title="Xem chi tiết sản phẩm"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
                         </div>
                         {isSelected && (
                           <div className="absolute top-2 right-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
@@ -1643,7 +1772,7 @@ export default function RevoraMatchPage() {
                 disabled={isSwipeLoading}
                 className="w-full py-3.5 rounded-xl font-bold bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-orange-500/20 hover:scale-[1.01] transition-all disabled:opacity-50"
               >
-                Xác nhận lựa chọn ({negotiateSelectedIds.size})
+                Xác nhận trao đổi ({negotiateSelectedIds.size})
               </button>
             </div>
           </motion.div>
@@ -1663,9 +1792,27 @@ function MatchSuccessModal({
 }: {
   match: TradeMatchSummaryDto;
   onNegotiate: (selectedPartnerProductIds: number[]) => void;
-  onCancel: () => void;
+  onCancel: (isExpired?: boolean) => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set(match.mySelectedProductIds || []));
+  const [timeLeft, setTimeLeft] = useState(300);
+
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      onCancel(true);
+      return;
+    }
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft, onCancel]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const togglePartnerProduct = (productId: number) => {
     setSelectedIds(prev => {
@@ -1690,14 +1837,31 @@ function MatchSuccessModal({
           </div>
         ) : (
           <>
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 relative">
+              <div className="absolute top-0 right-0 bg-red-500/20 text-red-400 font-mono font-bold px-3 py-1 rounded-full border border-red-500/30">
+                ⏳ {formatTime(timeLeft)}
+              </div>
               <div className="text-center text-6xl mb-4">🔥</div>
               <h2 className="text-3xl font-bold text-center mb-2 bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent animate-bounce">
                 Match Thành Công!
               </h2>
-              <p className="text-white/60 text-center mb-6 text-sm">
+              <p className="text-white/60 text-center mb-4 text-sm">
                 Chọn các sản phẩm của đối phương mà bạn muốn thêm vào cuộc thương lượng.
               </p>
+              
+              {/* Trạng thái đối phương */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-6 flex flex-col items-center justify-center">
+                <span className="text-white/60 text-xs mb-1 uppercase tracking-wider">Trạng thái đối phương</span>
+                {match.partnerNegotiateConfirmed ? (
+                  <span className="text-green-400 font-semibold text-sm flex items-center gap-1">
+                    ✅ Đã chọn xong, đang chờ bạn phản hồi
+                  </span>
+                ) : (
+                  <span className="text-orange-400 font-semibold text-sm flex items-center gap-1">
+                    ⏳ Đang lựa chọn sản phẩm...
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar min-h-[150px]">
@@ -1715,8 +1879,18 @@ function MatchSuccessModal({
                           className={`relative w-24 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${isSelected ? 'border-orange-500 scale-[1.05]' : 'border-white/10 opacity-60 hover:opacity-100 hover:border-white/30'}`}
                         >
                           <img src={p.imageUrl} alt={p.title} className="w-full h-24 object-cover" />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 backdrop-blur-sm">
-                            <p className="text-white text-[10px] font-semibold truncate">{p.title}</p>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 backdrop-blur-sm flex items-center justify-between">
+                            <p className="text-white text-[10px] font-semibold truncate flex-1 pr-1">{p.title}</p>
+                            <a 
+                              href={`/product/${p.productId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-white/20 hover:bg-white/40 p-1 rounded-sm text-white transition-colors"
+                              title="Xem chi tiết sản phẩm"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
                           </div>
                           {isSelected && (
                             <div className="absolute top-1 right-1 bg-green-500 rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
@@ -1742,8 +1916,18 @@ function MatchSuccessModal({
                       return (
                         <div key={p.productId} className={`relative w-24 rounded-xl overflow-hidden border-2 transition-all ${isPartnerSelected ? 'border-orange-500' : 'border-white/10 opacity-50'}`}>
                           <img src={p.imageUrl} alt={p.title} className="w-full h-24 object-cover" />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 backdrop-blur-sm">
-                            <p className="text-white text-[10px] font-semibold truncate">{p.title}</p>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 backdrop-blur-sm flex items-center justify-between">
+                            <p className="text-white text-[10px] font-semibold truncate flex-1 pr-1">{p.title}</p>
+                            <a 
+                              href={`/product/${p.productId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-white/20 hover:bg-white/40 p-1 rounded-sm text-white transition-colors"
+                              title="Xem chi tiết sản phẩm"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
                           </div>
                           {isPartnerSelected && (
                             <div className="absolute top-1 right-1 bg-green-500 rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
@@ -1759,7 +1943,7 @@ function MatchSuccessModal({
             </div>
 
             <div className="flex space-x-4 mt-6 flex-shrink-0">
-              <button onClick={onCancel} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all">
+              <button onClick={() => onCancel(false)} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all">
                 Hủy
               </button>
               <button 
@@ -2041,7 +2225,7 @@ function ChatInterface({
       {/* Header bar */}
       <div className="bg-black/40 backdrop-blur-sm border-b border-white/10 p-4">
         <div className="flex items-center justify-between">
-          <div className="w-6" /> {/* Placeholder for alignment instead of ArrowLeft */}
+          <div className="w-6"></div>
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full overflow-hidden flex items-center justify-center text-white font-bold">
               {match.partnerName?.charAt(0) || 'U'}
@@ -2162,7 +2346,14 @@ function ChatInterface({
 
       {isCompleted && (
         <div className="bg-black/40 border-t border-white/10 p-4">
-          <button onClick={onTradeSuccess} className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold transition-all hover:scale-[1.01]">
+          <button onClick={async () => {
+            try {
+              await authClient.post(`/match-trade/matches/${match.tradeMatchId}/finish`);
+            } catch (e) {
+              console.error('Failed to finish completed trade session', e);
+            }
+            onTradeSuccess();
+          }} className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold transition-all hover:scale-[1.01]">
             Hoàn Tất & Quay Lại
           </button>
         </div>

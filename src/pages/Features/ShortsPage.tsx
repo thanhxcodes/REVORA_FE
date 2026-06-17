@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Heart, MessageCircle, X, Send, ChevronUp, ChevronDown, Music2, ShoppingBag, Edit2, Trash2, MoreHorizontal } from 'lucide-react';
+import { Heart, MessageCircle, X, Send, ChevronUp, ChevronDown, Music2, ShoppingBag, Edit2, Trash2, MoreHorizontal, Play, Volume2, VolumeX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import { useAuth } from '../../providers/authProvider/AuthContext';
@@ -39,8 +39,15 @@ function SpinningDisc() {
 }
 
 // Component Video Player
-function ShortVideoPlayer({ src, isActive }: { src: string; isActive: boolean }) {
+function ShortVideoPlayer({ src, isActive, volume, isMuted }: { src: string; isActive: boolean; volume: number; isMuted: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.volume = volume;
+  }, [volume]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -52,15 +59,33 @@ function ShortVideoPlayer({ src, isActive }: { src: string; isActive: boolean })
       }
       const playPromise = video.play();
       if (playPromise !== undefined) {
-        playPromise.catch((e) => console.log("Auto-play prevented:", e));
+        playPromise.then(() => setIsPlaying(true)).catch((e) => {
+          console.log("Auto-play prevented:", e);
+          setIsPlaying(false);
+        });
+      } else {
+        setIsPlaying(true);
       }
     } else {
       video.pause();
+      setIsPlaying(false);
     }
   }, [isActive]);
 
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    if (isPlaying) {
+      video.pause();
+      setIsPlaying(false);
+    } else {
+      video.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
   return (
-    <div className="absolute inset-0 w-full h-full bg-black">
+    <div className="absolute inset-0 w-full h-full bg-black cursor-pointer" onClick={togglePlay}>
       <video
         ref={videoRef}
         src={isActive ? src : ""}
@@ -72,9 +97,16 @@ function ShortVideoPlayer({ src, isActive }: { src: string; isActive: boolean })
         }}
         loop
         playsInline
-        muted={!isActive}
+        muted={!isActive || isMuted}
         preload={isActive ? "auto" : "none"}
       />
+      {isActive && !isPlaying && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="bg-black/30 w-20 h-20 rounded-full flex items-center justify-center animate-pulse">
+            <Play className="w-10 h-10 text-white opacity-90 ml-2" fill="currentColor" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -508,6 +540,9 @@ export default function ShortsPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeCommentsId, setActiveCommentsId] = useState<number | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -749,7 +784,7 @@ export default function ShortsPage() {
             {shortsVideos.map((v, i) => (
               <div key={v.shortId} className="relative w-full" style={{ height: `${100 / shortsVideos.length}%` }}>
                 {Math.abs(currentIndex - i) <= 1 && (
-                  <ShortVideoPlayer src={v.videoUrl} isActive={i === currentIndex} />
+                  <ShortVideoPlayer src={v.videoUrl} isActive={i === currentIndex} volume={volume} isMuted={isMuted} />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
               </div>
@@ -802,6 +837,37 @@ export default function ShortsPage() {
               </div>
               <span className="text-white sm:text-white/80 text-xs font-semibold drop-shadow">Chia sẻ</span>
             </button>
+
+            {/* Âm lượng (Chỉ Desktop) */}
+            <div className="hidden sm:flex flex-col items-center gap-1 relative"
+                 onMouseEnter={() => setShowVolumeSlider(true)}
+                 onMouseLeave={() => setShowVolumeSlider(false)}
+            >
+              {showVolumeSlider && (
+                <div className="absolute bottom-[50px] mb-2 bg-black/60 rounded-full py-3 px-2 flex flex-col items-center justify-center backdrop-blur-md z-50 h-[100px]">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.01"
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setVolume(val);
+                      if (val > 0) setIsMuted(false);
+                      else setIsMuted(true);
+                    }}
+                    className="w-1.5 h-20 appearance-none bg-white/30 rounded-full outline-none cursor-pointer overflow-hidden"
+                    style={{ writingMode: 'vertical-lr', direction: 'rtl', WebkitAppearance: 'slider-vertical' } as any}
+                  />
+                </div>
+              )}
+              <button onClick={() => setIsMuted(!isMuted)} className="flex flex-col items-center gap-1 mt-2">
+                <div className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors">
+                  {isMuted || volume === 0 ? <VolumeX className="w-5 h-5 text-white" /> : <Volume2 className="w-5 h-5 text-white" />}
+                </div>
+              </button>
+            </div>
 
             {/* Đĩa nhạc (Chỉ hiển thị trên mobile) */}
             <div className="mt-2 sm:hidden"><SpinningDisc /></div>
