@@ -89,6 +89,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
+   * Đăng nhập bằng Google
+   */
+  const googleLogin = async (idToken: string): Promise<{ isFirstLogin?: boolean }> => {
+    const apiResponse = await authClient.post<ApiResponse<AuthResponse>>('/auth/google-login', { idToken }, { skipAuthRefresh: true });
+    const { accessToken, isFirstLogin } = apiResponse.data.data as any;
+    
+    setAccessToken(accessToken);
+    
+    const user = decodeJwtToUser(accessToken);
+    setCurrentUser(user);
+    
+    return { isFirstLogin };
+  };
+
+  /**
    * Đăng ký tài khoản người dùng mới
    */
   const register = async (dto: RegisterDto): Promise<void> => {
@@ -131,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated,
     isLoading,
     login,
+    googleLogin,
     register,
     logout,
     changePassword,

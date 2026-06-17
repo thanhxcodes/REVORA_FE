@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle, KeyRound } from 'lucide-react';
 import logoImg from '../../assets/images/logo.jpg';
 
+import { sendResetPasswordOtpAPI, verifyResetPasswordOtpAPI, resetPasswordWithOtpAPI } from '../../providers/authProvider/authService';
+
 type Step = 'email' | 'otp' | 'newPassword' | 'success';
 
 export default function ForgotPasswordPage() {
@@ -17,24 +19,19 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Mock registered email for demo
-  const REGISTERED_EMAIL = 'minhanh@gmail.com';
-
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      if (email.toLowerCase() === REGISTERED_EMAIL.toLowerCase()) {
-        setStep('otp');
-        setLoading(false);
-      } else {
-        setError('Email không tồn tại trong hệ thống');
-        setLoading(false);
-      }
-    }, 1000);
+    try {
+      await sendResetPasswordOtpAPI(email);
+      setStep('otp');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -70,16 +67,14 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    // Simulate API call - mock OTP is "123456"
-    setTimeout(() => {
-      if (otpValue === '123456') {
-        setStep('newPassword');
-        setLoading(false);
-      } else {
-        setError('Mã OTP không đúng. Vui lòng thử lại');
-        setLoading(false);
-      }
-    }, 1000);
+    try {
+      await verifyResetPasswordOtpAPI(email, otpValue);
+      setStep('newPassword');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Mã OTP không đúng hoặc đã hết hạn.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -98,18 +93,29 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const otpValue = otp.join('');
+      await resetPasswordWithOtpAPI(email, otpValue, newPassword);
       setStep('success');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     setOtp(['', '', '', '', '', '']);
     setError('');
-    // In real app, this would trigger OTP resend API
-    alert('Mã OTP mới đã được gửi đến email của bạn!');
+    setLoading(true);
+    try {
+      await sendResetPasswordOtpAPI(email);
+      alert('Mã OTP mới đã được gửi đến email của bạn!');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -174,7 +180,7 @@ export default function ForgotPasswordPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    💡 Demo: Sử dụng email <span className="font-semibold text-[#2D5A3D]">{REGISTERED_EMAIL}</span>
+                    Vui lòng nhập email bạn đã đăng ký để nhận mã xác thực OTP.
                   </p>
                 </div>
 

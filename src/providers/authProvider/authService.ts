@@ -179,6 +179,35 @@ export const registerAPI = async (dto: RegisterDto): Promise<ApiResponse<null>> 
 };
 
 /**
+ * API Đăng ký người dùng mới - Gửi link xác thực
+ */
+export const sendRegisterLinkAPI = async (email: string): Promise<ApiResponse<null>> => {
+  const response = await authClient.post<ApiResponse<null>>('/auth/register/send-link', { email }, { skipAuthRefresh: true });
+  return response.data;
+};
+
+/**
+ * API Kiểm tra trạng thái xác thực
+ */
+export const checkRegisterStatusAPI = async (email: string): Promise<ApiResponse<{ verified: boolean }>> => {
+  const response = await authClient.get<ApiResponse<{ verified: boolean }>>(`/auth/register/check-status?email=${encodeURIComponent(email)}`, { skipAuthRefresh: true });
+  return response.data;
+};
+
+/**
+ * API Đăng nhập bằng Google
+ */
+export const googleLoginAPI = async (idToken: string): Promise<ApiResponse<AuthResponse>> => {
+  const response = await authClient.post<ApiResponse<AuthResponse>>('/auth/google-login', { idToken }, { skipAuthRefresh: true });
+  const { accessToken } = response.data.data;
+  
+  // Tự động lưu Access Token vào bộ nhớ RAM
+  setAccessToken(accessToken);
+  
+  return response.data;
+};
+
+/**
  * API Đăng nhập hệ thống (Public Endpoint)
  * Sau khi nhận phản hồi thành công, tự động lưu Access Token vào bộ nhớ tạm (RAM)
  */
@@ -232,6 +261,30 @@ export const changePasswordAPI = async (dto: ChangePasswordDto): Promise<ApiResp
   });
   clearAccessToken();
   triggerLogout();
+  return response.data;
+};
+
+/**
+ * API Quên mật khẩu - Gửi mã OTP
+ */
+export const sendResetPasswordOtpAPI = async (email: string): Promise<ApiResponse<null>> => {
+  const response = await authClient.post<ApiResponse<null>>('/auth/forgot-password/send-otp', { email }, { skipAuthRefresh: true });
+  return response.data;
+};
+
+/**
+ * API Quên mật khẩu - Xác thực mã OTP
+ */
+export const verifyResetPasswordOtpAPI = async (email: string, otp: string): Promise<ApiResponse<null>> => {
+  const response = await authClient.post<ApiResponse<null>>('/auth/forgot-password/verify-otp', { email, otp }, { skipAuthRefresh: true });
+  return response.data;
+};
+
+/**
+ * API Quên mật khẩu - Đặt lại mật khẩu mới
+ */
+export const resetPasswordWithOtpAPI = async (email: string, otp: string, newPassword: string): Promise<ApiResponse<null>> => {
+  const response = await authClient.post<ApiResponse<null>>('/auth/forgot-password/reset-password', { email, otp, newPassword }, { skipAuthRefresh: true });
   return response.data;
 };
 
