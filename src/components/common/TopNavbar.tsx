@@ -254,13 +254,30 @@ export default function TopNavbar({
             </div>
 
             {/* Nút Đăng tin */}
-            <div className="hidden md:flex items-center">
+            <div className="hidden md:flex items-center relative">
+              <style>{`
+                @keyframes shimmer {
+                  0% { transform: translateX(-150%) skewX(-20deg); }
+                  100% { transform: translateX(150%) skewX(-20deg); }
+                }
+                .btn-sparkle::after {
+                  content: '';
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  width: 50%;
+                  height: 100%;
+                  background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent);
+                  transform: translateX(-150%) skewX(-20deg);
+                  animation: shimmer 2s infinite;
+                }
+              `}</style>
               <Link
                 to="/sell"
-                className="bg-white text-[#2D5A3D] px-5 py-2 rounded-full hover:shadow-lg transition-all text-sm font-semibold flex items-center gap-1.5"
+                className="btn-sparkle relative bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-white px-6 py-2 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.7)] hover:shadow-[0_0_25px_rgba(245,158,11,0.9)] hover:scale-105 transition-all duration-300 text-[15px] font-bold flex items-center gap-1.5 border border-amber-300/50 overflow-hidden"
                 onClick={closeAll}
               >
-                <Plus className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 text-yellow-100 animate-pulse" />
                 Đăng tin
               </Link>
             </div>

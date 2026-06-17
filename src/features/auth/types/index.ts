@@ -18,6 +18,7 @@ export interface RegisterDto {
   email: string;
   password: string;
   fullName: string;
+  city: string;
 }
 
 export interface LoginDto {
@@ -47,6 +48,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (dto: LoginDto) => Promise<{ isFirstLogin?: boolean }>;
+  googleLogin: (idToken: string) => Promise<{ isFirstLogin?: boolean }>;
   register: (dto: RegisterDto) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (dto: ChangePasswordDto) => Promise<void>;

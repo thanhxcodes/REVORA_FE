@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Sparkles, TrendingUp, Clock } from 'lucide-react';
+import { ChevronRight, Sparkles, TrendingUp, Clock, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProductCarousel from '../Products/components/ProductCarousel';
 import BannerCarousel from './components/BannerCarousel';
-import { getFeaturedProductsAPI, getNewestProductsAPI, getLovedProductsAPI, getCategoriesAPI } from '../../features/products/services/productApi';
+import { getFeaturedProductsAPI, getNewestProductsAPI, getLovedProductsAPI, getCategoriesAPI, getMostViewedProductsAPI } from '../../features/products/services/productApi';
 import { ProductResponseDto } from '../../features/products/types';
 
 const categories = [
@@ -24,6 +24,7 @@ export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<ProductResponseDto[]>([]);
   const [bestSellers, setBestSellers] = useState<ProductResponseDto[]>([]);
   const [newestProducts, setNewestProducts] = useState<ProductResponseDto[]>([]);
+  const [mostViewedProducts, setMostViewedProducts] = useState<ProductResponseDto[]>([]);
   const [apiCategories, setApiCategories] = useState<{categoryId: number, name: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -32,17 +33,19 @@ export default function HomePage() {
     const fetchHomeData = async () => {
       try {
         setIsLoading(true);
-        // Chạy đồng thời cả 4 request để tăng tốc độ tải trang
-        const [featuredRes, lovedRes, newestRes, catRes] = await Promise.all([
+        // Chạy đồng thời cả 5 request để tăng tốc độ tải trang
+        const [featuredRes, lovedRes, newestRes, viewedRes, catRes] = await Promise.all([
           getFeaturedProductsAPI(10),
           getLovedProductsAPI(10),
           getNewestProductsAPI(10),
+          getMostViewedProductsAPI(10),
           getCategoriesAPI()
         ]);
 
         if (featuredRes.success) setFeaturedProducts(featuredRes.data);
         if (lovedRes.success) setBestSellers(lovedRes.data);
         if (newestRes.success) setNewestProducts(newestRes.data);
+        if (viewedRes.success) setMostViewedProducts(viewedRes.data);
         if (catRes.success) setApiCategories(catRes.data);
       } catch (error) {
         console.error("Lỗi tải dữ liệu trang chủ: ", error);
@@ -163,6 +166,28 @@ export default function HomePage() {
                 </Link>
               </div>
               <ProductCarousel products={bestSellers} itemsToShow={5} />
+            </section>
+          )}
+
+          {/* Most Viewed Products Section */}
+          {mostViewedProducts.length > 0 && (
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl">
+                    <Eye className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl text-gray-900 font-bold">Được xem nhiều nhất</h2>
+                    <p className="text-sm text-gray-600">Sản phẩm có lượt xem cao nhất</p>
+                  </div>
+                </div>
+                <Link to="/all-products?sort=most-viewed" className="flex items-center space-x-2 px-6 py-3 bg-white text-teal-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-teal-500">
+                  <span>Tất Cả Sản Phẩm</span>
+                  <ChevronRight className="w-5 h-5" />
+                </Link>
+              </div>
+              <ProductCarousel products={mostViewedProducts} itemsToShow={5} />
             </section>
           )}
 

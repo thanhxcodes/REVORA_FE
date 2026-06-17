@@ -69,7 +69,7 @@ function GuestRoute() {
 // 2. User Layout Wrapper (Bố cục giao diện chung cho người dùng)
 // ==========================================
 function UserLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { currentUser, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();

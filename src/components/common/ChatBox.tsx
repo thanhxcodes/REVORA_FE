@@ -42,6 +42,7 @@ interface Conversation {
     userId: number;
     fullName: string;
     avatarUrl: string;
+    isOnline?: boolean;
   };
   lastMessage: {
     content: string | null;
@@ -276,7 +277,8 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
       const partner = {
          userId: detail.seller.id,
          fullName: detail.seller.name,
-         avatarUrl: detail.seller.avatar
+         avatarUrl: detail.seller.avatar,
+         isOnline: false
       };
       
       setActiveChat({ conversationId: 0, lastMessageAt: new Date().toISOString(), partner, lastMessage: null, unreadCount: 0 });
@@ -392,7 +394,8 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
   }, []);
 
   const totalUnreadCount = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
-  const other = activeChat?.partner;
+  const currentConversation = conversations.find(c => c.partner.userId === activeChat?.partner.userId);
+  const other = currentConversation ? currentConversation.partner : activeChat?.partner;
 
   return (
     <>
@@ -420,8 +423,8 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
                 <div className="min-w-0">
                   <div className="text-white text-sm font-semibold leading-tight">{other?.fullName || 'User'}</div>
                   <div className="flex items-center space-x-1">
-                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full" />
-                    <span className="text-white/70 text-xs">Đang hoạt động</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${other?.isOnline ? 'bg-green-400' : 'bg-gray-400'}`} />
+                    <span className="text-white/70 text-xs">{other?.isOnline ? 'Đang hoạt động' : 'Offline'}</span>
                   </div>
                 </div>
               </div>
@@ -459,7 +462,7 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
                         <div className="w-12 h-12 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full overflow-hidden flex items-center justify-center text-white text-lg font-bold">
                           {conv.partner.avatarUrl && conv.partner.avatarUrl !== "U" ? <img src={conv.partner.avatarUrl} alt="avatar" /> : conv.partner.fullName?.charAt(0) || 'U'}
                         </div>
-                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
+                        <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${conv.partner.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                       </div>
                       <div className="flex-1 min-w-0 pr-6">
                         <div className={`font-semibold text-sm truncate ${conv.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>{conv.partner.fullName || 'User'}</div>
