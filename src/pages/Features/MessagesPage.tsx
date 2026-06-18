@@ -222,6 +222,16 @@ export default function MessagesPage() {
     }
   }, [activeChat]);
 
+  // Sync activeChat with real conversation if it was a temp one
+  useEffect(() => {
+    if (activeChat && activeChat.conversationId < 0) {
+      const realConv = conversations.find(c => c.partner.userId === activeChat.partner.userId && c.conversationId >= 0);
+      if (realConv) {
+        setActiveChat(realConv);
+      }
+    }
+  }, [conversations, activeChat]);
+
   // Thiết lập SignalR
   useEffect(() => {
     const token = getAccessToken();

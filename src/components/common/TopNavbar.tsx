@@ -115,6 +115,9 @@ export default function TopNavbar({
           hubConnection!.on('NewNotification', (newNotif: Notification) => {
             setNotifications(prev => [newNotif, ...prev]);
             setUnreadCount(prev => prev + 1);
+            if (newNotif.type === 'buy' || newNotif.type === 'credit') {
+              window.dispatchEvent(new Event('revora_credit_updated'));
+            }
           });
           hubConnection!.on('InterestNotificationRemoved', (data: any) => {
             window.dispatchEvent(new CustomEvent('revora_interest_notification_removed', { detail: data }));

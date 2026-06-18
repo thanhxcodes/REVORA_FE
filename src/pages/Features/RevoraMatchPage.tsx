@@ -352,6 +352,9 @@ export default function RevoraMatchPage() {
           }
           setShowMutualMatchPopup(false);
           setShowChat(false);
+          if (!currentSwipeCard && activeSession) {
+            fetchNextSwipeCard(activeSession.matchSessionId);
+          }
           return null;
         }
         return prev;
@@ -714,6 +717,9 @@ export default function RevoraMatchPage() {
         }
         setShowMutualMatchPopup(false);
         setNewMutualMatch(null);
+        if (!currentSwipeCard && activeSession) {
+          fetchNextSwipeCard(activeSession.matchSessionId);
+        }
       }
     } catch (e: any) {
       console.error(e);

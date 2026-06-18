@@ -35,6 +35,13 @@ export const useUserCreditBatches = (enabled = true) => {
 
   useEffect(() => {
     void loadBatches();
+
+    const handleCreditUpdate = () => {
+      void loadBatches();
+    };
+
+    window.addEventListener('revora_credit_updated', handleCreditUpdate);
+    return () => window.removeEventListener('revora_credit_updated', handleCreditUpdate);
   }, [loadBatches]);
 
   return {
