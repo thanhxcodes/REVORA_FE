@@ -153,6 +153,19 @@ export default function RevoraMatchPage() {
   const [step, setStep] = useState<MatchStep>('landing');
   const [stats, setStats] = useState<MatchCommunityStatsDto | null>(null);
 
+  // Fake animated stats synchronized with Sidebar
+  const [fakeParticipants, setFakeParticipants] = useState(() => Number(localStorage.getItem('revora_match_participants')) || 982);
+  const [fakeProducts, setFakeProducts] = useState(() => Number(localStorage.getItem('revora_match_products')) || 2516);
+
+  useEffect(() => {
+    const handleFakeTicked = (e: any) => {
+      setFakeParticipants(e.detail.participants);
+      setFakeProducts(e.detail.products);
+    };
+    window.addEventListener('revora_match_fake_stats_ticked', handleFakeTicked);
+    return () => window.removeEventListener('revora_match_fake_stats_ticked', handleFakeTicked);
+  }, []);
+
   // Selection / Filter States
   const [myOfferProducts, setMyOfferProducts] = useState<MatchOfferingProductDto[]>([]);
   const [isMyProductsLoading, setIsMyProductsLoading] = useState(false);
@@ -990,13 +1003,13 @@ export default function RevoraMatchPage() {
 
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
-              <Users className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-white">{(stats?.activeParticipants || 0).toLocaleString('vi-VN')}</p>
+              <Users className="w-8 h-8 text-orange-400 mx-auto mb-2 animate-bounce" style={{ animationDuration: '3s' }} />
+              <p className="text-3xl font-bold text-white animate-fade-in font-mono">{fakeParticipants.toLocaleString('vi-VN')}</p>
               <p className="text-white/50 text-sm mt-1">người đang tham gia</p>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
-              <Package className="w-8 h-8 text-pink-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-white">{(stats?.productsWaitingTrade || 0).toLocaleString('vi-VN')}</p>
+              <Package className="w-8 h-8 text-pink-400 mx-auto mb-2 animate-bounce" style={{ animationDuration: '3s', animationDelay: '1.5s' }} />
+              <p className="text-3xl font-bold text-white animate-fade-in font-mono">{fakeProducts.toLocaleString('vi-VN')}</p>
               <p className="text-white/50 text-sm mt-1">sản phẩm chờ trao đổi</p>
             </div>
           </div>
@@ -2160,7 +2173,7 @@ function ChatInterface({
         const imageUrl = uploadRes.data.urls[0];
         const res = await authClient.post('/chat/send', {
           receiverId: match.partnerUserId,
-          content: '📷 Hình ảnh đính kèm',
+          content: '',
           attachmentUrl: imageUrl,
         });
 

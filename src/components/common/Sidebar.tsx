@@ -43,29 +43,34 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
     // Initial load
     handleUpdate();
 
-    let timer: ReturnType<typeof setInterval> | null = null;
-    if (location.pathname !== '/match') {
-      timer = setInterval(() => {
-        setParticipants((prev) => {
-          const delta = Math.floor(Math.random() * 5) - 2;
-          const nextVal = Math.max(10, prev + delta);
-          localStorage.setItem('revora_match_participants', String(nextVal));
-          return nextVal;
-        });
-        setProducts((prev) => {
-          const delta = Math.floor(Math.random() * 7) - 3;
-          const nextVal = Math.max(10, prev + delta);
-          localStorage.setItem('revora_match_products', String(nextVal));
-          return nextVal;
-        });
-      }, 3500);
-    }
+    const timer = setInterval(() => {
+      const pStr = localStorage.getItem('revora_match_participants');
+      const prStr = localStorage.getItem('revora_match_products');
+      const prevP = pStr ? Number(pStr) : 982;
+      const prevPr = prStr ? Number(prStr) : 2516;
+
+      const deltaP = Math.floor(Math.random() * 5) - 2;
+      const nextP = Math.max(10, prevP + deltaP);
+
+      const deltaPr = Math.floor(Math.random() * 7) - 3;
+      const nextPr = Math.max(10, prevPr + deltaPr);
+
+      localStorage.setItem('revora_match_participants', String(nextP));
+      localStorage.setItem('revora_match_products', String(nextPr));
+
+      setParticipants(nextP);
+      setProducts(nextPr);
+
+      window.dispatchEvent(new CustomEvent('revora_match_fake_stats_ticked', {
+        detail: { participants: nextP, products: nextPr }
+      }));
+    }, 3500);
 
     return () => {
       window.removeEventListener('revora_match_stats_updated', handleUpdate);
-      if (timer) clearInterval(timer);
+      clearInterval(timer);
     };
-  }, [location.pathname]);
+  }, []);
 
   return (
     <>

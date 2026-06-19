@@ -35,7 +35,7 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
     if (banners.length === 0) return;
     const timer = setInterval(() => {
       handleNext();
-    }, 4000); 
+    }, 4000);
 
     return () => clearInterval(timer);
   }, [handleNext, banners.length]);
@@ -49,9 +49,8 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
         {banners.map((banner, index) => (
           <div
             key={banner.id}
-            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-              index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
-            }`}
+            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              }`}
           >
             <img
               src={banner.image}
@@ -60,7 +59,7 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
             />
             <div className={`absolute inset-0 bg-gradient-to-l ${banner.color}`} />
             <div className="absolute inset-0 flex flex-col items-end justify-center text-white text-right px-12 md:px-24">
-              <motion.div 
+              <motion.div
                 className="max-w-xl"
                 animate={index === currentIndex ? { y: [0, -8, 0] } : {}}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -103,15 +102,14 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
             <button
               key={index}
               onClick={() => goToSlide(index)}
-              className={`transition-all duration-300 ${
-                index === currentIndex
+              className={`transition-all duration-300 ${index === currentIndex
                   ? 'w-8 h-3 bg-white rounded-full'
                   : 'w-3 h-3 bg-white/50 rounded-full hover:bg-white/80'
-              }`}
+                }`}
             />
           ))}
         </div>
       )}
     </div>
   );
-}
+}

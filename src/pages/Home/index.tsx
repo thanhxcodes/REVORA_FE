@@ -25,7 +25,7 @@ export default function HomePage() {
   const [bestSellers, setBestSellers] = useState<ProductResponseDto[]>([]);
   const [newestProducts, setNewestProducts] = useState<ProductResponseDto[]>([]);
   const [mostViewedProducts, setMostViewedProducts] = useState<ProductResponseDto[]>([]);
-  const [apiCategories, setApiCategories] = useState<{categoryId: number, name: string}[]>([]);
+  const [apiCategories, setApiCategories] = useState<{ categoryId: number, name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Gọi API lấy dữ liệu trang chủ

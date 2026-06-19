@@ -332,7 +332,7 @@ export default function MessagesPage() {
         const imageUrl = uploadRes.data.urls[0];
         const res = await authClient.post('/Chat/send', {
           receiverId: activeChat.partner.userId,
-          content: '📷 Hình ảnh đính kèm',
+          content: '',
           attachmentUrl: imageUrl,
         });
 

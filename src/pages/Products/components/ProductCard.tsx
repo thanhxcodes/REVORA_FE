@@ -147,13 +147,12 @@ export default function ProductCard({
             </div>
 
             <div className="flex items-center">
-              <button 
+              <button
                 onClick={handleWishlistClick}
-                className={`p-3 rounded-full border transition-all ${
-                  wishlisted 
-                    ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' 
+                className={`p-3 rounded-full border transition-all ${wishlisted
+                    ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
                     : 'bg-white/90 backdrop-blur-sm border-gray-200 opacity-0 group-hover:opacity-100 hover:bg-[#2D5A3D] hover:border-[#2D5A3D] hover:text-white'
-                }`}
+                  }`}
               >
                 <Heart className={`w-5 h-5 ${wishlisted ? 'fill-current' : ''}`} />
               </button>
@@ -187,13 +186,12 @@ export default function ProductCard({
               <span>Premium</span>
             </div>
           )}
-          <button 
+          <button
             onClick={handleWishlistClick}
-            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${
-              wishlisted
+            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${wishlisted
                 ? 'bg-red-50 text-red-500'
                 : 'bg-white/90 backdrop-blur-sm opacity-0 group-hover:opacity-100 text-[#2D5A3D] hover:bg-[#2D5A3D] hover:text-white'
-            }`}
+              }`}
           >
             <Heart className={`w-4 h-4 ${wishlisted ? 'fill-current' : ''}`} />
           </button>
