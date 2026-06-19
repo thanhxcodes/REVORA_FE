@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, CreditCard, Users, LogOut, Home, Shield, FileText, Bell } from 'lucide-react';
+import { DollarSign, TrendingUp, CreditCard, Users, LogOut, Home, Shield, FileText, Bell, MessageSquare, Megaphone } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAdminContext } from '../../App';
 import logoImg from '../../assets/images/logo.jpg';
@@ -10,9 +10,8 @@ interface AdminLayoutProps {
 const AdminNavItem = ({ to, icon: Icon, label, active }: any) => (
   <Link
     to={to}
-    className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${
-      active ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white' : 'text-gray-700 hover:bg-gray-100'
-    }`}
+    className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${active ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white' : 'text-gray-700 hover:bg-gray-100'
+      }`}
   >
     <Icon className="w-5 h-5" />
     <span>{label}</span>
@@ -27,7 +26,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
+        <aside className="w-64 bg-white border-r border-gray-200 h-screen sticky top-0 flex flex-col overflow-y-auto custom-scrollbar">
           {/* Logo + User */}
           <div className="p-6 border-b border-gray-100">
             <div className="flex items-center gap-2.5 mb-5">
@@ -92,6 +91,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               icon={Bell}
               label="Thông Báo"
               active={location.pathname === '/admin/notifications'}
+            />
+            <AdminNavItem
+              to="/admin/announcements"
+              icon={Megaphone}
+              label="Sự Kiện"
+              active={location.pathname === '/admin/announcements'}
+            />
+            <AdminNavItem
+              to="/admin/feedbacks"
+              icon={MessageSquare}
+              label="Ý Kiến Đóng Góp"
+              active={location.pathname === '/admin/feedbacks'}
             />
           </nav>
 

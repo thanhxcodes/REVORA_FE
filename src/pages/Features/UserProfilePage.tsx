@@ -580,6 +580,18 @@ export default function UserProfilePage() {
                       )}
                       {isFollowing ? 'Đang Theo Dõi' : 'Theo dõi'}
                     </button>
+                    <button
+                      onClick={() => navigate('/messages', {
+                        state: {
+                          targetUserId: userProfile?.userId,
+                          targetUserName: userProfile?.fullName,
+                          targetUserAvatar: userProfile?.avatarUrl
+                        }
+                      })}
+                      className="flex items-center justify-center gap-2 border-2 border-[#2D5A3D] text-[#2D5A3D] px-6 py-2.5 rounded-full hover:bg-[#2D5A3D]/5 transition-colors text-sm font-semibold"
+                    >
+                      <MessageSquare className="w-4 h-4" /> Nhắn tin
+                    </button>
                   </>
                 ) : (
                   <>

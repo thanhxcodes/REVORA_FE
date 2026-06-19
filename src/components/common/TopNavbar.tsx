@@ -84,7 +84,7 @@ export default function TopNavbar({
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    
+
     // Initial fetch
     fetchNotifications();
     fetchUnreadChat();
@@ -98,7 +98,7 @@ export default function TopNavbar({
     // Global SignalR Connection for the Header (if they aren't on MatchPage)
     const token = getAccessToken();
     let hubConnection: signalR.HubConnection | null = null;
-    
+
     if (token) {
       const hostUrl = (import.meta.env.VITE_API_BASE_URL || 'https://localhost:7015/api/v1').replace('/api/v1', '');
       hubConnection = new signalR.HubConnectionBuilder()
@@ -312,7 +312,7 @@ export default function TopNavbar({
                 </span>
               )}
             </Link>
-            
+
             {/* Bell / Notifications */}
             <div className="relative">
               <button
@@ -389,9 +389,8 @@ export default function TopNavbar({
                                 }
                               }
                             }}
-                            className={`w-full flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left ${
-                              !notif.read ? 'bg-[#2D5A3D]/[0.04]' : ''
-                            }`}
+                            className={`w-full flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors text-left ${!notif.read ? 'bg-[#2D5A3D]/[0.04]' : ''
+                              }`}
                           >
                             <div
                               className={`w-9 h-9 ${style.bg} rounded-full flex items-center justify-center flex-shrink-0 mt-0.5`}
@@ -400,16 +399,14 @@ export default function TopNavbar({
                             </div>
                             <div className="flex-1 min-w-0">
                               <p
-                                className={`text-sm leading-snug font-semibold ${
-                                  !notif.read ? 'text-gray-900' : 'text-gray-700'
-                                }`}
+                                className={`text-sm leading-snug font-semibold ${!notif.read ? 'text-gray-900' : 'text-gray-700'
+                                  }`}
                               >
                                 {notif.title}
                               </p>
                               <p
-                                className={`text-sm leading-snug mt-0.5 ${
-                                  !notif.read ? 'text-gray-800' : 'text-gray-500'
-                                }`}
+                                className={`text-sm leading-snug mt-0.5 ${!notif.read ? 'text-gray-800' : 'text-gray-500'
+                                  }`}
                               >
                                 {notif.message}
                               </p>
@@ -444,9 +441,8 @@ export default function TopNavbar({
                   setShowUserMenu(!showUserMenu);
                   setShowNotifications(false);
                 }}
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors font-semibold text-sm overflow-hidden border border-white/20 ${
-                  currentUser?.avatarUrl ? 'bg-transparent' : 'bg-white/25 hover:bg-white/35'
-                }`}
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors font-semibold text-sm overflow-hidden border border-white/20 ${currentUser?.avatarUrl ? 'bg-transparent' : 'bg-white/25 hover:bg-white/35'
+                  }`}
               >
                 {currentUser?.avatarUrl ? (
                   <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -462,9 +458,8 @@ export default function TopNavbar({
                     {/* User info header */}
                     <div className="px-4 py-4 bg-gradient-to-r from-[#2D5A3D]/8 to-[#3D7054]/8 border-b border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden ${
-                          currentUser?.avatarUrl ? 'bg-transparent' : 'bg-gradient-to-br from-[#2D5A3D] to-[#3D7054]'
-                        }`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden ${currentUser?.avatarUrl ? 'bg-transparent' : 'bg-gradient-to-br from-[#2D5A3D] to-[#3D7054]'
+                          }`}>
                           {currentUser?.avatarUrl ? (
                             <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
@@ -489,7 +484,7 @@ export default function TopNavbar({
                         <Sparkles className="w-4 h-4 text-[#2D5A3D]" />
                         <span className="text-gray-900 text-sm">Nạp Credits</span>
                       </Link>
-                                            <Link
+                      <Link
                         to="/profile"
                         className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                         onClick={() => setShowUserMenu(false)}

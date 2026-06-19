@@ -366,6 +366,7 @@ export default function SellProductPage() {
       }
 
       if (result.success) {
+        window.dispatchEvent(new Event('revora_credit_updated'));
         toast.success(isEditMode ? 'Sản phẩm đã được cập nhật thành công!' : 'Sản phẩm của bạn đã được đăng thành công!', { id: toastId, duration: 3000 });
         setTimeout(() => navigate('/'), 2000);
       }
