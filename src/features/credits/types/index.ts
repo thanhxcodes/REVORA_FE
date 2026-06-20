@@ -16,6 +16,13 @@ export interface UserCreditBatchItemApi {
   packageName: string;
 }
 
+export interface PendingOrderInfoDto {
+  packageId: number;
+  orderCode: string;
+  checkoutUrl: string;
+  expiredAt: string;
+}
+
 export interface UserCreditSummaryApi {
   creditTypeId: number;
   creditTypeName: string | null;
@@ -23,10 +30,7 @@ export interface UserCreditSummaryApi {
   paidRemainingCredits: number;
   freeRemainingCredits: number;
   hasActivePaidCredits: boolean;
-  hasPendingPaidOrder: boolean;
-  pendingPaidPackageId: number | null;
-  pendingOrderCheckoutUrl: string | null;
-  pendingOrderExpiredAt: string | null;
+  pendingOrders: PendingOrderInfoDto[];
   canPurchasePaidPackage: boolean;
   purchaseBlockReason: string | null;
   batches: UserCreditBatchItemApi[];

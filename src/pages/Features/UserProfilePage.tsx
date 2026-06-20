@@ -858,9 +858,18 @@ export default function UserProfilePage() {
                         <div className={`w-12 h-12 bg-gradient-to-r ${visuals?.gradient || 'from-gray-400 to-gray-600'} rounded-full flex items-center justify-center text-white text-2xl shadow-sm`}>
                           {visuals?.icon || '🎖️'}
                         </div>
-                        <span className="text-xs font-bold text-gray-800 text-center">
-                          {badge.name}
-                        </span>
+                          <span className="text-xs font-bold text-gray-800 text-center flex flex-col items-center">
+                            <span>{badge.name}</span>
+                            {badge.expiredAt ? (
+                              <span className="text-[10px] text-gray-500 mt-0.5 font-normal">
+                                {new Date(badge.expiredAt).getTime() < Date.now() 
+                                  ? `Đã hết hạn: ${new Date(badge.expiredAt).toLocaleDateString('vi-VN')}` 
+                                  : `HSD: ${new Date(badge.expiredAt).toLocaleDateString('vi-VN')}`}
+                              </span>
+                            ) : isOwned ? (
+                              <span className="text-[10px] text-gray-500 mt-0.5 font-normal">Vĩnh viễn</span>
+                            ) : null}
+                          </span>
                         {!isOwned && (
                            <div className="absolute top-2 left-2">
                              <Lock className="w-4 h-4 text-gray-400" />

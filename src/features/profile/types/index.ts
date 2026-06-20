@@ -4,6 +4,7 @@ export interface BadgeResponseDto {
   iconUrl: string;
   description: string | null;
   isOwned: boolean;
+  expiredAt?: string | null;
 }
 
 export interface UserProfile {
