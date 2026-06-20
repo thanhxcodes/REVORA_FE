@@ -64,7 +64,7 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const { register } = useAuth();
 
   useEffect(() => {
-    let pollingInterval: NodeJS.Timeout;
+    let pollingInterval: any;
     if (isWaitingForVerification) {
       pollingInterval = setInterval(async () => {
         try {
