@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 import { useUserProfile } from '../../features/profile/hooks/useUserProfile';
 import { useUpdateProfile } from '../../features/profile/hooks/useUpdateProfile';
-import { uploadAvatarAPI } from '../../features/profile/services/profileService';
-import { UserProfile } from '../../features/profile/types';
+import { uploadAvatarAPI, getBadgesAPI, updateMyBadgeAPI } from '../../features/profile/services/profileService';
+import { UserProfile, BadgeResponseDto } from '../../features/profile/types';
 import { useMyProducts } from '../../features/products/hooks/useMyProducts';
 import { useAuth } from '../../providers/authProvider/AuthContext';
 import { useWishlist } from '../../providers/wishlistProvider/WishlistContext';
@@ -40,14 +40,26 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode; badge?: string 
   { key: 'security', label: 'Bảo Mật', icon: <Lock className="w-4 h-4" /> },
 ];
 
-const AVAILABLE_BADGES = [
-  { id: 'premium-gold', name: 'Premium Gold', gradient: 'from-[#2D5A3D] to-[#3D7054]', icon: '⭐' },
-  { id: 'top-seller', name: 'Top Seller', gradient: 'from-orange-500 to-red-500', icon: '🏆' },
-  { id: 'verified', name: 'Verified', gradient: 'from-blue-500 to-blue-600', icon: '✓' },
-  { id: 'trendsetter', name: 'Trendsetter', gradient: 'from-purple-500 to-pink-500', icon: '💎' },
-  { id: 'eco-warrior', name: 'Eco Warrior', gradient: 'from-green-500 to-emerald-600', icon: '🌱' },
-  { id: 'vip', name: 'VIP Member', gradient: 'from-yellow-500 to-amber-600', icon: '👑' },
-];
+const getBadgeVisuals = (name: string | undefined | null) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace('-', ' ').trim();
+  switch (normalized) {
+    case 'premium gold':
+      return { gradient: 'from-amber-400 via-yellow-500 to-amber-600', icon: '⭐' };
+    case 'top seller':
+      return { gradient: 'from-orange-500 to-red-500', icon: '🏆' };
+    case 'verified':
+      return { gradient: 'from-blue-500 to-blue-600', icon: '✓' };
+    case 'trendsetter':
+      return { gradient: 'from-purple-500 to-pink-500', icon: '💎' };
+    case 'eco warrior':
+      return { gradient: 'from-green-500 to-emerald-600', icon: '🌱' };
+    case 'vip member':
+      return { gradient: 'from-yellow-500 to-amber-600', icon: '👑' };
+    default:
+      return { gradient: 'from-gray-400 to-gray-600', icon: '🎖️' };
+  }
+};
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 function initials(name: string | undefined | null) {
@@ -165,12 +177,13 @@ export default function UserProfilePage() {
   const [publicViewMode, setPublicViewMode] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showBadgeSelector, setShowBadgeSelector] = useState(false);
-  const [selectedBadge, setSelectedBadge] = useState('premium-gold');
+  const [selectedBadgeId, setSelectedBadgeId] = useState<number | null>(null);
+  const [systemBadges, setSystemBadges] = useState<BadgeResponseDto[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
   // Follow UI states
-  const isOwnProfile = !id || (currentUser?.id && id && currentUser.id.toString() === id);
+  const isOwnProfile = !id || !!(currentUser?.id && id && currentUser.id.toString() === id);
   const { toggleFollow, isLoading: isToggleFollowLoading } = useToggleFollow();
   const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
   const [followModalType, setFollowModalType] = useState<'followers' | 'following'>('followers');
@@ -200,7 +213,20 @@ export default function UserProfilePage() {
     setProfile(mapped);
     setDraft(mapped);
     setIsFollowing(userProfile.isFollowing ?? false);
+    setSelectedBadgeId(userProfile.badgeId ?? null);
   }, [userProfile]);
+
+  useEffect(() => {
+    if (isOwnProfile) {
+      getBadgesAPI()
+        .then((res) => {
+          if (res.success && res.data) {
+            setSystemBadges(res.data);
+          }
+        })
+        .catch((err) => console.error('Failed to load system badges:', err));
+    }
+  }, [isOwnProfile]);
 
   // Password state
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -374,8 +400,6 @@ export default function UserProfilePage() {
     ? dynamicTabs.filter(tab => ['profile', 'products'].includes(tab.key))
     : dynamicTabs;
 
-  const currentBadge = AVAILABLE_BADGES.find(b => b.id === selectedBadge) || AVAILABLE_BADGES[0];
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -497,14 +521,26 @@ export default function UserProfilePage() {
                 <div className="flex items-center flex-wrap gap-3 mb-1">
                   <h1 className="text-2xl font-bold text-gray-900">{profile.name}</h1>
 
-                  {/* Badge icon only */}
-                  <button
-                    onClick={() => !publicViewMode && setShowBadgeSelector(true)}
-                    className={`w-8 h-8 bg-gradient-to-r ${currentBadge.gradient} rounded-full flex items-center justify-center text-white text-lg hover:scale-110 transition-transform ${!publicViewMode ? 'cursor-pointer' : 'cursor-default'}`}
-                    title={currentBadge.name}
-                  >
-                    {currentBadge.icon}
-                  </button>
+                  {/* Badge icon */}
+                  {userProfile?.badge ? (
+                    <button
+                      onClick={() => isOwnProfile && !publicViewMode && setShowBadgeSelector(true)}
+                      className={`w-8 h-8 bg-gradient-to-r ${getBadgeVisuals(userProfile.badge.name)?.gradient || 'from-gray-400 to-gray-600'} rounded-full flex items-center justify-center text-white text-lg hover:scale-110 transition-transform ${isOwnProfile && !publicViewMode ? 'cursor-pointer' : 'cursor-default'}`}
+                      title={`${userProfile.badge.name}: ${userProfile.badge.description || ''}`}
+                      disabled={!isOwnProfile || publicViewMode}
+                    >
+                      {getBadgeVisuals(userProfile.badge.name)?.icon || '🎖️'}
+                    </button>
+                  ) : (isOwnProfile && !publicViewMode) ? (
+                    <button
+                      onClick={() => setShowBadgeSelector(true)}
+                      className="px-3 py-1 bg-green-50 hover:bg-green-100 text-[#2D5A3D] border border-dashed border-[#2D5A3D]/40 hover:border-[#2D5A3D] rounded-full flex items-center gap-1 text-xs font-semibold hover:scale-105 transition-all cursor-pointer shadow-sm"
+                      title="Chọn huy hiệu hiển thị"
+                    >
+                      <span>✨</span>
+                      <span>Chọn danh hiệu</span>
+                    </button>
+                  ) : null}
                 </div>
                 <p className="text-gray-400 text-sm mb-3">@{profile.username}</p>
                 <div className="flex flex-wrap gap-4 mb-4 text-sm text-gray-600">
@@ -701,7 +737,7 @@ export default function UserProfilePage() {
               error={productsError}
               onRetry={refetchProducts}
               isOwnProfile={isOwnProfile}
-              sellerAvatarFallback={userProfile?.avatarUrl}
+              sellerAvatarFallback={userProfile?.avatarUrl ?? undefined}
             />
           )}
 
@@ -733,7 +769,7 @@ export default function UserProfilePage() {
         </div>
 
         {/* Badge Selection Modal */}
-        {showBadgeSelector && !publicViewMode && (
+        {showBadgeSelector && isOwnProfile && !publicViewMode && (
           <>
             <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowBadgeSelector(false)} />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -748,35 +784,84 @@ export default function UserProfilePage() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Chọn Badge Hiển Thị</h3>
                 <p className="text-gray-600 text-sm mb-6">Badge này sẽ hiển thị cạnh tên của bạn</p>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {AVAILABLE_BADGES.map((badge) => (
-                    <button
-                      key={badge.id}
-                      onClick={() => {
-                        setSelectedBadge(badge.id);
-                        setShowBadgeSelector(false);
-                      }}
-                      className={`relative p-4 rounded-2xl border-2 transition-all hover:scale-105 ${
-                        selectedBadge === badge.id
-                          ? 'border-[#2D5A3D] bg-[#2D5A3D]/5'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {selectedBadge === badge.id && (
-                        <div className="absolute top-2 right-2">
-                          <Check className="w-5 h-5 text-[#2D5A3D]" />
-                        </div>
-                      )}
-                      <div className="flex flex-col items-center gap-2">
-                        <div className={`w-12 h-12 bg-gradient-to-r ${badge.gradient} rounded-full flex items-center justify-center text-white text-2xl`}>
-                          {badge.icon}
-                        </div>
-                        <span className="text-xs font-medium text-gray-900 text-center">
-                          {badge.name}
-                        </span>
+                <div className="grid grid-cols-2 gap-4 max-h-[350px] overflow-y-auto pr-1">
+                  {/* None option */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await updateMyBadgeAPI(null);
+                        if (res.success) {
+                          setSelectedBadgeId(null);
+                          toast.success('Đã ẩn huy hiệu hiển thị.');
+                          refetch();
+                        }
+                      } catch (err) {
+                        toast.error('Không thể cập nhật huy hiệu.');
+                      }
+                      setShowBadgeSelector(false);
+                    }}
+                    className={`relative p-4 rounded-2xl border-2 transition-all hover:scale-105 flex flex-col items-center justify-center gap-2 ${
+                      selectedBadgeId === null
+                        ? 'border-[#2D5A3D] bg-[#2D5A3D]/5'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {selectedBadgeId === null && (
+                      <div className="absolute top-2 right-2">
+                        <Check className="w-5 h-5 text-[#2D5A3D]" />
                       </div>
-                    </button>
-                  ))}
+                    )}
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 text-xl border-2 border-dashed border-gray-300">
+                      ✕
+                    </div>
+                    <span className="text-xs font-semibold text-gray-500 text-center">
+                      Không hiển thị
+                    </span>
+                  </button>
+
+                  {/* Seeded badges */}
+                  {systemBadges.map((badge) => {
+                    const visuals = getBadgeVisuals(badge.name);
+                    const isSelected = selectedBadgeId === badge.badgeId;
+                    return (
+                      <button
+                        key={badge.badgeId}
+                        onClick={async () => {
+                          try {
+                            const res = await updateMyBadgeAPI(badge.badgeId);
+                            if (res.success) {
+                              setSelectedBadgeId(badge.badgeId);
+                              toast.success(`Đã chọn huy hiệu ${badge.name}!`);
+                              refetch();
+                            }
+                          } catch (err) {
+                            toast.error('Không thể cập nhật huy hiệu.');
+                          }
+                          setShowBadgeSelector(false);
+                        }}
+                        className={`relative p-4 rounded-2xl border-2 transition-all hover:scale-105 ${
+                          isSelected
+                            ? 'border-[#2D5A3D] bg-[#2D5A3D]/5'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        title={badge.description || ''}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-2 right-2">
+                            <Check className="w-5 h-5 text-[#2D5A3D]" />
+                          </div>
+                        )}
+                        <div className="flex flex-col items-center gap-2">
+                          <div className={`w-12 h-12 bg-gradient-to-r ${visuals?.gradient || 'from-gray-400 to-gray-600'} rounded-full flex items-center justify-center text-white text-2xl shadow-sm`}>
+                            {visuals?.icon || '🎖️'}
+                          </div>
+                          <span className="text-xs font-bold text-gray-800 text-center">
+                            {badge.name}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

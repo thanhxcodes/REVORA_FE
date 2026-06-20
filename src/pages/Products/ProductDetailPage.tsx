@@ -17,6 +17,27 @@ import { getUserProfileAPI } from '../../features/profile/services/profileServic
 import { useToggleFollow } from '../../features/profile/hooks/useFollow';
 import { Loader2, UserPlus, Check } from 'lucide-react';
 
+const getBadgeVisuals = (name: string | undefined | null) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace('-', ' ').trim();
+  switch (normalized) {
+    case 'premium gold':
+      return { gradient: 'from-amber-400 via-yellow-500 to-amber-600', icon: '⭐' };
+    case 'top seller':
+      return { gradient: 'from-orange-500 to-red-500', icon: '🏆' };
+    case 'verified':
+      return { gradient: 'from-blue-500 to-blue-600', icon: '✓' };
+    case 'trendsetter':
+      return { gradient: 'from-purple-500 to-pink-500', icon: '💎' };
+    case 'eco warrior':
+      return { gradient: 'from-green-500 to-emerald-600', icon: '🌱' };
+    case 'vip member':
+      return { gradient: 'from-yellow-500 to-amber-600', icon: '👑' };
+    default:
+      return { gradient: 'from-gray-400 to-gray-600', icon: '🎖️' };
+  }
+};
+
 // Hàm helper tính thời gian đăng bình luận
 const timeAgo = (dateStr: string) => {
   const diff = new Date().getTime() - new Date(dateStr).getTime();
@@ -95,9 +116,17 @@ const CommentItem = ({
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start">
            <div className="flex-1 bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100 relative group">
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-sm font-bold text-gray-900">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
                   {comment.fullName}
+                  {comment.userBadgeName && (
+                    <span
+                      className={`w-4 h-4 bg-gradient-to-r ${getBadgeVisuals(comment.userBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full flex items-center justify-center text-white text-[8px]`}
+                      title={comment.userBadgeName}
+                    >
+                      {getBadgeVisuals(comment.userBadgeName)?.icon || '🎖️'}
+                    </span>
+                  )}
                   {showParentName && <><span className="text-gray-400 font-normal mx-1.5 text-xs">▶</span><span className="text-xs font-medium text-gray-600">{parentComment.fullName}</span></>}
                 </span>
                 <span className="text-[10px] text-gray-400">{timeAgo(comment.createdAt)}</span>
@@ -642,7 +671,14 @@ export default function ProductDetailPage() {
                       <h3 className="font-bold text-gray-900 text-lg hover:underline cursor-pointer" onClick={() => navigate(`/profile/${productDetail.sellerId}`)}>
                         {productDetail.sellerName}
                       </h3>
-                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px]" title="Đã xác thực">✓</div>
+                      {productDetail.sellerBadgeName && (
+                        <div
+                          className={`w-5 h-5 bg-gradient-to-r ${getBadgeVisuals(productDetail.sellerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full flex items-center justify-center text-white text-[10px]`}
+                          title={productDetail.sellerBadgeName}
+                        >
+                          {getBadgeVisuals(productDetail.sellerBadgeName)?.icon || '✓'}
+                        </div>
+                      )}
                     </div>
                     <div className="text-sm text-gray-500 mb-2">@{productDetail.sellerUsername}</div>
                   </div>
