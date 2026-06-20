@@ -84,6 +84,7 @@ interface NextProductDto {
   isMatchSeed: boolean;
   brand?: string;
   hasBadge?: boolean;
+  sellerBadgeName?: string | null;
 }
 
 interface MatchLikedProductDto {
@@ -100,6 +101,7 @@ interface MatchInterestInboxItemDto {
   interestedUserId: number;
   interestedUserName: string;
   interestedUserAvatar: string | null;
+  interestedUserBadgeName?: string | null;
   likedProductId: number;
   likedProductTitle: string;
   likedProductImage: string | null;
@@ -116,6 +118,7 @@ interface TradeMatchSummaryDto {
   partnerUserId: number;
   partnerName: string;
   partnerAvatar: string;
+  partnerBadgeName?: string | null;
   myProducts: MatchOfferingProductDto[];
   partnerProducts: MatchOfferingProductDto[];
   status: string; // Active, Completed, Cancelled
@@ -146,12 +149,46 @@ interface ChatMessage {
   imageUrl?: string | null;
 }
 
+const getBadgeVisuals = (name: string | undefined | null) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace('-', ' ').trim();
+  switch (normalized) {
+    case 'premium gold':
+      return { gradient: 'from-amber-400 via-yellow-500 to-amber-600', icon: '⭐' };
+    case 'top seller':
+      return { gradient: 'from-orange-500 to-red-500', icon: '🏆' };
+    case 'verified':
+      return { gradient: 'from-blue-500 to-blue-600', icon: '✓' };
+    case 'trendsetter':
+      return { gradient: 'from-purple-500 to-pink-500', icon: '💎' };
+    case 'eco warrior':
+      return { gradient: 'from-green-500 to-emerald-600', icon: '🌱' };
+    case 'vip member':
+      return { gradient: 'from-yellow-500 to-amber-600', icon: '👑' };
+    default:
+      return { gradient: 'from-gray-400 to-gray-600', icon: '🎖️' };
+  }
+};
+
 export default function RevoraMatchPage() {
   const navigate = useNavigate();
 
   // Navigation Steps and general states
   const [step, setStep] = useState<MatchStep>('landing');
   const [stats, setStats] = useState<MatchCommunityStatsDto | null>(null);
+
+  // Fake animated stats synchronized with Sidebar
+  const [fakeParticipants, setFakeParticipants] = useState(() => Number(localStorage.getItem('revora_match_participants')) || 982);
+  const [fakeProducts, setFakeProducts] = useState(() => Number(localStorage.getItem('revora_match_products')) || 2516);
+
+  useEffect(() => {
+    const handleFakeTicked = (e: any) => {
+      setFakeParticipants(e.detail.participants);
+      setFakeProducts(e.detail.products);
+    };
+    window.addEventListener('revora_match_fake_stats_ticked', handleFakeTicked);
+    return () => window.removeEventListener('revora_match_fake_stats_ticked', handleFakeTicked);
+  }, []);
 
   // Selection / Filter States
   const [myOfferProducts, setMyOfferProducts] = useState<MatchOfferingProductDto[]>([]);
@@ -200,7 +237,7 @@ export default function RevoraMatchPage() {
   const [negotiateUser, setNegotiateUser] = useState<{ id: number, name: string } | null>(null);
   const [negotiateProducts, setNegotiateProducts] = useState<MatchOfferingProductDto[]>([]);
   const [negotiateSelectedIds, setNegotiateSelectedIds] = useState<Set<number>>(new Set());
-  const [showInterestConfirmModal, setShowInterestConfirmModal] = useState<{ id: number, name: string } | null>(null);
+  const [showInterestConfirmModal, setShowInterestConfirmModal] = useState<{ id: number, name: string, badgeName?: string | null } | null>(null);
 
   // Trade History Modal
   const [showTradeHistoryModal, setShowTradeHistoryModal] = useState(false);
@@ -352,6 +389,9 @@ export default function RevoraMatchPage() {
           }
           setShowMutualMatchPopup(false);
           setShowChat(false);
+          if (!currentSwipeCard && activeSession) {
+            fetchNextSwipeCard(activeSession.matchSessionId);
+          }
           return null;
         }
         return prev;
@@ -714,6 +754,9 @@ export default function RevoraMatchPage() {
         }
         setShowMutualMatchPopup(false);
         setNewMutualMatch(null);
+        if (!currentSwipeCard && activeSession) {
+          fetchNextSwipeCard(activeSession.matchSessionId);
+        }
       }
     } catch (e: any) {
       console.error(e);
@@ -984,13 +1027,13 @@ export default function RevoraMatchPage() {
 
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
-              <Users className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-white">{(stats?.activeParticipants || 0).toLocaleString('vi-VN')}</p>
+              <Users className="w-8 h-8 text-orange-400 mx-auto mb-2 animate-bounce" style={{ animationDuration: '3s' }} />
+              <p className="text-3xl font-bold text-white animate-fade-in font-mono">{fakeParticipants.toLocaleString('vi-VN')}</p>
               <p className="text-white/50 text-sm mt-1">người đang tham gia</p>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
-              <Package className="w-8 h-8 text-pink-400 mx-auto mb-2" />
-              <p className="text-3xl font-bold text-white">{(stats?.productsWaitingTrade || 0).toLocaleString('vi-VN')}</p>
+              <Package className="w-8 h-8 text-pink-400 mx-auto mb-2 animate-bounce" style={{ animationDuration: '3s', animationDelay: '1.5s' }} />
+              <p className="text-3xl font-bold text-white animate-fade-in font-mono">{fakeProducts.toLocaleString('vi-VN')}</p>
               <p className="text-white/50 text-sm mt-1">sản phẩm chờ trao đổi</p>
             </div>
           </div>
@@ -1384,11 +1427,18 @@ export default function RevoraMatchPage() {
                           <div className="flex-1 min-w-0">
                             <a href={`/profile?userId=${currentSwipeCard.sellerId}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
                               <p className="text-white text-sm font-bold truncate">@{currentSwipeCard.sellerName}</p>
-                              {currentSwipeCard.hasBadge && (
+                              {currentSwipeCard.sellerBadgeName ? (
+                                <span
+                                  className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(currentSwipeCard.sellerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                                  title={currentSwipeCard.sellerBadgeName}
+                                >
+                                  {getBadgeVisuals(currentSwipeCard.sellerBadgeName)?.icon || '🎖️'}
+                                </span>
+                              ) : currentSwipeCard.hasBadge ? (
                                 <span title="Tài khoản uy tín">
                                   <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
                                 </span>
-                              )}
+                              ) : null}
                             </a>
                             <p className="text-white/60 text-xs flex items-center gap-1 mt-0.5">
                               <MapPin className="w-3 h-3" /> {currentSwipeCard.sellerCity || 'Toàn quốc'}
@@ -1481,14 +1531,25 @@ export default function RevoraMatchPage() {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <span className="text-white text-sm font-semibold block">
-                                      {item.interestedUserName} đã thích sản phẩm "{item.likedProductTitle}" của bạn
+                                      <span className="inline-flex items-center gap-1">
+                                        <span>{item.interestedUserName}</span>
+                                        {item.interestedUserBadgeName && (
+                                          <span
+                                            className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(item.interestedUserBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                                            title={item.interestedUserBadgeName}
+                                          >
+                                            {getBadgeVisuals(item.interestedUserBadgeName)?.icon || '🎖️'}
+                                          </span>
+                                        )}
+                                      </span>{' '}
+                                      đã thích sản phẩm "{item.likedProductTitle}" của bạn
                                     </span>
                                   </div>
                                   {!item.isRead && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />}
                                 </div>
                                 
                                 <button 
-                                  onClick={() => setShowInterestConfirmModal({ id: item.interestedUserId, name: item.interestedUserName })}
+                                  onClick={() => setShowInterestConfirmModal({ id: item.interestedUserId, name: item.interestedUserName, badgeName: item.interestedUserBadgeName })}
                                   className="mt-1 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all border border-white/10"
                                 >
                                   💞 Phản hồi lời mời
@@ -1636,7 +1697,17 @@ export default function RevoraMatchPage() {
                   {tradeHistoryList.map(match => (
                     <div key={match.tradeMatchId} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex gap-4 hover:bg-white/10 transition-colors">
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-semibold truncate mb-1">Giao dịch với @{match.partnerName}</p>
+                        <p className="text-white text-sm font-semibold truncate mb-1 flex items-center gap-1">
+                          <span>Giao dịch với @{match.partnerName}</span>
+                          {match.partnerBadgeName && (
+                            <span
+                              className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(match.partnerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                              title={match.partnerBadgeName}
+                            >
+                              {getBadgeVisuals(match.partnerBadgeName)?.icon || '🎖️'}
+                            </span>
+                          )}
+                        </p>
                         <p className="text-white/50 text-xs mb-3">{new Date(match.createdAt).toLocaleDateString('vi-VN')} {new Date(match.createdAt).toLocaleTimeString('vi-VN')}</p>
                         <div className="flex items-center gap-3">
                           <img src={match.myProducts[0]?.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
@@ -1673,7 +1744,16 @@ export default function RevoraMatchPage() {
           <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="relative max-w-sm w-full bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-white mb-2">Phản hồi lời mời?</h3>
             <p className="text-white/70 text-sm mb-6 leading-relaxed">
-              Bạn muốn phản hồi lời mời trao đổi từ <strong className="text-white">@{showInterestConfirmModal.name}</strong>?<br/><br/>
+              Bạn muốn phản hồi lời mời trao đổi từ{' '}
+              <strong className="text-white">@{showInterestConfirmModal.name}</strong>
+              {showInterestConfirmModal.badgeName && (
+                <span
+                  className={`inline-flex ml-1 w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(showInterestConfirmModal.badgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0 align-middle`}
+                  title={showInterestConfirmModal.badgeName}
+                >
+                  {getBadgeVisuals(showInterestConfirmModal.badgeName)?.icon || '🎖️'}
+                </span>
+              )}?<br/><br/>
               Bạn sẽ được xem tất cả sản phẩm mà người này đang đem đi trao đổi.
             </p>
             <div className="flex gap-3">
@@ -1832,7 +1912,17 @@ function MatchSuccessModal({
             <div className="w-16 h-16 rounded-full border-t-2 border-orange-500 border-solid animate-spin mb-4"></div>
             <h2 className="text-2xl font-bold text-white mb-2">Đang chờ đối phương xác nhận...</h2>
             <p className="text-white/60 text-center">
-              Bạn đã chọn sản phẩm và gửi yêu cầu thương lượng. Vui lòng giữ màn hình này chờ @{match.partnerName} phản hồi.
+              Bạn đã chọn sản phẩm và gửi yêu cầu thương lượng. Vui lòng giữ màn hình này chờ{' '}
+              <strong className="text-white">@{match.partnerName}</strong>
+              {match.partnerBadgeName && (
+                <span
+                  className={`inline-flex ml-1 w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(match.partnerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0 align-middle`}
+                  title={match.partnerBadgeName}
+                >
+                  {getBadgeVisuals(match.partnerBadgeName)?.icon || '🎖️'}
+                </span>
+              )}{' '}
+              phản hồi.
             </p>
           </div>
         ) : (
@@ -1868,7 +1958,18 @@ function MatchSuccessModal({
               <div className="flex flex-col gap-6">
                 {/* Partner's Products (Selectable) */}
                 <div>
-                  <h3 className="text-white text-sm font-semibold mb-3 text-center">Sản phẩm của @{match.partnerName} (Bạn có thể chọn)</h3>
+                  <h3 className="text-white text-sm font-semibold mb-3 text-center flex items-center justify-center gap-1">
+                    <span>Sản phẩm của @{match.partnerName}</span>
+                    {match.partnerBadgeName && (
+                      <span
+                        className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(match.partnerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                        title={match.partnerBadgeName}
+                      >
+                        {getBadgeVisuals(match.partnerBadgeName)?.icon || '🎖️'}
+                      </span>
+                    )}
+                    <span>(Bạn có thể chọn)</span>
+                  </h3>
                   <div className="flex justify-center flex-wrap gap-3">
                     {match.partnerProducts.map(p => {
                       const isSelected = selectedIds.has(p.productId);
@@ -2154,7 +2255,7 @@ function ChatInterface({
         const imageUrl = uploadRes.data.urls[0];
         const res = await authClient.post('/chat/send', {
           receiverId: match.partnerUserId,
-          content: '📷 Hình ảnh đính kèm',
+          content: '',
           attachmentUrl: imageUrl,
         });
 
@@ -2231,8 +2332,16 @@ function ChatInterface({
               {match.partnerName?.charAt(0) || 'U'}
             </div>
             <div>
-              <a href={`/profile?userId=${match.partnerUserId}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+              <a href={`/profile?userId=${match.partnerUserId}`} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
                 <p className="text-white font-semibold">@{match.partnerName}</p>
+                {match.partnerBadgeName && (
+                  <span
+                    className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(match.partnerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                    title={match.partnerBadgeName}
+                  >
+                    {getBadgeVisuals(match.partnerBadgeName)?.icon || '🎖️'}
+                  </span>
+                )}
               </a>
               <p className="text-white/60 text-xs">Thương lượng trao đổi Match</p>
             </div>
@@ -2263,7 +2372,17 @@ function ChatInterface({
           
           {/* Partner's products that I selected */}
           <div className="flex flex-col items-center max-w-[45%]">
-            <p className="text-white text-xs font-semibold mb-2">@{matchData.partnerName}</p>
+            <p className="text-white text-xs font-semibold mb-2 flex items-center justify-center gap-1">
+              <span>@{matchData.partnerName}</span>
+              {matchData.partnerBadgeName && (
+                <span
+                  className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(matchData.partnerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                  title={matchData.partnerBadgeName}
+                >
+                  {getBadgeVisuals(matchData.partnerBadgeName)?.icon || '🎖️'}
+                </span>
+              )}
+            </p>
             <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 max-w-full">
               {partnerNegotiatedProducts.map(p => (
                 <a key={p.productId} href={`/product/${p.productId}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0" title={p.title}>
@@ -2407,7 +2526,16 @@ function ChatInterface({
             </div>
             <h3 className="text-2xl font-bold text-white mb-2">Xác Nhận Trao Đổi</h3>
             <p className="text-white/70 text-sm mb-6 leading-relaxed">
-              <strong className="text-white">@{match.partnerName}</strong> đã xác nhận muốn chốt giao dịch trao đổi này. Bạn có đồng ý hoàn tất giao dịch không?
+              <strong className="text-white">@{match.partnerName}</strong>
+              {match.partnerBadgeName && (
+                <span
+                  className={`inline-flex ml-1 w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(match.partnerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0 align-middle`}
+                  title={match.partnerBadgeName}
+                >
+                  {getBadgeVisuals(match.partnerBadgeName)?.icon || '🎖️'}
+                </span>
+              )}
+              {' '}đã xác nhận muốn chốt giao dịch trao đổi này. Bạn có đồng ý hoàn tất giao dịch không?
               <br/><br/>
               <span className="text-xs text-white/40">Sản phẩm của cả hai sẽ được chuyển trạng thái sang "Đã Bán" nếu bạn đồng ý.</span>
             </p>

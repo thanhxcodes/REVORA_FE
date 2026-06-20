@@ -37,6 +37,7 @@ interface Conversation {
     fullName: string;
     avatarUrl: string;
     isOnline?: boolean;
+    badgeName?: string | null;
   };
   lastMessage: {
     content: string | null;
@@ -48,6 +49,27 @@ interface Conversation {
     isEdited?: boolean;
   } | null;
 }
+
+const getBadgeVisuals = (name: string | undefined | null) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace('-', ' ').trim();
+  switch (normalized) {
+    case 'premium gold':
+      return { gradient: 'from-amber-400 via-yellow-500 to-amber-600', icon: '⭐' };
+    case 'top seller':
+      return { gradient: 'from-orange-500 to-red-500', icon: '🏆' };
+    case 'verified':
+      return { gradient: 'from-blue-500 to-blue-600', icon: '✓' };
+    case 'trendsetter':
+      return { gradient: 'from-purple-500 to-pink-500', icon: '💎' };
+    case 'eco warrior':
+      return { gradient: 'from-green-500 to-emerald-600', icon: '🌱' };
+    case 'vip member':
+      return { gradient: 'from-yellow-500 to-amber-600', icon: '👑' };
+    default:
+      return { gradient: 'from-gray-400 to-gray-600', icon: '🎖️' };
+  }
+};
 
 export default function MessagesPage() {
   const { currentUser } = useAuth();
@@ -222,6 +244,16 @@ export default function MessagesPage() {
     }
   }, [activeChat]);
 
+  // Sync activeChat with real conversation if it was a temp one
+  useEffect(() => {
+    if (activeChat && activeChat.conversationId < 0) {
+      const realConv = conversations.find(c => c.partner.userId === activeChat.partner.userId && c.conversationId >= 0);
+      if (realConv) {
+        setActiveChat(realConv);
+      }
+    }
+  }, [conversations, activeChat]);
+
   // Thiết lập SignalR
   useEffect(() => {
     const token = getAccessToken();
@@ -322,7 +354,7 @@ export default function MessagesPage() {
         const imageUrl = uploadRes.data.urls[0];
         const res = await authClient.post('/Chat/send', {
           receiverId: activeChat.partner.userId,
-          content: '📷 Hình ảnh đính kèm',
+          content: '',
           attachmentUrl: imageUrl,
         });
 
@@ -509,7 +541,17 @@ export default function MessagesPage() {
 
                         <div className="min-w-0 flex-1 pr-4">
                           <div className="flex items-baseline justify-between gap-2">
-                            <span className="truncate font-semibold">{conv.partner.fullName || 'User'}</span>
+                            <span className="truncate font-semibold flex items-center gap-1">
+                              {conv.partner.fullName || 'User'}
+                              {conv.partner.badgeName && (
+                                <span
+                                  title={conv.partner.badgeName}
+                                  className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(conv.partner.badgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                                >
+                                  {getBadgeVisuals(conv.partner.badgeName)?.icon || '🎖️'}
+                                </span>
+                              )}
+                            </span>
                             <span className="shrink-0 text-xs text-gray-500">
                               {new Date(conv.lastMessageAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                             </span>
@@ -600,7 +642,17 @@ export default function MessagesPage() {
                       <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white ${activePartner?.isOnline ? 'bg-emerald-400' : 'bg-gray-400'}`} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold leading-tight text-gray-900">{activePartner?.fullName}</h3>
+                      <h3 className="text-xl font-semibold leading-tight text-gray-900 flex items-center gap-1.5">
+                        {activePartner?.fullName}
+                        {activePartner?.badgeName && (
+                          <span
+                            title={activePartner.badgeName}
+                            className={`inline-flex w-4 h-4 bg-gradient-to-r ${getBadgeVisuals(activePartner.badgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[8px] flex-shrink-0`}
+                          >
+                            {getBadgeVisuals(activePartner.badgeName)?.icon || '🎖️'}
+                          </span>
+                        )}
+                      </h3>
                       <p className={`text-sm ${activePartner?.isOnline ? 'text-[#2D5A3D]' : 'text-gray-500'}`}>{activePartner?.isOnline ? 'Online' : 'Offline'}</p>
                     </div>
                   </div>

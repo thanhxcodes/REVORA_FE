@@ -14,6 +14,7 @@ export interface ProductResponse {
   createdAt: string;
   productExpiredAt?: string;
   productStatus?: string;
+  sellerBadgeName?: string;
 }
 // thanh end
 
@@ -52,6 +53,7 @@ export interface ProductResponseDto {
     shortStatus?: string;
     bannerExpiredAt?: string;
     shortExpiredAt?: string;
+    sellerBadgeName?: string;
 }
 
 export interface PagedResult<T> {
@@ -95,4 +97,5 @@ export interface ProductDetailResponseDto {
     sellerAvatar: string;
     sellerPhone: string;
     isFollowingSeller?: boolean;
+    sellerBadgeName?: string;
 }

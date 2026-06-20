@@ -5,6 +5,27 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../../providers/authProvider/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+const getBadgeVisuals = (name: string | undefined | null) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace('-', ' ').trim();
+  switch (normalized) {
+    case 'premium gold':
+      return { gradient: 'from-amber-400 via-yellow-500 to-amber-600', icon: '⭐' };
+    case 'top seller':
+      return { gradient: 'from-orange-500 to-red-500', icon: '🏆' };
+    case 'verified':
+      return { gradient: 'from-blue-500 to-blue-600', icon: '✓' };
+    case 'trendsetter':
+      return { gradient: 'from-purple-500 to-pink-500', icon: '💎' };
+    case 'eco warrior':
+      return { gradient: 'from-green-500 to-emerald-600', icon: '🌱' };
+    case 'vip member':
+      return { gradient: 'from-yellow-500 to-amber-600', icon: '👑' };
+    default:
+      return { gradient: 'from-gray-400 to-gray-600', icon: '🎖️' };
+  }
+};
+
 interface ProductCardProps {
   productId: number;
   imageUrls: string[];
@@ -21,6 +42,7 @@ interface ProductCardProps {
   imageUrl?: string;
   sellerFullName?: string;
   createdAt?: string;
+  sellerBadgeName?: string;
 }
 
 export default function ProductCard({
@@ -39,6 +61,7 @@ export default function ProductCard({
   location,
   sellerFullName,
   createdAt,
+  sellerBadgeName,
 }: ProductCardProps) {
 
 
@@ -61,12 +84,8 @@ export default function ProductCard({
 
   const finalImageUrl = propImageUrl || (imageUrls && imageUrls.length > 0 ? imageUrls[0] : undefined);
 
-  // Fake badge for demo
-  const badge = sellerBadge || (() => {
-    if (sellerName === 'admin') return { icon: '⭐', gradient: 'from-[#2D5A3D] to-[#3D7054]' };
-    if (sellerName === 'user1') return { icon: '💎', gradient: 'from-purple-500 to-pink-500' };
-    return null;
-  })();
+  // Real badge mapping
+  const badge = getBadgeVisuals(sellerBadgeName) || sellerBadge || null;
 
   // CÁC ĐOẠN DƯỚI NÀY GIỮ NGUYÊN HOÀN TOÀN, CHỈ SỬA BIẾN:
   // - id -> productId
@@ -147,13 +166,12 @@ export default function ProductCard({
             </div>
 
             <div className="flex items-center">
-              <button 
+              <button
                 onClick={handleWishlistClick}
-                className={`p-3 rounded-full border transition-all ${
-                  wishlisted 
-                    ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' 
+                className={`p-3 rounded-full border transition-all ${wishlisted
+                    ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
                     : 'bg-white/90 backdrop-blur-sm border-gray-200 opacity-0 group-hover:opacity-100 hover:bg-[#2D5A3D] hover:border-[#2D5A3D] hover:text-white'
-                }`}
+                  }`}
               >
                 <Heart className={`w-5 h-5 ${wishlisted ? 'fill-current' : ''}`} />
               </button>
@@ -187,13 +205,12 @@ export default function ProductCard({
               <span>Premium</span>
             </div>
           )}
-          <button 
+          <button
             onClick={handleWishlistClick}
-            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${
-              wishlisted
+            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${wishlisted
                 ? 'bg-red-50 text-red-500'
                 : 'bg-white/90 backdrop-blur-sm opacity-0 group-hover:opacity-100 text-[#2D5A3D] hover:bg-[#2D5A3D] hover:text-white'
-            }`}
+              }`}
           >
             <Heart className={`w-4 h-4 ${wishlisted ? 'fill-current' : ''}`} />
           </button>

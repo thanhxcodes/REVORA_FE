@@ -43,29 +43,34 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
     // Initial load
     handleUpdate();
 
-    let timer: ReturnType<typeof setInterval> | null = null;
-    if (location.pathname !== '/match') {
-      timer = setInterval(() => {
-        setParticipants((prev) => {
-          const delta = Math.floor(Math.random() * 5) - 2;
-          const nextVal = Math.max(10, prev + delta);
-          localStorage.setItem('revora_match_participants', String(nextVal));
-          return nextVal;
-        });
-        setProducts((prev) => {
-          const delta = Math.floor(Math.random() * 7) - 3;
-          const nextVal = Math.max(10, prev + delta);
-          localStorage.setItem('revora_match_products', String(nextVal));
-          return nextVal;
-        });
-      }, 3500);
-    }
+    const timer = setInterval(() => {
+      const pStr = localStorage.getItem('revora_match_participants');
+      const prStr = localStorage.getItem('revora_match_products');
+      const prevP = pStr ? Number(pStr) : 982;
+      const prevPr = prStr ? Number(prStr) : 2516;
+
+      const deltaP = Math.floor(Math.random() * 5) - 2;
+      const nextP = Math.max(10, prevP + deltaP);
+
+      const deltaPr = Math.floor(Math.random() * 7) - 3;
+      const nextPr = Math.max(10, prevPr + deltaPr);
+
+      localStorage.setItem('revora_match_participants', String(nextP));
+      localStorage.setItem('revora_match_products', String(nextPr));
+
+      setParticipants(nextP);
+      setProducts(nextPr);
+
+      window.dispatchEvent(new CustomEvent('revora_match_fake_stats_ticked', {
+        detail: { participants: nextP, products: nextPr }
+      }));
+    }, 3500);
 
     return () => {
       window.removeEventListener('revora_match_stats_updated', handleUpdate);
-      if (timer) clearInterval(timer);
+      clearInterval(timer);
     };
-  }, [location.pathname]);
+  }, []);
 
   return (
     <>
@@ -87,65 +92,91 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
           <nav className="py-4 border-b border-gray-200">
             <Link
               to="/"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${isActive('/')
+              className={`flex transition-colors relative ${
+                actualIsOpen 
+                  ? 'flex-row items-center space-x-4 px-6 py-3' 
+                  : 'flex-col items-center justify-center space-y-1 py-4 px-1'
+              } ${isActive('/')
                 ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
                 : 'text-gray-700 hover:bg-gray-100'
                 }`}
             >
               <Home className="w-6 h-6 flex-shrink-0" />
-              {actualIsOpen && <span>Trang Chủ</span>}
+              <span className={actualIsOpen ? '' : 'text-[10px] text-center w-full truncate'}>Trang Chủ</span>
             </Link>
 
             <Link
               to="/all-products"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${isActive('/all-products')
+              className={`flex transition-colors relative ${
+                actualIsOpen 
+                  ? 'flex-row items-center space-x-4 px-6 py-3' 
+                  : 'flex-col items-center justify-center space-y-1 py-4 px-1'
+              } ${isActive('/all-products')
                 ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
                 : 'text-gray-700 hover:bg-gray-100'
                 }`}
             >
               <Grid3x3 className="w-6 h-6 flex-shrink-0" />
-              {actualIsOpen && <span>Sản Phẩm</span>}
+              <span className={actualIsOpen ? '' : 'text-[10px] text-center w-full truncate'}>Sản Phẩm</span>
             </Link>
 
             <Link
               to="/shorts"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative ${isActive('/shorts')
+              className={`flex transition-colors relative ${
+                actualIsOpen 
+                  ? 'flex-row items-center space-x-4 px-6 py-3' 
+                  : 'flex-col items-center justify-center space-y-1 py-4 px-1'
+              } ${isActive('/shorts')
                 ? 'bg-gradient-to-r from-[#2D5A3D]/10 to-[#3D7054]/10 text-[#2D5A3D] border-l-4 border-[#2D5A3D]'
                 : 'text-gray-700 hover:bg-gray-100'
                 }`}
             >
               <Video className="w-6 h-6 flex-shrink-0" />
-              {actualIsOpen && <span>Shorts</span>}
+              <span className={actualIsOpen ? '' : 'text-[10px] text-center w-full truncate'}>Shorts</span>
             </Link>
 
             <Link
               to="/ranking"
-              className={`flex items-center space-x-4 px-6 py-3 transition-colors relative group ${isActive('/ranking')
+              className={`flex transition-colors relative group ${
+                actualIsOpen 
+                  ? 'flex-row items-center space-x-4 px-6 py-3' 
+                  : 'flex-col items-center justify-center space-y-1 py-4 px-1'
+              } ${isActive('/ranking')
                 ? 'bg-gradient-to-r from-[#C4603A]/10 to-[#2D5A3D]/10 text-[#C4603A] border-l-4 border-[#C4603A]'
                 : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#C4603A]/5 hover:to-[#2D5A3D]/5'
                 }`}
             >
               <Trophy className={`w-6 h-6 flex-shrink-0 ${isActive('/ranking') ? 'text-[#C4603A] animate-pulse' : 'group-hover:text-[#C4603A]'}`} />
-              {actualIsOpen && (
-                <span className={`${isActive('/ranking') ? 'bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] bg-clip-text text-transparent font-semibold' : ''}`}>
+              {actualIsOpen ? (
+                <>
+                  <span className={`${isActive('/ranking') ? 'bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] bg-clip-text text-transparent font-semibold' : ''}`}>
+                    BXH Tuần
+                  </span>
+                  {!isActive('/ranking') && (
+                    <span className="text-[10px] font-bold bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] text-white px-1.5 py-0.5 rounded-full animate-pulse">
+                      NEW
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className={`text-[10px] text-center w-full truncate ${isActive('/ranking') ? 'bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] bg-clip-text text-transparent font-semibold' : ''}`}>
                   BXH Tuần
-                </span>
-              )}
-              {actualIsOpen && !isActive('/ranking') && (
-                <span className="text-[10px] font-bold bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] text-white px-1.5 py-0.5 rounded-full animate-pulse">
-                  NEW
                 </span>
               )}
             </Link>
             <Link
               to="/match"
-              className={`flex items-start space-x-4 px-6 py-3 transition-colors relative group ${isActive('/match')
+              className={`flex transition-colors relative group ${
+                actualIsOpen 
+                  ? 'flex-row items-start space-x-4 px-6 py-3' 
+                  : 'flex-col items-center justify-center space-y-1 py-4 px-1'
+              } ${isActive('/match')
                 ? 'bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-600 border-l-4 border-orange-500'
                 : 'text-gray-700 hover:bg-gradient-to-r hover:from-orange-500/5 hover:to-red-500/5'
                 }`}
             >
               <Flame className={`w-6 h-6 flex-shrink-0 ${isActive('/match') ? 'text-orange-500 animate-pulse' : 'group-hover:text-orange-500'}`} />
-              {actualIsOpen && (
+              {actualIsOpen ? (
                 <div className="flex flex-col w-full">
                   <div className="flex items-center justify-between w-full">
                     <span className={`font-semibold ${isActive('/match') ? 'bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent' : ''}`}>
@@ -168,6 +199,10 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
                     </div>
                   </div>
                 </div>
+              ) : (
+                <span className={`text-[10px] text-center w-full truncate ${isActive('/match') ? 'bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent font-semibold' : ''}`}>
+                  MATCH
+                </span>
               )}
             </Link>
           </nav>
@@ -194,7 +229,7 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-sm truncate">{user.username}</span>
+                    <span className="text-sm truncate">{user.fullName || user.username}</span>
                   </div>
                 </Link>
               ))}

@@ -1,351 +1,491 @@
-import { useState } from 'react';
-import { Save, Edit2, Check, X, Plus, Trash2, Tag } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, Edit2, Check, X, Plus, Trash2, Save, ArrowUp, ArrowDown } from 'lucide-react';
 import AdminLayout from '../../components/common/AdminLayout';
+import { authClient } from '../../providers/authProvider/authService';
+import type { ApiResponse } from '../../features/auth/types';
+import { updateCreditPackage } from '../../features/credits/services/creditPackageService';
 
-interface PackageConfig {
-  id: string;
+interface BadgeApi {
+  badgeId: number;
   name: string;
-  type: 'posting' | 'featured';
-  originalPrice: number;
-  discountPercent: number;
-  credits: number;
-  duration: number;
+  iconUrl: string;
   description: string;
-  perks: string[];
-  isPopular?: boolean;
 }
 
-function calcFinalPrice(originalPrice: number, discountPercent: number): number {
-  return Math.round(originalPrice * (1 - discountPercent / 100));
-}
-
-const defaultPerksPosting = ['Đăng sản phẩm lên marketplace', 'Hiển thị trong kết quả tìm kiếm', 'Nhận liên hệ từ người mua', 'Quản lý tin đăng dễ dàng'];
-const defaultPerksFeatured = ['Hiển thị nổi bật trên trang chủ', 'Ưu tiên trong tìm kiếm', 'Badge "Nổi Bật" trên sản phẩm', 'Tăng lượt xem gấp 5 lần'];
-
-const initialPackages: PackageConfig[] = [
-  { id: 'posting-day', name: 'Posting Day', type: 'posting', originalPrice: 25000, discountPercent: 24, credits: 5, duration: 1, description: 'Gói ngắn hạn, phù hợp thử nghiệm', perks: [...defaultPerksPosting] },
-  { id: 'posting-week', name: 'Posting Week', type: 'posting', originalPrice: 100000, discountPercent: 21, credits: 30, duration: 7, description: 'Gói tuần, tiết kiệm hơn gói ngày', perks: [...defaultPerksPosting, 'Hỗ trợ ưu tiên'], isPopular: false },
-  { id: 'posting-month', name: 'Posting Month', type: 'posting', originalPrice: 280000, discountPercent: 29, credits: 120, duration: 30, description: 'Gói tháng, giá trị nhất cho người bán thường xuyên', perks: [...defaultPerksPosting, 'Hỗ trợ ưu tiên', 'Báo cáo hiệu suất'], isPopular: true },
-  { id: 'featured-day', name: 'Featured Day', type: 'featured', originalPrice: 70000, discountPercent: 30, credits: 3, duration: 1, description: 'Tăng độ hiển thị nhanh chóng trong 1 ngày', perks: [...defaultPerksFeatured] },
-  { id: 'featured-week', name: 'Featured Week', type: 'featured', originalPrice: 200000, discountPercent: 25, credits: 15, duration: 7, description: 'Nổi bật liên tục trong suốt 1 tuần', perks: [...defaultPerksFeatured, 'Hiển thị trong email newsletter'], isPopular: true },
-  { id: 'featured-month', name: 'Featured Month', type: 'featured', originalPrice: 499000, discountPercent: 30, credits: 50, duration: 30, description: 'Tối đa hoá doanh số với gói nổi bật cả tháng', perks: [...defaultPerksFeatured, 'Hiển thị trong email newsletter', 'Phân tích chuyên sâu', 'Hỗ trợ VIP'] },
-];
-
-function PackageEditor({
-  pkg,
-  onSave,
-  onCancel,
-  colorScheme,
-}: {
-  pkg: PackageConfig;
-  onSave: (updated: PackageConfig) => void;
-  onCancel: () => void;
-  colorScheme: 'blue' | 'orange';
-}) {
-  const [form, setForm] = useState<PackageConfig>({ ...pkg });
-  const [newPerk, setNewPerk] = useState('');
-
-  const accent = colorScheme === 'blue' ? 'focus:ring-blue-500 border-blue-300' : 'focus:ring-[#C4603A] border-orange-300';
-  const finalPrice = calcFinalPrice(form.originalPrice, form.discountPercent);
-
-  const addPerk = () => {
-    if (newPerk.trim()) {
-      setForm({ ...form, perks: [...form.perks, newPerk.trim()] });
-      setNewPerk('');
-    }
-  };
-
-  const removePerk = (i: number) => {
-    setForm({ ...form, perks: form.perks.filter((_, idx) => idx !== i) });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Tên gói</label>
-        <input
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 text-sm ${accent}`}
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Mô tả ngắn</label>
-        <input
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 text-sm ${accent}`}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Giá gốc (đ)</label>
-          <input
-            type="number"
-            value={form.originalPrice}
-            onChange={(e) => setForm({ ...form, originalPrice: parseInt(e.target.value) || 0 })}
-            className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 text-sm ${accent}`}
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">% Giảm giá</label>
-          <div className="relative">
-            <input
-              type="number"
-              min="0"
-              max="99"
-              value={form.discountPercent}
-              onChange={(e) => setForm({ ...form, discountPercent: Math.min(99, parseInt(e.target.value) || 0) })}
-              className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 text-sm pr-7 ${accent}`}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Auto-calculated final price */}
-      <div className="bg-gray-50 rounded-xl px-3 py-2.5 flex items-center justify-between">
-        <span className="text-xs text-gray-500 flex items-center space-x-1">
-          <Tag className="w-3.5 h-3.5" />
-          <span>Giá chính thức (tự tính):</span>
-        </span>
-        <span className={`font-bold text-sm ${colorScheme === 'blue' ? 'text-blue-600' : 'text-[#C4603A]'}`}>
-          {finalPrice.toLocaleString('vi-VN')}đ
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Số Credits</label>
-          <input
-            type="number"
-            value={form.credits}
-            onChange={(e) => setForm({ ...form, credits: parseInt(e.target.value) || 0 })}
-            className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 text-sm ${accent}`}
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Thời hạn (ngày)</label>
-          <input
-            type="number"
-            value={form.duration}
-            onChange={(e) => setForm({ ...form, duration: parseInt(e.target.value) || 0 })}
-            className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 text-sm ${accent}`}
-          />
-        </div>
-      </div>
-
-      {/* Perks */}
-      <div>
-        <label className="block text-xs text-gray-500 mb-2">Đặc quyền gói</label>
-        <div className="space-y-1.5 mb-2">
-          {form.perks.map((perk, i) => (
-            <div key={i} className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-1.5">
-              <span className="text-xs text-gray-700 flex-1">{perk}</span>
-              <button onClick={() => removePerk(i)} className="text-red-400 hover:text-red-600 transition-colors">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="flex space-x-2">
-          <input
-            value={newPerk}
-            onChange={(e) => setNewPerk(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addPerk()}
-            placeholder="Thêm đặc quyền mới..."
-            className={`flex-1 px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 text-xs ${accent}`}
-          />
-          <button onClick={addPerk} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex space-x-2 pt-2">
-        <button
-          onClick={() => onSave(form)}
-          className={`flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl text-white text-sm font-medium transition-colors ${colorScheme === 'blue' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-[#C4603A] hover:bg-[#b35534]'}`}
-        >
-          <Check className="w-4 h-4" />
-          <span>Lưu thay đổi</span>
-        </button>
-        <button
-          onClick={onCancel}
-          className="px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function PackageCard({ pkg, colorScheme, onEdit }: { pkg: PackageConfig; colorScheme: 'blue' | 'orange'; onEdit: () => void }) {
-  const finalPrice = calcFinalPrice(pkg.originalPrice, pkg.discountPercent);
-  const borderColor = colorScheme === 'blue' ? 'border-blue-200' : 'border-[#C4603A]/30';
-  const accentColor = colorScheme === 'blue' ? 'text-blue-600' : 'text-[#C4603A]';
-  const bgColor = colorScheme === 'blue' ? 'bg-blue-50' : 'bg-orange-50';
-  const badgeBg = colorScheme === 'blue' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700';
-
-  return (
-    <div className={`bg-white rounded-2xl shadow-sm border-2 ${borderColor} p-6 relative flex flex-col`}>
-      {pkg.isPopular && (
-        <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-xs px-3 py-1 rounded-full font-semibold ${badgeBg}`}>
-          Phổ biến nhất
-        </div>
-      )}
-
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h4 className="text-lg font-bold text-gray-900">{pkg.name}</h4>
-          <p className="text-xs text-gray-500 mt-0.5">{pkg.description}</p>
-        </div>
-        <button
-          onClick={onEdit}
-          className={`p-2 rounded-xl transition-colors ${colorScheme === 'blue' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'bg-orange-50 text-[#C4603A] hover:bg-orange-100'}`}
-        >
-          <Edit2 className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Pricing */}
-      <div className={`${bgColor} rounded-xl p-4 mb-4`}>
-        <div className="flex items-baseline space-x-2">
-          <span className={`text-2xl font-bold ${accentColor}`}>{finalPrice.toLocaleString('vi-VN')}đ</span>
-          {pkg.discountPercent > 0 && (
-            <span className="text-sm text-gray-400 line-through">{pkg.originalPrice.toLocaleString('vi-VN')}đ</span>
-          )}
-        </div>
-        {pkg.discountPercent > 0 && (
-          <div className={`text-xs font-medium mt-1 ${accentColor}`}>Giảm {pkg.discountPercent}%</div>
-        )}
-        <div className="flex items-center space-x-3 mt-2 text-xs text-gray-600">
-          <span className="font-semibold">{pkg.credits} credits</span>
-          <span>·</span>
-          <span>{pkg.duration} ngày</span>
-          <span>·</span>
-          <span>{Math.round(finalPrice / pkg.credits).toLocaleString('vi-VN')}đ/credit</span>
-        </div>
-      </div>
-
-      {/* Perks */}
-      <div className="space-y-1.5 flex-1">
-        {pkg.perks.map((perk, i) => (
-          <div key={i} className="flex items-start space-x-2 text-xs text-gray-600">
-            <span className={`mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${colorScheme === 'blue' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-[#C4603A]'}`}>
-              <Check className="w-2.5 h-2.5" />
-            </span>
-            <span>{perk}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+interface CreditPackageApi {
+  paidCreditPackageId: number;
+  name: string;
+  creditTypeId: number;
+  creditTypeName: string;
+  creditAmount: number;
+  durationDays: number | null;
+  originalPrice: number;
+  discountRate: number;
+  discountedPrice: number;
+  rewardBadgeId?: number | null;
+  isActive: boolean;
+  descriptions: string[];
 }
 
 export default function AdminPackagesPage() {
-  const [packages, setPackages] = useState<PackageConfig[]>(initialPackages);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [packages, setPackages] = useState<CreditPackageApi[]>([]);
+  const [badges, setBadges] = useState<BadgeApi[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = (updated: PackageConfig) => {
-    setPackages(packages.map((p) => (p.id === updated.id ? updated : p)));
-    setEditingId(null);
+  const [editingPackage, setEditingPackage] = useState<CreditPackageApi | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const fetchPackages = async () => {
+    setIsLoading(true);
+    try {
+      const response = await authClient.get<ApiResponse<CreditPackageApi[]>>(
+        '/CreditPackages/active',
+        { skipAuthRefresh: true }
+      );
+      setPackages(response.data.data || []);
+    } catch (err) {
+      console.error(err);
+      setError('Lỗi khi tải danh sách gói.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSaveAll = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const fetchBadges = async () => {
+    try {
+      const response = await authClient.get<ApiResponse<BadgeApi[]>>('/Admin/Badges');
+      setBadges(response.data.data || []);
+    } catch (err) {
+      console.error('Lỗi tải danh sách badges', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPackages();
+    fetchBadges();
+  }, []);
+
+  const postingPackages = packages.filter((p) => p.creditTypeName.toLowerCase() !== 'featured');
+  const featuredPackages = packages.filter((p) => p.creditTypeName.toLowerCase() === 'featured');
+
+  const handleEditClick = (pkg: CreditPackageApi) => {
+    setEditingPackage({ ...pkg, descriptions: [...(pkg.descriptions || [])] });
+    setFormError(null);
+  };
+
+  const handleSave = async () => {
+    if (!editingPackage) return;
+    
+    // Validation
+    if (!editingPackage.name.trim()) {
+      setFormError('Tên gói không được để trống.');
+      return;
+    }
+    if (editingPackage.originalPrice < 0) {
+      setFormError('Giá gốc không hợp lệ.');
+      return;
+    }
+    if (editingPackage.discountRate < 0 || editingPackage.discountRate > 100) {
+      setFormError('Phần trăm khuyến mãi phải từ 0 đến 100.');
+      return;
+    }
+    if (editingPackage.discountedPrice < 0 || editingPackage.discountedPrice > editingPackage.originalPrice) {
+      setFormError('Giá khuyến mãi phải lớn hơn bằng 0 và không được vượt quá giá gốc.');
+      return;
+    }
+
+    setFormError(null);
+    setIsSaving(true);
+    try {
+      await updateCreditPackage(editingPackage.paidCreditPackageId, {
+        name: editingPackage.name,
+        originalPrice: editingPackage.originalPrice,
+        discountRate: editingPackage.discountRate,
+        discountedPrice: editingPackage.discountedPrice,
+        isActive: editingPackage.isActive,
+        rewardBadgeId: editingPackage.rewardBadgeId || null,
+        descriptions: editingPackage.descriptions.filter(d => d.trim() !== ''),
+      });
+      setEditingPackage(null);
+      fetchPackages();
+    } catch (err: any) {
+      console.error(err);
+      setFormError(err.response?.data?.message || 'Có lỗi xảy ra khi lưu.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Auto calculate discounted price when rate or original price changes
+  const handleOriginalPriceChange = (val: number) => {
+    if (!editingPackage) return;
+    const originalPrice = isNaN(val) || val < 0 ? 0 : val;
+    let discountRate = editingPackage.discountRate;
+    let discountedPrice = editingPackage.discountedPrice;
+
+    if (originalPrice === 0) {
+      discountRate = 0;
+      discountedPrice = 0;
+    } else {
+      discountedPrice = Math.round(originalPrice * (1 - discountRate / 100));
+    }
+
+    setEditingPackage({
+      ...editingPackage,
+      originalPrice,
+      discountRate,
+      discountedPrice
+    });
+  };
+
+  const handleDiscountRateChange = (val: number) => {
+    if (!editingPackage) return;
+    const rate = isNaN(val) ? 0 : Math.max(0, Math.min(100, val));
+    const discountedPrice = Math.round(editingPackage.originalPrice * (1 - rate / 100));
+    setEditingPackage({
+      ...editingPackage,
+      discountRate: rate,
+      discountedPrice
+    });
+  };
+
+  const handleDiscountedPriceChange = (val: number) => {
+    if (!editingPackage) return;
+    const price = isNaN(val) ? 0 : Math.max(0, val);
+    setEditingPackage({
+      ...editingPackage,
+      discountedPrice: price
+    });
+  };
+
+  const handleDescChange = (index: number, val: string) => {
+    if (!editingPackage) return;
+    const newDescs = [...editingPackage.descriptions];
+    newDescs[index] = val;
+    setEditingPackage({ ...editingPackage, descriptions: newDescs });
+  };
+
+  const handleAddDesc = () => {
+    if (!editingPackage) return;
+    setEditingPackage({ ...editingPackage, descriptions: [...editingPackage.descriptions, ''] });
+  };
+
+  const handleRemoveDesc = (index: number) => {
+    if (!editingPackage) return;
+    const newDescs = [...editingPackage.descriptions];
+    newDescs.splice(index, 1);
+    setEditingPackage({ ...editingPackage, descriptions: newDescs });
+  };
+
+  const handleMoveDescUp = (index: number) => {
+    if (!editingPackage || index === 0) return;
+    const newDescs = [...editingPackage.descriptions];
+    const temp = newDescs[index - 1];
+    newDescs[index - 1] = newDescs[index];
+    newDescs[index] = temp;
+    setEditingPackage({ ...editingPackage, descriptions: newDescs });
+  };
+
+  const handleMoveDescDown = (index: number) => {
+    if (!editingPackage || index === editingPackage.descriptions.length - 1) return;
+    const newDescs = [...editingPackage.descriptions];
+    const temp = newDescs[index + 1];
+    newDescs[index + 1] = newDescs[index];
+    newDescs[index] = temp;
+    setEditingPackage({ ...editingPackage, descriptions: newDescs });
   };
 
   return (
     <AdminLayout>
-      <div className="mb-8">
-        <h2 className="text-3xl text-gray-900 mb-2">Quản Lý Gói Credits</h2>
-        <p className="text-gray-600">Cấu hình giá, credits và đặc quyền cho từng gói — đồng bộ với trang nạp credit của người dùng</p>
-      </div>
-
-      {/* Posting Packages */}
-      <div className="mb-10">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
-            <Tag className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Gói Credit Đăng Tin</h3>
-            <p className="text-xs text-gray-500">Dùng để đăng sản phẩm lên marketplace</p>
-          </div>
+      <div className="p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+            <Sparkles className="w-8 h-8 text-[#2D5A3D]" />
+            Quản Lý Gói Tín Dụng
+          </h1>
+          <p className="text-gray-500 mt-2">Đồng bộ với giao diện hiển thị cho người dùng.</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {packages.filter((p) => p.type === 'posting').map((pkg) => (
-            <div key={pkg.id}>
-              {editingId === pkg.id ? (
-                <div className="bg-white rounded-2xl shadow-sm border-2 border-blue-300 p-6">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-4">Chỉnh sửa: {pkg.name}</h4>
-                  <PackageEditor
-                    pkg={pkg}
-                    colorScheme="blue"
-                    onSave={handleSave}
-                    onCancel={() => setEditingId(null)}
+        {isLoading ? (
+          <p>Đang tải...</p>
+        ) : error ? (
+          <p className="text-red-500">{error}</p>
+        ) : (
+          <div className="space-y-16">
+            {/* GÓI ĐĂNG TIN */}
+            <section>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Gói Đăng Tin</h2>
+                <p className="text-gray-500">Giúp người bán tăng số lượng tin đăng tiêu chuẩn</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                {postingPackages.map((pkg) => (
+                  <div key={pkg.paidCreditPackageId} className="relative bg-white rounded-3xl shadow-lg p-8 hover:shadow-2xl transition-all border border-gray-100 flex flex-col">
+                    <div className="absolute top-6 right-6">
+                      <span className="bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-xs font-bold">
+                        Đăng Tin
+                      </span>
+                    </div>
+
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
+                    <div className="flex items-baseline gap-2 mb-6">
+                      <span className="text-4xl font-black text-gray-900">
+                        {pkg.discountedPrice.toLocaleString('vi-VN')}đ
+                      </span>
+                      {pkg.discountRate > 0 && pkg.originalPrice > 0 && (
+                        <span className="text-lg text-gray-400 line-through">
+                          {pkg.originalPrice.toLocaleString('vi-VN')}đ
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-50/50 rounded-2xl p-4 mb-8">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                          <span className="font-bold text-blue-600">+{pkg.creditAmount}</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">Credits Đăng Tin</p>
+                          <p className="text-sm text-gray-500">HSD: Vĩnh viễn</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-4 mb-8 flex-1">
+                      {pkg.descriptions.map((desc, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <span className="text-gray-600 leading-relaxed">{desc}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      onClick={() => handleEditClick(pkg)}
+                      className="w-full py-4 px-6 rounded-xl font-bold flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors mt-auto"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                      <span>Chỉnh Sửa Gói</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* GÓI NỔI BẬT */}
+            <section>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Gói Nổi Bật</h2>
+                <p className="text-gray-500">Tiếp cận hàng ngàn khách hàng tiềm năng</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                {featuredPackages.map((pkg) => (
+                  <div key={pkg.paidCreditPackageId} className="relative bg-white rounded-3xl shadow-lg p-8 hover:shadow-2xl transition-all border border-gray-100 flex flex-col">
+                    <div className="absolute top-6 right-6">
+                      <span className="bg-orange-100 text-[#C4603A] px-4 py-1.5 rounded-full text-xs font-bold">
+                        Nổi Bật
+                      </span>
+                    </div>
+
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
+                    <div className="flex items-baseline gap-2 mb-6">
+                      <span className="text-4xl font-black text-gray-900">
+                        {pkg.discountedPrice.toLocaleString('vi-VN')}đ
+                      </span>
+                      {pkg.discountRate > 0 && pkg.originalPrice > 0 && (
+                        <span className="text-lg text-gray-400 line-through">
+                          {pkg.originalPrice.toLocaleString('vi-VN')}đ
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="bg-orange-50/50 rounded-2xl p-4 mb-8">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                          <span className="font-bold text-[#C4603A]">+{pkg.creditAmount}</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">Credits Nổi Bật</p>
+                          <p className="text-sm text-gray-500">HSD: Vĩnh viễn</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-4 mb-8 flex-1">
+                      {pkg.descriptions.map((desc, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Check className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <span className="text-gray-600 leading-relaxed">{desc}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      onClick={() => handleEditClick(pkg)}
+                      className="w-full py-4 px-6 rounded-xl font-bold flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors mt-auto"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                      <span>Chỉnh Sửa Gói</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
+
+      {/* EDIT MODAL */}
+      {editingPackage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-2xl font-bold text-gray-900">Chỉnh sửa: {editingPackage.name}</h2>
+              <button onClick={() => setEditingPackage(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto flex-1 space-y-6">
+              {formError && (
+                <div className="p-4 bg-red-50 text-red-600 rounded-xl font-medium border border-red-100">
+                  {formError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Tên gói</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none"
+                    value={editingPackage.name}
+                    onChange={(e) => setEditingPackage({ ...editingPackage, name: e.target.value })}
                   />
                 </div>
-              ) : (
-                <PackageCard pkg={pkg} colorScheme="blue" onEdit={() => setEditingId(pkg.id)} />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Trạng thái (IsActive)</label>
+                  <select
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none"
+                    value={editingPackage.isActive ? 'true' : 'false'}
+                    onChange={(e) => setEditingPackage({ ...editingPackage, isActive: e.target.value === 'true' })}
+                  >
+                    <option value="true">Hiển thị (Active)</option>
+                    <option value="false">Ẩn (Inactive)</option>
+                  </select>
+                </div>
+              </div>
 
-      {/* Featured Packages */}
-      <div className="mb-10">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-8 h-8 bg-orange-100 rounded-xl flex items-center justify-center">
-            <Tag className="w-4 h-4 text-[#C4603A]" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Gói Credit Nổi Bật</h3>
-            <p className="text-xs text-gray-500">Dùng để nâng cao hiển thị sản phẩm</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {packages.filter((p) => p.type === 'featured').map((pkg) => (
-            <div key={pkg.id}>
-              {editingId === pkg.id ? (
-                <div className="bg-white rounded-2xl shadow-sm border-2 border-[#C4603A]/40 p-6">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-4">Chỉnh sửa: {pkg.name}</h4>
-                  <PackageEditor
-                    pkg={pkg}
-                    colorScheme="orange"
-                    onSave={handleSave}
-                    onCancel={() => setEditingId(null)}
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Giá gốc (VNĐ)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none"
+                    value={editingPackage.originalPrice}
+                    onChange={(e) => handleOriginalPriceChange(Number(e.target.value))}
+                    min="0"
                   />
                 </div>
-              ) : (
-                <PackageCard pkg={pkg} colorScheme="orange" onEdit={() => setEditingId(pkg.id)} />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Khuyến mãi (%)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                    value={editingPackage.discountRate}
+                    onChange={(e) => handleDiscountRateChange(Number(e.target.value))}
+                    min="0"
+                    max="100"
+                    disabled={editingPackage.originalPrice === 0}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Giá sau KM (VNĐ)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                    value={editingPackage.discountedPrice}
+                    onChange={(e) => handleDiscountedPriceChange(Number(e.target.value))}
+                    min="0"
+                    disabled={editingPackage.originalPrice === 0}
+                  />
+                </div>
+              </div>
 
-      {/* Save All */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleSaveAll}
-          className={`flex items-center space-x-2 px-8 py-4 rounded-full transition-all ${
-            saved
-              ? 'bg-green-500 text-white'
-              : 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white hover:shadow-lg hover:scale-105'
-          }`}
-        >
-          {saved ? <Check className="w-5 h-5" /> : <Save className="w-5 h-5" />}
-          <span>{saved ? 'Đã lưu thành công!' : 'Lưu Tất Cả Cấu Hình'}</span>
-        </button>
-      </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Reward Badge (Tuỳ chọn)</label>
+                <select
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none"
+                  value={editingPackage.rewardBadgeId || ''}
+                  onChange={(e) => setEditingPackage({ ...editingPackage, rewardBadgeId: e.target.value ? Number(e.target.value) : null })}
+                >
+                  <option value="">-- Không có Badge --</option>
+                  {badges.map(b => (
+                    <option key={b.badgeId} value={b.badgeId}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Danh sách quyền lợi (Descriptions)</label>
+                <div className="space-y-3">
+                  {editingPackage.descriptions.map((desc, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleMoveDescUp(i)} 
+                        disabled={i === 0}
+                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                      >
+                        <ArrowUp className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => handleMoveDescDown(i)} 
+                        disabled={i === editingPackage.descriptions.length - 1}
+                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                      >
+                        <ArrowDown className="w-5 h-5" />
+                      </button>
+                      <input
+                        type="text"
+                        className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] outline-none"
+                        value={desc}
+                        onChange={(e) => handleDescChange(i, e.target.value)}
+                      />
+                      <button onClick={() => handleRemoveDesc(i)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={handleAddDesc} className="flex items-center gap-2 text-[#2D5A3D] font-medium hover:underline p-2">
+                    <Plus className="w-4 h-4" /> Thêm quyền lợi
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-4">
+              <button onClick={() => setEditingPackage(null)} className="px-6 py-2.5 rounded-xl font-semibold text-gray-600 hover:bg-gray-200 transition-colors">
+                Hủy
+              </button>
+              <button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="px-6 py-2.5 rounded-xl font-bold text-white bg-[#2D5A3D] hover:bg-[#1f422b] transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSaving ? 'Đang lưu...' : <><Save className="w-5 h-5" /> Lưu Thay Đổi</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

@@ -1,6 +1,6 @@
 import { authClient } from '../../../providers/authProvider/authService';
 import { ApiResponse } from '../../auth/types';
-import { UserProfile, UpdateProfileDto } from '../types';
+import { UserProfile, UpdateProfileDto, BadgeResponseDto } from '../types';
 
 /**
  * Fetch the currently authenticated user's profile
@@ -43,6 +43,22 @@ export const uploadAvatarAPI = async (file: File): Promise<{ success: boolean; m
       'Content-Type': 'multipart/form-data',
     },
   });
+  return response.data;
+};
+
+/**
+ * Fetch all available badges
+ */
+export const getBadgesAPI = async (): Promise<ApiResponse<BadgeResponseDto[]>> => {
+  const response = await authClient.get<ApiResponse<BadgeResponseDto[]>>('/users/badges');
+  return response.data;
+};
+
+/**
+ * Update active badge for current user
+ */
+export const updateMyBadgeAPI = async (badgeId: number | null): Promise<ApiResponse<UserProfile>> => {
+  const response = await authClient.put<ApiResponse<UserProfile>>('/users/me/badge', { badgeId });
   return response.data;
 };
 

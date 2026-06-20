@@ -28,14 +28,18 @@ import TermsOfUsePage from './pages/Features/TermsOfUsePage';
 import PrivacyPolicyPage from './pages/Features/PrivacyPolicyPage';
 import PaymentGuidePage from './pages/Features/PaymentGuidePage';
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
+import FeedbackPage from './pages/Features/FeedbackPage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import AdminRevenuePage from './pages/Admin/AdminRevenuePage';
 import AdminPackagesPage from './pages/Admin/AdminPackagesPage';
 import AdminUsersPage from './pages/Admin/AdminUsersPage';
 import AdminPostsPage from './pages/Admin/AdminPostsPage';
 import AdminNotificationsPage from './pages/Admin/AdminNotificationsPage';
+import AdminFeedbacksPage from './pages/Admin/AdminFeedbacksPage';
+import AdminAnnouncementsPage from './pages/Admin/AdminAnnouncementsPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import FirstLoginRewardPopup from './components/common/FirstLoginRewardPopup';
+import AnnouncementPopup from './components/common/AnnouncementPopup';
 
 export interface AdminContextType {
   onLogout: () => void;
@@ -43,7 +47,7 @@ export interface AdminContextType {
 }
 
 export const AdminContext = createContext<AdminContextType>({
-  onLogout: () => {},
+  onLogout: () => { },
   currentUser: null,
 });
 
@@ -121,6 +125,8 @@ function UserLayout() {
       {showFirstLoginPopup && (
         <FirstLoginRewardPopup onClose={handleCloseFirstLoginPopup} />
       )}
+
+      {isLoggedIn && <AnnouncementPopup />}
     </div>
   );
 }
@@ -180,12 +186,13 @@ function AppContent() {
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/category/:name" element={<HomePage />} />
         <Route path="/profile/:id" element={<UserProfilePage />} />
-        
+
         {/* Static content pages */}
         <Route path="/terms-of-use" element={<TermsOfUsePage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/payment-guide" element={<PaymentGuidePage />} />
-        
+        <Route path="/feedback" element={<FeedbackPage />} />
+
         {/* System Error Pages */}
         <Route path="/error/404" element={<ErrorPage errorCode="404" />} />
         <Route path="/error/500" element={<ErrorPage errorCode="500" />} />
@@ -214,6 +221,8 @@ function AppContent() {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/posts" element={<AdminPostsPage />} />
           <Route path="/admin/notifications" element={<AdminNotificationsPage />} />
+          <Route path="/admin/feedbacks" element={<AdminFeedbacksPage />} />
+          <Route path="/admin/announcements" element={<AdminAnnouncementsPage />} />
         </Route>
       </Route>
     </Routes>
@@ -225,8 +234,8 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <WishlistProvider>
-          <Toaster 
-            position="top-center" 
+          <Toaster
+            position="top-center"
             toastOptions={{
               style: {
                 borderRadius: '16px',

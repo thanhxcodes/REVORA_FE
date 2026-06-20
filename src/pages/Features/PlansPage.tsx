@@ -24,13 +24,14 @@ interface CreditPackageApi {
   creditTypeId: number;
   creditTypeName: string;
   creditAmount: number;
-  durationDays: number;
+  durationDays: number | null;
   originalPrice: number;
   discountRate: number;
   discountedPrice: number;
   rewardBadgeId?: number | null;
   rewardBadge?: RewardBadgeApi | null;
   isActive: boolean;
+  descriptions: string[];
 }
 
 const formatTransactionDateTime = (isoDate: string) => {
@@ -171,7 +172,7 @@ interface Package {
   originalPrice?: number;
   discountPercent?: number;
   credits: number;
-  duration: number;
+  duration: number | null;
   badge: string;
   badgeColor: string;
   features: string[];
@@ -179,7 +180,7 @@ interface Package {
   tier: number;
 }
 
-type PackagePurchaseState = 'in_use' | 'available' | 'locked' | 'pending';
+type PackagePurchaseState = 'available' | 'locked' | 'pending';
 
 interface CreditTypePurchaseStatus {
   isTypeLocked: boolean;
@@ -212,9 +213,9 @@ const resolveActivePackageId = (
     return matchedByName.id;
   }
 
-  const durationMatch = batch.packageName.match(/(\d+)\s*ngày/i);
-  if (durationMatch) {
-    const packageId = `${creditType}-${durationMatch[1]}`;
+  const nameMatch = batch.packageName.match(/Gói\s*(Cơ Bản|Tiêu Chuẩn|Nâng Cao)/i);
+  if (nameMatch) {
+    const packageId = `${creditType}-${batch.packageId}`;
     if (packages.some((pkg) => pkg.id === packageId)) {
       return packageId;
     }
@@ -250,18 +251,9 @@ const computeCreditTypePurchaseStatus = (
     };
   }
 
-  const activePaidBatch = summary.batches.find(
-    (batch) => batch.isPaid && batch.remainingCredits > 0
-  );
-
-  if (activePaidBatch) {
-    return {
-      isTypeLocked: true,
-      activePackageId: resolveActivePackageId(activePaidBatch, packages, creditType),
-    };
-  }
-
-  // Backend báo còn paid nhưng không có batch khớp — không khóa nhầm UI
+  // Frontend no longer locks packages just because they are "in use"
+  // Since packages are lifetime, users can buy more whenever they want
+  // Therefore, only lock when there is a pending order (handled above).
   return { isTypeLocked: false, activePackageId: null };
 };
 
@@ -274,7 +266,7 @@ const getPackagePurchaseState = (
   }
 
   if (status.activePackageId === packageId) {
-    return status.pendingOrderCheckoutUrl ? 'pending' : 'in_use';
+    return status.pendingOrderCheckoutUrl ? 'pending' : 'available';
   }
 
   return 'locked';
@@ -282,20 +274,20 @@ const getPackagePurchaseState = (
 
 
 
-const postingPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
-  1: {
+const postingPackageMeta: Record<string, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
+  'Gói Cơ Bản': {
     badge: 'Cơ bản',
     badgeColor: 'bg-blue-100 text-blue-800',
     cta: 'Mua Ngay',
     tier: 1,
   },
-  7: {
+  'Gói Tiêu Chuẩn': {
     badge: 'Phổ Biến',
     badgeColor: 'bg-purple-100 text-purple-800',
     cta: 'Chọn Gói',
     tier: 2,
   },
-  30: {
+  'Gói Nâng Cao': {
     badge: 'Tiết Kiệm Nhất',
     badgeColor: 'bg-green-100 text-green-800',
     cta: 'Nhận Gói',
@@ -303,20 +295,20 @@ const postingPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 
   },
 };
 
-const featuredPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
-  1: {
+const featuredPackageMeta: Record<string, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
+  'Gói Cơ Bản': {
     badge: 'Tăng Tốc Nhanh',
     badgeColor: 'bg-orange-100 text-orange-800',
     cta: 'Tăng Tốc',
     tier: 1,
   },
-  7: {
+  'Gói Tiêu Chuẩn': {
     badge: 'Được Đề Xuất',
     badgeColor: 'bg-pink-100 text-pink-800',
     cta: 'Nâng Cấp',
     tier: 2,
   },
-  30: {
+  'Gói Nâng Cao': {
     badge: 'Tối Ưu Cao Cấp',
     badgeColor: 'bg-yellow-100 text-yellow-800',
     cta: 'Mở Khóa',
@@ -324,75 +316,12 @@ const featuredPackageMeta: Record<number, Pick<Package, 'badge' | 'badgeColor' |
   },
 };
 
-const postingFeatures = (credits: number, durationDays: number, discountRate: number): string[] => {
-  const savingsLine =
-    discountRate > 0 ? `Tiết kiệm ${discountRate}% so với gói ngày` : null;
-
-  const featuresByDuration: Record<number, string[]> = {
-    1: [
-      `${credits} credits đăng tin cơ bản`,
-      'Hiển thị sản phẩm trong 30 ngày',
-      'Liên hệ người mua qua chat/Zalo',
-      'Khả năng hiển thị tiêu chuẩn',
-    ],
-    7: [
-      `${credits} credits đăng tin cơ bản`,
-      ...(savingsLine ? [savingsLine] : []),
-      'Tất cả tính năng Gói 1 Ngày',
-    ],
-    30: [
-      `${credits} credits đăng tin cơ bản`,
-      ...(savingsLine ? [savingsLine] : []),
-      'Tất cả tính năng Gói 7 Ngày',
-    ],
-  };
-
-  return featuresByDuration[durationDays] ?? [`${credits} credits đăng tin cơ bản`];
-};
-
-const featuredFeatures = (
-  credits: number,
-  durationDays: number,
-  discountRate: number,
-  rewardBadge?: RewardBadgeApi | null
-): string[] => {
-  const savingsLine =
-    discountRate > 0 ? `Tiết kiệm ${discountRate}% so với gói ngày` : null;
-  const rewardBadgeLine = rewardBadge?.name
-    ? `Badge cao cấp "${rewardBadge.name}"`
-    : null;
-
-  const featuresByDuration: Record<number, string[]> = {
-    1: [
-      `${credits} credits nổi bật`,
-      'Mở khóa upload video Shorts',
-      'Mở khóa hiển thị trên Banner',
-      'Hiển thị sản phẩm trong 60 ngày',
-      'Viền sản phẩm nổi bật',
-      'Xuất hiện trên BXH Tuần',
-    ],
-    7: [
-      `${credits} credits nổi bật`,
-      ...(savingsLine ? [savingsLine] : []),
-      'Tất cả tính năng Gói 1 Ngày',
-    ],
-    30: [
-      `${credits} credits nổi bật`,
-      ...(savingsLine ? [savingsLine] : []),
-      ...(rewardBadgeLine ? [rewardBadgeLine] : []),
-      'Tất cả tính năng Gói 1 Ngày',
-    ],
-  };
-
-  return featuresByDuration[durationDays] ?? [`${credits} credits nổi bật`];
-};
-
-const buildFeaturedCta = (pkg: CreditPackageApi, durationDays: number) => {
+const buildFeaturedCta = (pkg: CreditPackageApi) => {
   if (pkg.rewardBadge?.name) {
     return `Mở Khóa ${pkg.rewardBadge.name}`;
   }
 
-  return featuredPackageMeta[durationDays]?.cta ?? 'Mở Khóa';
+  return featuredPackageMeta[pkg.name]?.cta ?? 'Mở Khóa';
 };
 
 const mapPackagePricing = (pkg: CreditPackageApi) => {
@@ -405,15 +334,15 @@ const mapPackagePricing = (pkg: CreditPackageApi) => {
   };
 };
 
-const buildPackageId = (creditTypeName: string, durationDays: number) => {
+const buildPackageId = (creditTypeName: string, name: string, packageId: number) => {
   const typeSlug = creditTypeName.toLowerCase() === 'featured' ? 'featured' : 'posting';
-  return `${typeSlug}-${durationDays}`;
+  return `${typeSlug}-${packageId}`;
 };
 
 const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; featured: Package[] } => {
   const sortedPackages = [...packages].sort((first, second) => {
     if (first.creditTypeName === second.creditTypeName) {
-      return first.durationDays - second.durationDays;
+      return first.creditAmount - second.creditAmount;
     }
 
     return first.creditTypeName.toLowerCase() === 'posting' ? -1 : 1;
@@ -422,33 +351,33 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
   const posting = sortedPackages
     .filter((pkg) => pkg.creditTypeName.toLowerCase() === 'posting')
     .map<Package>((pkg) => ({
-      id: buildPackageId(pkg.creditTypeName, pkg.durationDays),
+      id: buildPackageId(pkg.creditTypeName, pkg.name, pkg.paidCreditPackageId),
       paidCreditPackageId: pkg.paidCreditPackageId,
       title: pkg.name,
       ...mapPackagePricing(pkg),
       credits: pkg.creditAmount,
       duration: pkg.durationDays,
-      badge: postingPackageMeta[pkg.durationDays]?.badge ?? 'Gói',
-      badgeColor: postingPackageMeta[pkg.durationDays]?.badgeColor ?? 'bg-gray-100 text-gray-800',
-      features: postingFeatures(pkg.creditAmount, pkg.durationDays, pkg.discountRate),
-      cta: postingPackageMeta[pkg.durationDays]?.cta ?? 'Mở Khóa',
-      tier: postingPackageMeta[pkg.durationDays]?.tier ?? pkg.durationDays,
+      badge: postingPackageMeta[pkg.name]?.badge ?? 'Gói',
+      badgeColor: postingPackageMeta[pkg.name]?.badgeColor ?? 'bg-gray-100 text-gray-800',
+      features: pkg.descriptions ?? [],
+      cta: postingPackageMeta[pkg.name]?.cta ?? 'Mở Khóa',
+      tier: postingPackageMeta[pkg.name]?.tier ?? 1,
     }));
 
   const featured = sortedPackages
     .filter((pkg) => pkg.creditTypeName.toLowerCase() === 'featured')
     .map<Package>((pkg) => ({
-      id: buildPackageId(pkg.creditTypeName, pkg.durationDays),
+      id: buildPackageId(pkg.creditTypeName, pkg.name, pkg.paidCreditPackageId),
       paidCreditPackageId: pkg.paidCreditPackageId,
       title: pkg.name,
       ...mapPackagePricing(pkg),
       credits: pkg.creditAmount,
       duration: pkg.durationDays,
-      badge: featuredPackageMeta[pkg.durationDays]?.badge ?? 'Gói',
-      badgeColor: featuredPackageMeta[pkg.durationDays]?.badgeColor ?? 'bg-gray-100 text-gray-800',
-      features: featuredFeatures(pkg.creditAmount, pkg.durationDays, pkg.discountRate, pkg.rewardBadge),
-      cta: buildFeaturedCta(pkg, pkg.durationDays),
-      tier: featuredPackageMeta[pkg.durationDays]?.tier ?? pkg.durationDays,
+      badge: featuredPackageMeta[pkg.name]?.badge ?? 'Gói',
+      badgeColor: featuredPackageMeta[pkg.name]?.badgeColor ?? 'bg-gray-100 text-gray-800',
+      features: pkg.descriptions ?? [],
+      cta: buildFeaturedCta(pkg),
+      tier: featuredPackageMeta[pkg.name]?.tier ?? 1,
     }));
 
   return { posting, featured };
@@ -503,16 +432,6 @@ const renderPackagePurchaseButton = (
   isAnyLoading: boolean,
   status?: CreditTypePurchaseStatus
 ) => {
-  if (purchaseState === 'in_use') {
-    return (
-      <button
-        disabled
-        className="w-full bg-gray-300 text-gray-600 py-4 rounded-xl font-bold cursor-not-allowed"
-      >
-        Đang Sử Dụng
-      </button>
-    );
-  }
 
   if (purchaseState === 'pending' && status) {
     return <PendingPurchaseButton expiredAt={status.pendingOrderExpiredAt} checkoutUrl={status.pendingOrderCheckoutUrl} variant={variant} />;
@@ -810,14 +729,12 @@ export default function PlansPage() {
                   </div>
                 ) : postingPackages.length > 0 ? postingPackages.map((pkg) => {
                   const purchaseState = getPackagePurchaseState(pkg.id, postingPurchaseStatus);
-                  const isInUse = purchaseState === 'in_use';
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${isInUse
-                        ? 'ring-4 ring-blue-500 scale-105'
-                        : purchaseState === 'available'
+                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${
+                        purchaseState === 'available'
                           ? 'hover:shadow-2xl hover:scale-105'
                           : 'opacity-90'
                         }`}
@@ -828,16 +745,6 @@ export default function PlansPage() {
                           {pkg.badge}
                         </span>
                       </div>
-
-                      {/* Active Plan Badge */}
-                      {isInUse && (
-                        <div className="absolute top-6 left-6">
-                          <span className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-                            <Check className="w-3 h-3" />
-                            <span>Đang Dùng</span>
-                          </span>
-                        </div>
-                      )}
 
                       <div className="mt-8">
                         <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>
@@ -920,14 +827,12 @@ export default function PlansPage() {
                   </div>
                 ) : featuredPackages.length > 0 ? featuredPackages.map((pkg) => {
                   const purchaseState = getPackagePurchaseState(pkg.id, featuredPurchaseStatus);
-                  const isInUse = purchaseState === 'in_use';
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${isInUse
-                        ? 'ring-4 ring-[#C4603A] scale-105'
-                        : purchaseState === 'available'
+                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${
+                        purchaseState === 'available'
                           ? 'hover:shadow-2xl hover:scale-105'
                           : 'opacity-90'
                         }`}
@@ -938,16 +843,6 @@ export default function PlansPage() {
                           {pkg.badge}
                         </span>
                       </div>
-
-                      {/* Active Plan Badge */}
-                      {isInUse && (
-                        <div className="absolute top-6 left-6">
-                          <span className="bg-[#C4603A] text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-                            <Check className="w-3 h-3" />
-                            <span>Đang Dùng</span>
-                          </span>
-                        </div>
-                      )}
 
                       <div className="mt-8">
                         <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>

@@ -37,6 +37,9 @@ export default function Footer() {
                 <Link to="/" className="text-white/80 hover:text-white transition-colors">Trang Chủ</Link>
               </li>
               <li>
+                <Link to="/sell" className="text-white/80 hover:text-white transition-colors">Đăng tin</Link>
+              </li>
+              <li>
                 <Link to="/shorts" className="text-white/80 hover:text-white transition-colors">Shorts</Link>
               </li>
               <li>
@@ -57,6 +60,9 @@ export default function Footer() {
               </li>
               <li>
                 <Link to="/payment-guide" className="text-white/80 hover:text-white transition-colors">Hướng Dẫn Thanh Toán</Link>
+              </li>
+              <li>
+                <Link to="/feedback" className="text-white/80 hover:text-white transition-colors">Đóng góp ý kiến</Link>
               </li>
             </ul>
           </div>

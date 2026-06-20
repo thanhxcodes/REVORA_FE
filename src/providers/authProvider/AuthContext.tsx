@@ -129,6 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       // Đảm bảo luôn dọn dẹp state ở Client kể cả khi API logout gặp lỗi mạng
       setCurrentUser(null);
+      sessionStorage.removeItem('revora_announcement_shown');
     }
   };
 

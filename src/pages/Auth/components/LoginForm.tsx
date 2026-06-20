@@ -31,6 +31,7 @@ export default function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [suggestedAccount, setSuggestedAccount] = useState<{fullName: string, avatarUrl: string, username: string} | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,9 +66,20 @@ export default function LoginForm({
     } catch (err: any) {
       console.error('Login failed:', err);
       // Extract error message from Backend
-      const serverMessage = err.response?.data?.message;
+      const serverMessage = err.response?.data?.detail || err.response?.data?.message;
       const errMsg = serverMessage || LOGIN_TXT.errorDefault;
       setError(errMsg);
+
+      const errorData = err.response?.data?.data;
+      if (errorData && errorData.fullName) {
+        setSuggestedAccount({
+          fullName: errorData.fullName,
+          avatarUrl: errorData.avatarUrl,
+          username: errorData.username
+        });
+      } else {
+        setSuggestedAccount(null);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -79,6 +91,22 @@ export default function LoginForm({
       <p className="text-gray-500 text-sm mb-6">{LOGIN_TXT.subtitle}</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {suggestedAccount && (
+          <div className="flex items-center gap-3 p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-xl mb-2 animate-fade-in">
+            <img 
+              src={suggestedAccount.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + suggestedAccount.username} 
+              alt="Avatar" 
+              className="w-10 h-10 rounded-full object-cover border border-white shadow-sm" 
+            />
+            <div>
+              <p className="text-xs text-gray-500 font-medium mb-0.5">Bạn muốn đăng nhập vào tài khoản này?</p>
+              <p className="text-sm font-bold text-gray-900 leading-tight">
+                {suggestedAccount.fullName} <span className="font-normal text-gray-500">(@{suggestedAccount.username})</span>
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Email */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">{LOGIN_TXT.emailLabel}</label>
@@ -87,7 +115,7 @@ export default function LoginForm({
             <input
               type="text"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(''); }}
+              onChange={(e) => { setEmail(e.target.value); setError(''); setSuggestedAccount(null); }}
               placeholder={LOGIN_TXT.emailPlaceholder}
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 placeholder-gray-400"
               required
