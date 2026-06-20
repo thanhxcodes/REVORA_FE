@@ -4,10 +4,21 @@ import type { CreditBatch, UserCreditBatches, UserCreditSummaryApi } from '../ty
 
 const creditPackagesUrl = (path: string) => `/CreditPackages/${path}`;
 
-const formatDate = (expiresAt: string) =>
-  new Intl.DateTimeFormat('vi-VN').format(new Date(expiresAt));
+export interface AdminUpdatePackagePayload {
+  name: string;
+  originalPrice: number;
+  discountRate: number;
+  discountedPrice: number;
+  isActive: boolean;
+  rewardBadgeId: number | null;
+  descriptions: string[];
+}
 
-const getDaysUntilExpiry = (expiresAt: string) => {
+const formatDate = (expiresAt: string | null) =>
+  expiresAt ? new Intl.DateTimeFormat('vi-VN').format(new Date(expiresAt)) : 'Vĩnh viễn';
+
+const getDaysUntilExpiry = (expiresAt: string | null) => {
+  if (!expiresAt) return undefined;
   const now = new Date();
   const expiry = new Date(expiresAt);
   const diffInMs = expiry.getTime() - now.getTime();
@@ -47,3 +58,6 @@ export const fetchUserCreditBatches = async (): Promise<UserCreditBatches> => {
 
 export const fetchMyUsageHistory = () =>
   authClient.get<ApiResponse<any[]>>(creditPackagesUrl('my-usage-history'));
+
+export const updateCreditPackage = (id: number, payload: AdminUpdatePackagePayload) =>
+  authClient.put<ApiResponse<any>>(`/CreditPackages/${id}`, payload);

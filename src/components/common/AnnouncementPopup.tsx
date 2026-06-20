@@ -23,7 +23,7 @@ export default function AnnouncementPopup() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const [hiddenAnnouncements, setHiddenAnnouncements] = useState<Record<number, boolean>>({});
+  const [isHideAll, setIsHideAll] = useState(false);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
@@ -35,21 +35,21 @@ export default function AnnouncementPopup() {
       }
 
       try {
+        const hideUntilStr = localStorage.getItem(`hide_all_announcements_until_${currentUser.id}`);
+        if (hideUntilStr) {
+          const hideUntil = parseInt(hideUntilStr, 10);
+          if (Date.now() < hideUntil) {
+            return; // Vẫn đang trong thời gian ẩn
+          } else {
+            localStorage.removeItem(`hide_all_announcements_until_${currentUser.id}`);
+          }
+        }
+
         const response = await authClient.get('/Announcement/active');
         if (response.data?.success && response.data.data && response.data.data.length > 0) {
-          const allAnnouncements: Announcement[] = response.data.data;
-          const today = new Date().toDateString();
-
-          const visibleAnnouncements = allAnnouncements.filter((a) => {
-            const key = `hide_announcement_${currentUser.id}_${a.announcementId}_${today}`;
-            return localStorage.getItem(key) !== 'true';
-          });
-
-          if (visibleAnnouncements.length > 0) {
-            setAnnouncements(visibleAnnouncements);
-            setIsVisible(true);
-            sessionStorage.setItem('revora_announcement_shown', 'true');
-          }
+          setAnnouncements(response.data.data);
+          setIsVisible(true);
+          sessionStorage.setItem('revora_announcement_shown', 'true');
         }
       } catch (error) {
         console.error('Failed to fetch announcements', error);
@@ -103,21 +103,18 @@ export default function AnnouncementPopup() {
 
   const handleToggleHideToday = () => {
     if (!currentUser) return;
-    const today = new Date().toDateString();
-    const key = `hide_announcement_${currentUser.id}_${current.announcementId}_${today}`;
+    const newHideAll = !isHideAll;
+    setIsHideAll(newHideAll);
 
-    const isCurrentlyHidden = hiddenAnnouncements[current.announcementId] || false;
-
-    if (isCurrentlyHidden) {
-      localStorage.removeItem(key);
-      setHiddenAnnouncements(prev => ({ ...prev, [current.announcementId]: false }));
+    if (newHideAll) {
+      // Ẩn trong vòng 4 giờ (4 * 60 * 60 * 1000 ms)
+      const hideUntil = Date.now() + 4 * 60 * 60 * 1000;
+      localStorage.setItem(`hide_all_announcements_until_${currentUser.id}`, hideUntil.toString());
     } else {
-      localStorage.setItem(key, 'true');
-      setHiddenAnnouncements(prev => ({ ...prev, [current.announcementId]: true }));
+      localStorage.removeItem(`hide_all_announcements_until_${currentUser.id}`);
     }
   };
 
-  const isCurrentHidden = hiddenAnnouncements[current.announcementId] || false;
   const fallbackImage = "https://res.cloudinary.com/dh4ut3b4x/image/upload/v1781037903/REVORA_Media/Products/User_4/mjitp5f6g9ftqaxra1su.jpg";
 
   return (
@@ -214,16 +211,15 @@ export default function AnnouncementPopup() {
 
             <div className="h-px bg-neutral-800 w-full my-1" />
 
-            {/* Custom Toggle Switch */}
             <div className="flex items-center justify-between py-1">
               <span className="text-neutral-500 text-xs font-light tracking-wide select-none">
-                Không nhắc lại sự kiện này trong hôm nay
+                Tạm ẩn các sự kiện trong 4 giờ tới
               </span>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={isCurrentHidden}
+                  checked={isHideAll}
                   onChange={handleToggleHideToday}
                 />
                 <div className="w-9 h-5 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-neutral-400 peer-checked:after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
