@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sparkles, Image, Check, X, QrCode, History, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, AlertCircle, XCircle } from 'lucide-react';
 import CreditDisplay from '../../components/common/CreditDisplay';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { authClient } from '../../providers/authProvider/authService';
 import type { ApiResponse } from '../../features/auth/types';
 import { useCheckout } from '../../features/payment/hooks/useCheckout';
@@ -138,8 +139,8 @@ const mapPaymentTransactions = (transactions: PaymentTransactionApi[]): Transact
     });
 
 const getTransactionAmount = (transaction: Transaction) =>
-  transaction.status === 'completed' || transaction.status === 'late_paid' 
-    ? transaction.receivedAmount 
+  transaction.status === 'completed' || transaction.status === 'late_paid'
+    ? transaction.receivedAmount
     : transaction.expectedAmount;
 
 const getTransactionStatusClass = (status: TransactionStatus) => {
@@ -183,10 +184,7 @@ interface Package {
 type PackagePurchaseState = 'available' | 'locked' | 'pending';
 
 interface CreditTypePurchaseStatus {
-  isTypeLocked: boolean;
-  activePackageId: string | null;
-  pendingOrderCheckoutUrl?: string | null;
-  pendingOrderExpiredAt?: string | null;
+  pendingOrdersByPackageId: Record<number, import('../../features/credits/types').PendingOrderInfoDto>;
 }
 
 const resolveActivePackageId = (
@@ -213,7 +211,7 @@ const resolveActivePackageId = (
     return matchedByName.id;
   }
 
-  const nameMatch = batch.packageName.match(/Gói\s*(Cơ Bản|Tiêu Chuẩn|Nâng Cao)/i);
+  const nameMatch = batch.packageName.match(/(Cơ Bản|Tiêu Chuẩn|Nâng Cao|Khởi Động|Tăng Tốc|Bứt Phá|Spotlight|Trending|Premium)/i);
   if (nameMatch) {
     const packageId = `${creditType}-${batch.packageId}`;
     if (packages.some((pkg) => pkg.id === packageId)) {
@@ -230,64 +228,43 @@ const computeCreditTypePurchaseStatus = (
   creditType: CreditType
 ): CreditTypePurchaseStatus => {
   if (!summary) {
-    return { isTypeLocked: false, activePackageId: null };
+    return { pendingOrdersByPackageId: {} };
   }
 
-  // Không còn paid credits và không có đơn chờ → mở khóa toàn bộ gói paid
-  if (!summary.hasActivePaidCredits && !summary.hasPendingPaidOrder) {
-    return { isTypeLocked: false, activePackageId: null };
+  const pendingOrdersByPackageId: Record<number, import('../../features/credits/types').PendingOrderInfoDto> = {};
+  if (summary.pendingOrders) {
+    summary.pendingOrders.forEach((po) => {
+      pendingOrdersByPackageId[po.packageId] = po;
+    });
   }
 
-  if (summary.hasPendingPaidOrder && summary.pendingPaidPackageId != null) {
-    const pendingPackage = packages.find(
-      (pkg) => pkg.paidCreditPackageId === summary.pendingPaidPackageId
-    );
-
-    return {
-      isTypeLocked: true,
-      activePackageId: pendingPackage?.id ?? null,
-      pendingOrderCheckoutUrl: summary.pendingOrderCheckoutUrl,
-      pendingOrderExpiredAt: summary.pendingOrderExpiredAt,
-    };
-  }
-
-  // Frontend no longer locks packages just because they are "in use"
-  // Since packages are lifetime, users can buy more whenever they want
-  // Therefore, only lock when there is a pending order (handled above).
-  return { isTypeLocked: false, activePackageId: null };
+  return { pendingOrdersByPackageId };
 };
 
 const getPackagePurchaseState = (
-  packageId: string,
+  packageIdNum: number,
   status: CreditTypePurchaseStatus
 ): PackagePurchaseState => {
-  if (!status.isTypeLocked) {
-    return 'available';
+  if (status.pendingOrdersByPackageId[packageIdNum]) {
+    return 'pending';
   }
-
-  if (status.activePackageId === packageId) {
-    return status.pendingOrderCheckoutUrl ? 'pending' : 'available';
-  }
-
-  return 'locked';
+  return 'available';
 };
 
-
-
 const postingPackageMeta: Record<string, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
-  'Gói Cơ Bản': {
+  'Khởi Động': {
     badge: 'Cơ bản',
     badgeColor: 'bg-blue-100 text-blue-800',
     cta: 'Mua Ngay',
     tier: 1,
   },
-  'Gói Tiêu Chuẩn': {
+  'Tăng Tốc': {
     badge: 'Phổ Biến',
     badgeColor: 'bg-purple-100 text-purple-800',
     cta: 'Chọn Gói',
     tier: 2,
   },
-  'Gói Nâng Cao': {
+  'Bứt Phá': {
     badge: 'Tiết Kiệm Nhất',
     badgeColor: 'bg-green-100 text-green-800',
     cta: 'Nhận Gói',
@@ -296,19 +273,19 @@ const postingPackageMeta: Record<string, Pick<Package, 'badge' | 'badgeColor' | 
 };
 
 const featuredPackageMeta: Record<string, Pick<Package, 'badge' | 'badgeColor' | 'cta' | 'tier'>> = {
-  'Gói Cơ Bản': {
+  'Spotlight': {
     badge: 'Tăng Tốc Nhanh',
     badgeColor: 'bg-orange-100 text-orange-800',
     cta: 'Tăng Tốc',
     tier: 1,
   },
-  'Gói Tiêu Chuẩn': {
+  'Trending': {
     badge: 'Được Đề Xuất',
     badgeColor: 'bg-pink-100 text-pink-800',
     cta: 'Nâng Cấp',
     tier: 2,
   },
-  'Gói Nâng Cao': {
+  'Premium': {
     badge: 'Tối Ưu Cao Cấp',
     badgeColor: 'bg-yellow-100 text-yellow-800',
     cta: 'Mở Khóa',
@@ -383,7 +360,11 @@ const mapCreditPackages = (packages: CreditPackageApi[]): { posting: Package[]; 
   return { posting, featured };
 };
 
-const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?: string | null, checkoutUrl?: string | null, variant: CreditType }) => {
+const PendingPurchaseButton = ({ expiredAt, checkoutUrl, orderCode, variant, onCancel }: { expiredAt?: string | null, checkoutUrl?: string | null, orderCode?: string, variant: CreditType, onCancel: (orderCode: string) => void }) => {
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showContinueConfirm, setShowContinueConfirm] = useState(false);
+
   let formattedTime = '';
   if (expiredAt) {
     const utcExpiredAt = expiredAt.endsWith('Z') ? expiredAt : `${expiredAt}Z`;
@@ -401,25 +382,68 @@ const PendingPurchaseButton = ({ expiredAt, checkoutUrl, variant }: { expiredAt?
 
   const buyButtonClass =
     variant === 'posting'
-      ? 'w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all'
-      : 'w-full bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all';
+      ? 'flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all'
+      : 'flex-1 bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all';
+
+  const handleCancel = async () => {
+    if (!orderCode) return;
+    setIsCancelling(true);
+    await onCancel(orderCode);
+    setIsCancelling(false);
+    setShowCancelConfirm(false);
+  };
 
   return (
-    <div className="flex flex-col items-center">
-      <button 
-        type="button" 
-        onClick={() => {
-          if (checkoutUrl) window.location.href = checkoutUrl;
-        }} 
-        className={buyButtonClass}
-      >
-        Tiếp tục thanh toán
-      </button>
+    <div className="flex flex-col items-center w-full">
+      <div className="flex w-full space-x-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (checkoutUrl) setShowContinueConfirm(true);
+          }}
+          className={buyButtonClass}
+        >
+          Tiếp tục thanh toán
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowCancelConfirm(true)}
+          disabled={isCancelling}
+          className="px-6 py-4 bg-white border-2 border-red-100 text-red-500 font-bold rounded-xl hover:bg-red-50 hover:border-red-200 transition-all flex items-center justify-center whitespace-nowrap hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow"
+        >
+          {isCancelling ? 'Đang hủy...' : 'Hủy đơn'}
+        </button>
+      </div>
       {formattedTime && (
-        <div className="mt-3 text-red-500 text-sm font-semibold">
+        <div className="mt-3 text-red-500 text-sm font-medium bg-red-50 px-3 py-1 rounded-full border border-red-100">
           Hết hạn vào {formattedTime}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        onConfirm={handleCancel}
+        title="Hủy đơn hàng chờ"
+        message="Bạn có chắc chắn muốn hủy đơn hàng đang chờ thanh toán này không? Đơn hàng sẽ bị vô hiệu hóa ngay lập tức."
+        confirmText="Đồng ý hủy"
+        cancelText="Quay lại"
+        type="danger"
+        isLoading={isCancelling}
+      />
+
+      <ConfirmModal
+        isOpen={showContinueConfirm}
+        onClose={() => setShowContinueConfirm(false)}
+        onConfirm={() => {
+          if (checkoutUrl) window.location.href = checkoutUrl;
+        }}
+        title="Tiếp tục thanh toán"
+        message="Hệ thống sẽ chuyển hướng bạn đến trang thanh toán của PayOS. Đơn hàng sẽ được duyệt tự động sau khi bạn chuyển khoản thành công."
+        confirmText="Chuyển đến thanh toán"
+        cancelText="Đóng"
+        type="info"
+      />
     </div>
   );
 };
@@ -430,11 +454,24 @@ const renderPackagePurchaseButton = (
   variant: CreditType,
   isLoading: boolean,
   isAnyLoading: boolean,
-  status?: CreditTypePurchaseStatus
+  status?: CreditTypePurchaseStatus,
+  packageIdNum?: number,
+  onCancelOrder?: (orderCode: string) => void
 ) => {
 
-  if (purchaseState === 'pending' && status) {
-    return <PendingPurchaseButton expiredAt={status.pendingOrderExpiredAt} checkoutUrl={status.pendingOrderCheckoutUrl} variant={variant} />;
+  if (purchaseState === 'pending' && status && packageIdNum) {
+    const pendingOrderInfo = status.pendingOrdersByPackageId[packageIdNum];
+    if (pendingOrderInfo) {
+      return (
+        <PendingPurchaseButton
+          expiredAt={pendingOrderInfo.expiredAt}
+          checkoutUrl={pendingOrderInfo.checkoutUrl}
+          orderCode={pendingOrderInfo.orderCode}
+          variant={variant}
+          onCancel={(orderCode) => onCancelOrder?.(orderCode)}
+        />
+      );
+    }
   }
 
   if (purchaseState === 'locked' || isAnyLoading) {
@@ -442,8 +479,8 @@ const renderPackagePurchaseButton = (
       <button
         disabled
         className={`w-full py-3.5 rounded-xl text-white font-semibold flex items-center justify-center transition-all ${variant === 'posting'
-            ? 'bg-blue-300 cursor-not-allowed'
-            : 'bg-[#C4603A]/50 cursor-not-allowed'
+          ? 'bg-blue-300 cursor-not-allowed'
+          : 'bg-[#C4603A]/50 cursor-not-allowed'
           }`}
       >
         {isLoading ? (
@@ -463,8 +500,8 @@ const renderPackagePurchaseButton = (
 
   const buyButtonClass =
     variant === 'posting'
-      ? 'w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all'
-      : 'w-full bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold hover:shadow-lg transition-all';
+      ? 'w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-xl font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all'
+      : 'w-full bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white py-4 rounded-xl font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all';
 
   return (
     <button type="button" onClick={onBuy} className={buyButtonClass}>
@@ -474,7 +511,16 @@ const renderPackagePurchaseButton = (
 };
 
 export default function PlansPage() {
-  const { initiateCheckout, isCheckoutLoading, loadingPackageId, checkoutError } = useCheckout();
+  const { initiateCheckout, isCheckoutLoading, loadingPackageId, checkoutError, cancelOrder } = useCheckout();
+
+  const handleCancelOrder = async (orderCode: string) => {
+    const success = await cancelOrder(orderCode);
+    if (success) {
+      void loadCreditBatches();
+    }
+  };
+
+  const [selectedPackageForBuy, setSelectedPackageForBuy] = useState<Package | null>(null);
   const [activeTab, setActiveTab] = useState<'packages' | 'history'>('packages');
   const [creditPackages, setCreditPackages] = useState<CreditPackageApi[]>([]);
   const [userCreditBatches, setUserCreditBatches] = useState<{ posting: CreditBatch[]; featured: CreditBatch[] }>({
@@ -532,6 +578,32 @@ export default function PlansPage() {
     }
 
     void loadCreditBatches();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadCreditBatches();
+      }
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        void loadCreditBatches();
+      }
+    };
+
+    const handleFocus = () => {
+      void loadCreditBatches();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [activeTab, loadCreditBatches]);
 
   useEffect(() => {
@@ -628,7 +700,14 @@ export default function PlansPage() {
   );
 
   const handleSelectPackage = (pkg: Package) => {
-    void initiateCheckout(pkg.paidCreditPackageId);
+    setSelectedPackageForBuy(pkg);
+  };
+
+  const handleConfirmBuy = async () => {
+    if (selectedPackageForBuy) {
+      await initiateCheckout(selectedPackageForBuy.paidCreditPackageId);
+      setSelectedPackageForBuy(null);
+    }
   };
 
   const successfulTransactions = transactions.filter((tx) => tx.status === 'completed');
@@ -711,32 +790,20 @@ export default function PlansPage() {
                   </div>
                 </div>
               )}
-              {checkoutError && (
-                <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-red-600 font-bold">!</span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-red-800">Thanh toán không thành công</h4>
-                    <p className="text-sm text-red-600 mt-0.5">{checkoutError}</p>
-                  </div>
-                </div>
-              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {isPackageLoading ? (
                   <div className="md:col-span-3 bg-white rounded-3xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
                     Đang tải danh sách gói credits...
                   </div>
                 ) : postingPackages.length > 0 ? postingPackages.map((pkg) => {
-                  const purchaseState = getPackagePurchaseState(pkg.id, postingPurchaseStatus);
+                  const purchaseState = getPackagePurchaseState(pkg.paidCreditPackageId, postingPurchaseStatus);
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${
-                        purchaseState === 'available'
-                          ? 'hover:shadow-2xl hover:scale-105'
-                          : 'opacity-90'
+                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${purchaseState === 'available'
+                        ? 'hover:shadow-2xl hover:scale-105'
+                        : 'opacity-90'
                         }`}
                     >
                       {/* Badge */}
@@ -788,7 +855,9 @@ export default function PlansPage() {
                           'posting',
                           loadingPackageId === pkg.paidCreditPackageId,
                           isCheckoutLoading,
-                          postingPurchaseStatus
+                          postingPurchaseStatus,
+                          pkg.paidCreditPackageId,
+                          handleCancelOrder
                         )}
                       </div>
                     </div>
@@ -826,15 +895,14 @@ export default function PlansPage() {
                     Đang tải danh sách gói credits...
                   </div>
                 ) : featuredPackages.length > 0 ? featuredPackages.map((pkg) => {
-                  const purchaseState = getPackagePurchaseState(pkg.id, featuredPurchaseStatus);
+                  const purchaseState = getPackagePurchaseState(pkg.paidCreditPackageId, featuredPurchaseStatus);
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${
-                        purchaseState === 'available'
-                          ? 'hover:shadow-2xl hover:scale-105'
-                          : 'opacity-90'
+                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${purchaseState === 'available'
+                        ? 'hover:shadow-2xl hover:scale-105'
+                        : 'opacity-90'
                         }`}
                     >
                       {/* Badge */}
@@ -886,7 +954,9 @@ export default function PlansPage() {
                           'featured',
                           loadingPackageId === pkg.paidCreditPackageId,
                           isCheckoutLoading,
-                          featuredPurchaseStatus
+                          featuredPurchaseStatus,
+                          pkg.paidCreditPackageId,
+                          handleCancelOrder
                         )}
                       </div>
                     </div>
@@ -975,7 +1045,7 @@ export default function PlansPage() {
                               </span>
                             )}
                           </div>
-                          
+
                           {tx.status === 'late_paid' && (
                             <p className="text-xs text-amber-700/80 mb-2 mt-0.5 leading-snug">
                               Bạn đã chuyển tiền sau khi mã QR hết hạn. Hệ thống đã linh động ghi nhận và cộng credits thành công.
@@ -1060,7 +1130,7 @@ export default function PlansPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           {/* Backdrop Blur */}
           <div className="absolute inset-0 bg-white/60 backdrop-blur-md transition-opacity duration-300" />
-          
+
           {/* Loading Card */}
           <div className="relative bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-gray-100 animate-in fade-in zoom-in duration-300">
             <div className="relative w-16 h-16 mb-6">
@@ -1077,6 +1147,18 @@ export default function PlansPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!selectedPackageForBuy}
+        onClose={() => setSelectedPackageForBuy(null)}
+        onConfirm={handleConfirmBuy}
+        title="Xác nhận mua gói"
+        message={`Bạn đang chuẩn bị chuyển hướng sang PayOS để thanh toán cho ${selectedPackageForBuy?.title}. Vui lòng xác nhận để tiếp tục.`}
+        confirmText="Xác nhận mua"
+        cancelText="Hủy"
+        type="info"
+        isLoading={isCheckoutLoading}
+      />
     </div>
   );
 }
