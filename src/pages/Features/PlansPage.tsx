@@ -180,7 +180,7 @@ interface Package {
   tier: number;
 }
 
-type PackagePurchaseState = 'in_use' | 'available' | 'locked' | 'pending';
+type PackagePurchaseState = 'available' | 'locked' | 'pending';
 
 interface CreditTypePurchaseStatus {
   isTypeLocked: boolean;
@@ -251,18 +251,9 @@ const computeCreditTypePurchaseStatus = (
     };
   }
 
-  const activePaidBatch = summary.batches.find(
-    (batch) => batch.isPaid && batch.remainingCredits > 0
-  );
-
-  if (activePaidBatch) {
-    return {
-      isTypeLocked: true,
-      activePackageId: resolveActivePackageId(activePaidBatch, packages, creditType),
-    };
-  }
-
-  // Backend báo còn paid nhưng không có batch khớp — không khóa nhầm UI
+  // Frontend no longer locks packages just because they are "in use"
+  // Since packages are lifetime, users can buy more whenever they want
+  // Therefore, only lock when there is a pending order (handled above).
   return { isTypeLocked: false, activePackageId: null };
 };
 
@@ -275,7 +266,7 @@ const getPackagePurchaseState = (
   }
 
   if (status.activePackageId === packageId) {
-    return status.pendingOrderCheckoutUrl ? 'pending' : 'in_use';
+    return status.pendingOrderCheckoutUrl ? 'pending' : 'available';
   }
 
   return 'locked';
@@ -441,16 +432,6 @@ const renderPackagePurchaseButton = (
   isAnyLoading: boolean,
   status?: CreditTypePurchaseStatus
 ) => {
-  if (purchaseState === 'in_use') {
-    return (
-      <button
-        disabled
-        className="w-full bg-gray-300 text-gray-600 py-4 rounded-xl font-bold cursor-not-allowed"
-      >
-        Đang Sử Dụng
-      </button>
-    );
-  }
 
   if (purchaseState === 'pending' && status) {
     return <PendingPurchaseButton expiredAt={status.pendingOrderExpiredAt} checkoutUrl={status.pendingOrderCheckoutUrl} variant={variant} />;
@@ -748,14 +729,12 @@ export default function PlansPage() {
                   </div>
                 ) : postingPackages.length > 0 ? postingPackages.map((pkg) => {
                   const purchaseState = getPackagePurchaseState(pkg.id, postingPurchaseStatus);
-                  const isInUse = purchaseState === 'in_use';
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${isInUse
-                        ? 'ring-4 ring-blue-500 scale-105'
-                        : purchaseState === 'available'
+                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${
+                        purchaseState === 'available'
                           ? 'hover:shadow-2xl hover:scale-105'
                           : 'opacity-90'
                         }`}
@@ -766,16 +745,6 @@ export default function PlansPage() {
                           {pkg.badge}
                         </span>
                       </div>
-
-                      {/* Active Plan Badge */}
-                      {isInUse && (
-                        <div className="absolute top-6 left-6">
-                          <span className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-                            <Check className="w-3 h-3" />
-                            <span>Đang Dùng</span>
-                          </span>
-                        </div>
-                      )}
 
                       <div className="mt-8">
                         <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>
@@ -858,14 +827,12 @@ export default function PlansPage() {
                   </div>
                 ) : featuredPackages.length > 0 ? featuredPackages.map((pkg) => {
                   const purchaseState = getPackagePurchaseState(pkg.id, featuredPurchaseStatus);
-                  const isInUse = purchaseState === 'in_use';
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${isInUse
-                        ? 'ring-4 ring-[#C4603A] scale-105'
-                        : purchaseState === 'available'
+                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${
+                        purchaseState === 'available'
                           ? 'hover:shadow-2xl hover:scale-105'
                           : 'opacity-90'
                         }`}
@@ -876,16 +843,6 @@ export default function PlansPage() {
                           {pkg.badge}
                         </span>
                       </div>
-
-                      {/* Active Plan Badge */}
-                      {isInUse && (
-                        <div className="absolute top-6 left-6">
-                          <span className="bg-[#C4603A] text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1">
-                            <Check className="w-3 h-3" />
-                            <span>Đang Dùng</span>
-                          </span>
-                        </div>
-                      )}
 
                       <div className="mt-8">
                         <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>
