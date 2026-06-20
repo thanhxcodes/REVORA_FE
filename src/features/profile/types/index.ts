@@ -3,6 +3,7 @@ export interface BadgeResponseDto {
   name: string;
   iconUrl: string;
   description: string | null;
+  isOwned: boolean;
 }
 
 export interface UserProfile {

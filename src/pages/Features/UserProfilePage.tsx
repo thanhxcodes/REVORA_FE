@@ -823,10 +823,14 @@ export default function UserProfilePage() {
                   {systemBadges.map((badge) => {
                     const visuals = getBadgeVisuals(badge.name);
                     const isSelected = selectedBadgeId === badge.badgeId;
+                    const isOwned = badge.isOwned;
+
                     return (
                       <button
                         key={badge.badgeId}
+                        disabled={!isOwned}
                         onClick={async () => {
+                          if (!isOwned) return;
                           try {
                             const res = await updateMyBadgeAPI(badge.badgeId);
                             if (res.success) {
@@ -839,11 +843,11 @@ export default function UserProfilePage() {
                           }
                           setShowBadgeSelector(false);
                         }}
-                        className={`relative p-4 rounded-2xl border-2 transition-all hover:scale-105 ${
+                        className={`relative p-4 rounded-2xl border-2 transition-all hover:scale-105 flex flex-col items-center gap-2 ${
                           isSelected
                             ? 'border-[#2D5A3D] bg-[#2D5A3D]/5'
                             : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                        } ${!isOwned ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
                         title={badge.description || ''}
                       >
                         {isSelected && (
@@ -851,14 +855,17 @@ export default function UserProfilePage() {
                             <Check className="w-5 h-5 text-[#2D5A3D]" />
                           </div>
                         )}
-                        <div className="flex flex-col items-center gap-2">
-                          <div className={`w-12 h-12 bg-gradient-to-r ${visuals?.gradient || 'from-gray-400 to-gray-600'} rounded-full flex items-center justify-center text-white text-2xl shadow-sm`}>
-                            {visuals?.icon || '🎖️'}
-                          </div>
-                          <span className="text-xs font-bold text-gray-800 text-center">
-                            {badge.name}
-                          </span>
+                        <div className={`w-12 h-12 bg-gradient-to-r ${visuals?.gradient || 'from-gray-400 to-gray-600'} rounded-full flex items-center justify-center text-white text-2xl shadow-sm`}>
+                          {visuals?.icon || '🎖️'}
                         </div>
+                        <span className="text-xs font-bold text-gray-800 text-center">
+                          {badge.name}
+                        </span>
+                        {!isOwned && (
+                           <div className="absolute top-2 left-2">
+                             <Lock className="w-4 h-4 text-gray-400" />
+                           </div>
+                        )}
                       </button>
                     );
                   })}
