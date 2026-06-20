@@ -27,6 +27,27 @@ const timeAgo = (dateStr: string) => {
   return `${Math.floor(hours / 24)} ngày trước`;
 };
 
+const getBadgeVisuals = (name: string | undefined | null) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace('-', ' ').trim();
+  switch (normalized) {
+    case 'premium gold':
+      return { gradient: 'from-amber-400 via-yellow-500 to-amber-600', icon: '⭐' };
+    case 'top seller':
+      return { gradient: 'from-orange-500 to-red-500', icon: '🏆' };
+    case 'verified':
+      return { gradient: 'from-blue-500 to-blue-600', icon: '✓' };
+    case 'trendsetter':
+      return { gradient: 'from-purple-500 to-pink-500', icon: '💎' };
+    case 'eco warrior':
+      return { gradient: 'from-green-500 to-emerald-600', icon: '🌱' };
+    case 'vip member':
+      return { gradient: 'from-yellow-500 to-amber-600', icon: '👑' };
+    default:
+      return { gradient: 'from-gray-400 to-gray-600', icon: '🎖️' };
+  }
+};
+
 // Component Đĩa Nhạc Xoay
 function SpinningDisc() {
   return (
@@ -179,9 +200,32 @@ const CommentItem = ({
         <div className="flex justify-between items-start">
            <div className="flex-1 bg-white p-3 rounded-2xl shadow-sm border border-gray-100 relative group">
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-sm font-bold text-gray-900">
+                <span className="text-sm font-bold text-gray-900 flex items-center gap-1">
                   {comment.fullName}
-                  {showParentName && <><span className="text-gray-400 font-normal mx-1.5 text-xs">▶</span><span className="text-xs font-medium text-gray-600">{parentComment.fullName}</span></>}
+                  {comment.userBadgeName && (
+                    <span
+                      title={comment.userBadgeName}
+                      className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(comment.userBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                    >
+                      {getBadgeVisuals(comment.userBadgeName)?.icon || '🎖️'}
+                    </span>
+                  )}
+                  {showParentName && (
+                    <>
+                      <span className="text-gray-400 font-normal mx-1.5 text-xs">▶</span>
+                      <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                        {parentComment.fullName}
+                        {parentComment.userBadgeName && (
+                          <span
+                            title={parentComment.userBadgeName}
+                            className={`inline-flex w-3 h-3 bg-gradient-to-r ${getBadgeVisuals(parentComment.userBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[6px] flex-shrink-0`}
+                          >
+                            {getBadgeVisuals(parentComment.userBadgeName)?.icon || '🎖️'}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  )}
                 </span>
                 <span className="text-[10px] text-gray-400">{timeAgo(comment.createdAt)}</span>
               </div>
@@ -712,9 +756,17 @@ export default function ShortsPage() {
         <div>
           <span 
             onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.sellerId}`); }}
-            className="text-white font-semibold text-sm drop-shadow-md cursor-pointer hover:underline"
+            className="text-white font-semibold text-sm drop-shadow-md cursor-pointer hover:underline flex items-center gap-1"
           >
             {video.sellerName}
+            {video.sellerBadgeName && (
+              <span
+                title={video.sellerBadgeName}
+                className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(video.sellerBadgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+              >
+                {getBadgeVisuals(video.sellerBadgeName)?.icon || '🎖️'}
+              </span>
+            )}
           </span>
           {(!currentUser || currentUser.id !== video.sellerId) && (
             <button 

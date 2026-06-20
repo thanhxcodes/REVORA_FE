@@ -1,3 +1,10 @@
+export interface BadgeResponseDto {
+  badgeId: number;
+  name: string;
+  iconUrl: string;
+  description: string | null;
+}
+
 export interface UserProfile {
   userId: number;
   username: string;
@@ -16,6 +23,8 @@ export interface UserProfile {
   followerCount?: number;
   followingCount?: number;
   isFollowing?: boolean;
+  badgeId?: number | null;
+  badge?: BadgeResponseDto | null;
 }
 
 export interface UpdateProfileDto {

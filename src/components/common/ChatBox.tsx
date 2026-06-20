@@ -43,6 +43,7 @@ interface Conversation {
     fullName: string;
     avatarUrl: string;
     isOnline?: boolean;
+    badgeName?: string | null;
   };
   lastMessage: {
     content: string | null;
@@ -58,6 +59,27 @@ interface Conversation {
 interface ChatBoxProps {
   currentUser: User;
 }
+
+const getBadgeVisuals = (name: string | undefined | null) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace('-', ' ').trim();
+  switch (normalized) {
+    case 'premium gold':
+      return { gradient: 'from-amber-400 via-yellow-500 to-amber-600', icon: '⭐' };
+    case 'top seller':
+      return { gradient: 'from-orange-500 to-red-500', icon: '🏆' };
+    case 'verified':
+      return { gradient: 'from-blue-500 to-blue-600', icon: '✓' };
+    case 'trendsetter':
+      return { gradient: 'from-purple-500 to-pink-500', icon: '💎' };
+    case 'eco warrior':
+      return { gradient: 'from-green-500 to-emerald-600', icon: '🌱' };
+    case 'vip member':
+      return { gradient: 'from-yellow-500 to-amber-600', icon: '👑' };
+    default:
+      return { gradient: 'from-gray-400 to-gray-600', icon: '🎖️' };
+  }
+};
 
 export default function ChatBox({ currentUser }: ChatBoxProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -421,7 +443,17 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
                   {other?.avatarUrl && other.avatarUrl !== "U" ? <img src={other.avatarUrl} alt="avatar" /> : other?.fullName?.charAt(0) || 'U'}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-white text-sm font-semibold leading-tight">{other?.fullName || 'User'}</div>
+                  <div className="text-white text-sm font-semibold leading-tight flex items-center gap-1">
+                    {other?.fullName || 'User'}
+                    {other?.badgeName && (
+                      <span
+                        title={other.badgeName}
+                        className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(other.badgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                      >
+                        {getBadgeVisuals(other.badgeName)?.icon || '🎖️'}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center space-x-1">
                     <div className={`w-1.5 h-1.5 rounded-full ${other?.isOnline ? 'bg-green-400' : 'bg-gray-400'}`} />
                     <span className="text-white/70 text-xs">{other?.isOnline ? 'Đang hoạt động' : 'Offline'}</span>
@@ -465,7 +497,17 @@ export default function ChatBox({ currentUser }: ChatBoxProps) {
                         <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${conv.partner.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                       </div>
                       <div className="flex-1 min-w-0 pr-6">
-                        <div className={`font-semibold text-sm truncate ${conv.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>{conv.partner.fullName || 'User'}</div>
+                        <div className={`font-semibold text-sm truncate flex items-center gap-1 ${conv.unreadCount > 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                          {conv.partner.fullName || 'User'}
+                          {conv.partner.badgeName && (
+                            <span
+                              title={conv.partner.badgeName}
+                              className={`inline-flex w-3.5 h-3.5 bg-gradient-to-r ${getBadgeVisuals(conv.partner.badgeName)?.gradient || 'from-gray-400 to-gray-600'} rounded-full items-center justify-center text-white text-[7px] flex-shrink-0`}
+                            >
+                              {getBadgeVisuals(conv.partner.badgeName)?.icon || '🎖️'}
+                            </span>
+                          )}
+                        </div>
                         <div className={`text-xs truncate mt-0.5 leading-tight ${conv.unreadCount > 0 ? 'font-semibold text-gray-900' : 'text-gray-500'}`}>
                           {conv.lastMessage?.senderId === currentUser.id ? 'Bạn: ' : ''}
                           {conv.lastMessage?.isRevoked ? 'Đã thu hồi một tin nhắn' : (conv.lastMessage?.content || 'Hình ảnh đính kèm')}

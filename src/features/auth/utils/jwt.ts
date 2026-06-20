@@ -6,6 +6,7 @@ interface DecodedTokenPayload {
   sub: string;
   email: string;
   unique_name: string;
+  fullname?: string;
   role?: string;
   "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
   permission?: string | string[];
@@ -28,7 +29,7 @@ export const decodeJwtToUser = (token: string): User => {
     ? [decoded.permission]
     : [];
 
-  const name = decoded.unique_name || decoded.email || 'User';
+  const name = decoded.fullname || decoded.unique_name || decoded.email || 'User';
   const avatar = name ? name[0].toUpperCase() : 'U';
 
   return {
