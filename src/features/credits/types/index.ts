@@ -10,7 +10,7 @@ export interface UserCreditBatchItemApi {
   creditTypeId: number;
   creditTypeName: string;
   remainingCredits: number;
-  expiresAt: string;
+  expiresAt: string | null;
   isPaid: boolean;
   packageId: number;
   packageName: string;
