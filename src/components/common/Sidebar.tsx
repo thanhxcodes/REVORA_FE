@@ -136,35 +136,6 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
             </Link>
 
             <Link
-              to="/ranking"
-              className={`flex transition-colors relative group ${
-                actualIsOpen 
-                  ? 'flex-row items-center space-x-4 px-6 py-3' 
-                  : 'flex-col items-center justify-center space-y-1 py-4 px-1'
-              } ${isActive('/ranking')
-                ? 'bg-gradient-to-r from-[#C4603A]/10 to-[#2D5A3D]/10 text-[#C4603A] border-l-4 border-[#C4603A]'
-                : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#C4603A]/5 hover:to-[#2D5A3D]/5'
-                }`}
-            >
-              <Trophy className={`w-6 h-6 flex-shrink-0 ${isActive('/ranking') ? 'text-[#C4603A] animate-pulse' : 'group-hover:text-[#C4603A]'}`} />
-              {actualIsOpen ? (
-                <>
-                  <span className={`${isActive('/ranking') ? 'bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] bg-clip-text text-transparent font-semibold' : ''}`}>
-                    BXH Tuần
-                  </span>
-                  {!isActive('/ranking') && (
-                    <span className="text-[10px] font-bold bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] text-white px-1.5 py-0.5 rounded-full animate-pulse">
-                      NEW
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className={`text-[10px] text-center w-full truncate ${isActive('/ranking') ? 'bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] bg-clip-text text-transparent font-semibold' : ''}`}>
-                  BXH Tuần
-                </span>
-              )}
-            </Link>
-            <Link
               to="/match"
               className={`flex transition-colors relative group ${
                 actualIsOpen 
@@ -202,6 +173,36 @@ export default function Sidebar({ isOpen, onToggle, isLoggedIn = true }: Sidebar
               ) : (
                 <span className={`text-[10px] text-center w-full truncate ${isActive('/match') ? 'bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent font-semibold' : ''}`}>
                   MATCH
+                </span>
+              )}
+            </Link>
+
+            <Link
+              to="/ranking"
+              className={`flex transition-colors relative group ${
+                actualIsOpen 
+                  ? 'flex-row items-center space-x-4 px-6 py-3' 
+                  : 'flex-col items-center justify-center space-y-1 py-4 px-1'
+              } ${isActive('/ranking')
+                ? 'bg-gradient-to-r from-[#C4603A]/10 to-[#2D5A3D]/10 text-[#C4603A] border-l-4 border-[#C4603A]'
+                : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#C4603A]/5 hover:to-[#2D5A3D]/5'
+                }`}
+            >
+              <Trophy className={`w-6 h-6 flex-shrink-0 ${isActive('/ranking') ? 'text-[#C4603A] animate-pulse' : 'group-hover:text-[#C4603A]'}`} />
+              {actualIsOpen ? (
+                <>
+                  <span className={`${isActive('/ranking') ? 'bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] bg-clip-text text-transparent font-semibold' : ''}`}>
+                    BXH Tuần
+                  </span>
+                  {!isActive('/ranking') && (
+                    <span className="text-[10px] font-bold bg-gradient-to-r from-gray-500 to-gray-700 text-white px-2 py-0.5 rounded-full animate-pulse whitespace-nowrap">
+                      Coming soon
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className={`text-[10px] text-center w-full truncate ${isActive('/ranking') ? 'bg-gradient-to-r from-[#C4603A] to-[#2D5A3D] bg-clip-text text-transparent font-semibold' : ''}`}>
+                  BXH Tuần
                 </span>
               )}
             </Link>

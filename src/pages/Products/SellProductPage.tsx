@@ -3,6 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X, Video, Image as ImageIcon, Sparkles, Crown, Upload, Info, FileText, CheckCircle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { uploadProductImagesAPI, uploadProductVideoAPI, createProductAPI, getMyCreditsAPI, getCategoriesAPI, getProductDetailAPI, updateProductAPI } from '../../features/products/services/productApi';
+import CreditDisplay from '../../components/common/CreditDisplay';
+import { fetchUserCreditBatches } from '../../features/credits/services/creditPackageService';
+import type { CreditBatch } from '../../features/credits/types';
 
 const conditions = ['Mới 100%', 'Như Mới', 'Tuyệt Vời', 'Tốt', 'Khá'];
 
@@ -103,6 +106,10 @@ export default function SellProductPage() {
 
   const [postingCredits, setPostingCredits] = useState(0);
   const [featuredCredits, setFeaturedCredits] = useState(0);
+  const [userCreditBatches, setUserCreditBatches] = useState<{ posting: CreditBatch[]; featured: CreditBatch[] }>({
+    posting: [],
+    featured: [],
+  });
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Thêm state lưu thời gian tạo sản phẩm và phút còn lại để sửa
@@ -115,14 +122,18 @@ export default function SellProductPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [creditRes, categoryRes] = await Promise.all([
+        const [creditRes, categoryRes, batchesRes] = await Promise.all([
           getMyCreditsAPI(),
-          getCategoriesAPI()
+          getCategoriesAPI(),
+          fetchUserCreditBatches()
         ]);
 
         if (creditRes.success) {
           setPostingCredits(creditRes.data.postingCredits);
           setFeaturedCredits(creditRes.data.featuredCredits);
+        }
+        if (batchesRes) {
+          setUserCreditBatches(batchesRes);
         }
         if (categoryRes.success) {
           setCategories(categoryRes.data);
@@ -622,27 +633,8 @@ export default function SellProductPage() {
                 </div>
               ) : (
                 <div className="space-y-4 mb-8">
-                  <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex justify-between items-center relative overflow-hidden group hover:border-blue-200 transition-colors">
-                    <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-blue-100/50 to-transparent"></div>
-                    <div className="flex items-center gap-3 relative z-10">
-                      <div className="bg-blue-100 text-blue-600 p-2 rounded-xl"><ImageIcon className="w-5 h-5" /></div>
-                      <div>
-                        <div className="text-xs font-semibold text-blue-800/70 mb-0.5">Credit Đăng Tin</div>
-                        <div className="text-2xl font-bold text-blue-700 leading-none">{postingCredits}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-orange-50/50 border border-orange-100 rounded-2xl p-4 flex justify-between items-center relative overflow-hidden group hover:border-orange-200 transition-colors">
-                    <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-orange-100/50 to-transparent"></div>
-                    <div className="flex items-center gap-3 relative z-10">
-                      <div className="bg-orange-100 text-orange-600 p-2 rounded-xl"><Sparkles className="w-5 h-5" /></div>
-                      <div>
-                        <div className="text-xs font-semibold text-orange-800/70 mb-0.5">Credit Nổi Bật</div>
-                        <div className="text-2xl font-bold text-orange-600 leading-none">{featuredCredits}</div>
-                      </div>
-                    </div>
-                  </div>
+                  <CreditDisplay type="posting" batches={userCreditBatches.posting} className="w-full" />
+                  <CreditDisplay type="featured" batches={userCreditBatches.featured} className="w-full" />
                 </div>
               )}
 
