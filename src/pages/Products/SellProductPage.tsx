@@ -750,6 +750,10 @@ export default function SellProductPage() {
                   <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#2D5A3D] shrink-0" />
                   <p><strong className="text-gray-900">Sản phẩm Nổi bật (Sử dụng Credit Nổi bật):</strong> Sản phẩm của bạn sẽ được ưu tiên hiển thị trong 60 ngày, có viền nổi bật bắt mắt, và cơ hội xuất hiện trên Bảng Xếp Hạng (BXH) Tuần.</p>
                 </div>
+                <div className="flex gap-3">
+                  <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#2D5A3D] shrink-0" />
+                  <p><strong className="text-gray-900">Sử dụng Credit:</strong> Đăng tin có thể dùng cả Credit có thời hạn và vĩnh viễn. Tuy nhiên, việc gia hạn tin đăng chỉ chấp nhận Credit vĩnh viễn.</p>
+                </div>
                 <p className="pt-2 text-xs italic text-gray-500 text-center border-t border-gray-100">Việc tuân thủ quy định giúp tạo ra môi trường giao dịch minh bạch và an toàn cho mọi người.</p>
               </div>
             </div>
