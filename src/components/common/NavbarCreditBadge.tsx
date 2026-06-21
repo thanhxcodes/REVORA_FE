@@ -1,4 +1,4 @@
-import { Image, Sparkles } from 'lucide-react';
+import { Image, Sparkles, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface CreditBatch {
@@ -43,8 +43,13 @@ export default function NavbarCreditBadge({ type, batches }: NavbarCreditBadgePr
           <div className="fixed inset-0 z-40" onClick={() => setShowTooltip(false)} />
           <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50">
             <div className="text-sm font-semibold text-gray-900 mb-3 flex items-center justify-between">
-              <span>{type === 'posting' ? 'Đăng Tin' : 'Nổi Bật'}</span>
-              <span className={type === 'posting' ? 'text-blue-600' : 'text-orange-600'}>{totalCredits} credits</span>
+              <div>
+                <span>{type === 'posting' ? 'Đăng Tin' : 'Nổi Bật'}</span>
+                <span className={`ml-2 ${type === 'posting' ? 'text-blue-600' : 'text-orange-600'}`}>{totalCredits} credits</span>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); setShowTooltip(false); }} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {batches.map((batch, index) => (
