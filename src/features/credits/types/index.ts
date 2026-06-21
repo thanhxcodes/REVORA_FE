@@ -3,6 +3,7 @@ export interface CreditBatch {
   expiresDate: string;
   expiresIn?: number;
   packageName?: string;
+  expiresAtIso?: string | null;
 }
 
 export interface UserCreditBatchItemApi {

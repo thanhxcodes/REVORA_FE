@@ -1,11 +1,13 @@
 import { Image, Sparkles, X } from 'lucide-react';
 import { useState } from 'react';
+import { CreditExpirationText } from './CreditExpirationText';
 
 interface CreditBatch {
   credits: number;
   expiresDate: string;
   expiresIn?: number;
   packageName?: string;
+  expiresAtIso?: string | null;
 }
 
 interface NavbarCreditBadgeProps {
@@ -62,11 +64,12 @@ export default function NavbarCreditBadge({ type, batches }: NavbarCreditBadgePr
                   </div>
                   <div className="text-right">
                     <div className="text-gray-600">HSD: {batch.expiresDate}</div>
-                    {batch.expiresIn !== undefined && (
-                      <div className={`mt-0.5 ${batch.expiresIn <= 3 ? 'text-red-500' : 'text-orange-500'}`}>
-                        Còn {batch.expiresIn} ngày
-                      </div>
-                    )}
+                    <CreditExpirationText
+                      expiresAtIso={batch.expiresAtIso ?? null}
+                      expiresIn={batch.expiresIn}
+                      className="mt-0.5 text-orange-500"
+                      urgentClassName="text-red-500"
+                    />
                   </div>
                 </div>
               ))}

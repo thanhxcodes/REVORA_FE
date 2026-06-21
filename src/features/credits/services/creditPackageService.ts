@@ -14,8 +14,18 @@ export interface AdminUpdatePackagePayload {
   descriptions: string[];
 }
 
-const formatDate = (expiresAt: string | null) =>
-  expiresAt ? new Intl.DateTimeFormat('vi-VN').format(new Date(expiresAt)) : 'Vĩnh viễn';
+const formatDate = (expiresAt: string | null) => {
+  if (!expiresAt) return 'Vĩnh viễn';
+  const utcString = expiresAt.endsWith('Z') ? expiresAt : `${expiresAt}Z`;
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(utcString));
+};
 
 const getDaysUntilExpiry = (expiresAt: string | null) => {
   if (!expiresAt) return undefined;
@@ -31,6 +41,7 @@ export const mapCreditBatches = (batches: UserCreditSummaryApi['batches']): Cred
     expiresDate: formatDate(batch.expiresAt),
     expiresIn: getDaysUntilExpiry(batch.expiresAt),
     packageName: batch.packageName,
+    expiresAtIso: batch.expiresAt,
   }));
 
 export const fetchPostingCreditSummary = () =>
