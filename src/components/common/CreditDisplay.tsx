@@ -1,11 +1,13 @@
 import { Info, Image, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { CreditExpirationText } from './CreditExpirationText';
 
 interface CreditBatch {
   credits: number;
   expiresDate: string;
   expiresIn?: number;
   packageName?: string;
+  expiresAtIso?: string | null;
 }
 
 interface CreditDisplayProps {
@@ -56,9 +58,12 @@ export default function CreditDisplay({ type, batches, className = '' }: CreditD
                     </div>
                     <div className="text-right">
                       <div className="text-gray-600">HSD: {batch.expiresDate}</div>
-                      {batch.expiresIn !== undefined && (
-                        <div className="text-orange-500">Còn {batch.expiresIn} ngày</div>
-                      )}
+                      <CreditExpirationText
+                        expiresAtIso={batch.expiresAtIso ?? null}
+                        expiresIn={batch.expiresIn}
+                        className="text-orange-500"
+                        urgentClassName="text-red-500 font-bold"
+                      />
                     </div>
                   </div>
                 ))}

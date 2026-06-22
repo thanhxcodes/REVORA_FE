@@ -97,12 +97,12 @@ export default function ManageProductsPage() {
   const [usageHistory, setUsageHistory] = useState<CreditUsage[]>([]);
   const [totalPostingRemaining, setTotalPostingRemaining] = useState(0);
   const [totalFeaturedRemaining, setTotalFeaturedRemaining] = useState(0);
+  const [totalPostingPermanent, setTotalPostingPermanent] = useState(0);
+  const [totalFeaturedPermanent, setTotalFeaturedPermanent] = useState(0);
 
   useEffect(() => {
     fetchProducts();
-    if (activeTab === 'credits') {
-      fetchCreditData();
-    }
+    fetchCreditData();
   }, [activeTab, productStatusFilter, page]);
 
   const fetchCreditData = async () => {
@@ -121,6 +121,11 @@ export default function ManageProductsPage() {
       const featuredRemaining = summaryRes.featured.reduce((acc, b) => acc + b.credits, 0);
       setTotalPostingRemaining(postingRemaining);
       setTotalFeaturedRemaining(featuredRemaining);
+
+      const postingPerm = summaryRes.posting.filter(b => b.expiresDate === 'Vĩnh viễn').reduce((acc, b) => acc + b.credits, 0);
+      const featuredPerm = summaryRes.featured.filter(b => b.expiresDate === 'Vĩnh viễn').reduce((acc, b) => acc + b.credits, 0);
+      setTotalPostingPermanent(postingPerm);
+      setTotalFeaturedPermanent(featuredPerm);
     } catch (error) {
       toast.error('Không tải được lịch sử credit.');
     } finally {
@@ -945,6 +950,17 @@ export default function ManageProductsPage() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              <div className="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-4">
+                <div className="flex-1">
+                  <span className="text-xs text-blue-700 font-semibold block">Credit Đăng Tin vĩnh viễn</span>
+                  <span className="text-lg font-bold text-blue-800">{totalPostingPermanent}</span>
+                </div>
+                <div className="flex-1 border-l border-blue-200 pl-4">
+                  <span className="text-xs text-blue-700 font-semibold block">Credit Nổi Bật vĩnh viễn</span>
+                  <span className="text-lg font-bold text-blue-800">{totalFeaturedPermanent}</span>
+                </div>
+              </div>
               
               <div className="flex flex-col gap-6">
                 {/* Hàng 1: Lựa chọn dịch vụ */}
@@ -963,7 +979,7 @@ export default function ManageProductsPage() {
                           <span className="block text-sm font-semibold text-gray-900">Gia hạn Sản Phẩm</span>
                           {isProductExpired && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">Đã hết hạn</span>}
                         </div>
-                        <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Image className="w-3.5 h-3.5 text-blue-500" /> Tốn 1 Credit Đăng Tin</span>
+                        <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Image className="w-3.5 h-3.5 text-blue-500" /> Tốn 1 Credit Đăng Tin vĩnh viễn</span>
                       </div>
                     </label>
 
@@ -973,7 +989,7 @@ export default function ManageProductsPage() {
                     <input type="checkbox" checked={renewBannerOption} onChange={(e) => setRenewBannerOption(e.target.checked)} className="mt-1 w-4 h-4 text-orange-500 rounded border-gray-300" disabled={isRenewing} />
                     <div>
                       <span className="block text-sm font-semibold text-gray-900">Gia hạn Banner (+24h)</span>
-                      <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-orange-500" /> Tốn 1 Credit Nổi Bật</span>
+                      <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-orange-500" /> Tốn 1 Credit Nổi Bật vĩnh viễn</span>
                     </div>
                   </div>
                   {renewBannerOption && (
@@ -1024,7 +1040,7 @@ export default function ManageProductsPage() {
                   <input type="checkbox" checked={renewShortOption} onChange={(e) => setRenewShortOption(e.target.checked)} className="mt-1 w-4 h-4 text-orange-500 rounded border-gray-300" disabled={isRenewing} />
                   <div>
                     <span className="block text-sm font-semibold text-gray-900">Gia hạn Short Video</span>
-                    <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-orange-500" /> Tốn 1 Credit Nổi Bật (Không hỗ trợ đổi Video)</span>
+                    <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-orange-500" /> Tốn 1 Credit Nổi Bật vĩnh viễn (Không hỗ trợ đổi Video)</span>
                   </div>
                 </label>
               </div>
@@ -1122,6 +1138,7 @@ export default function ManageProductsPage() {
                 <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
                   <p className="font-semibold text-blue-900 mb-2">Lưu ý quan trọng:</p>
                   <ul className="list-disc pl-5 space-y-1.5 text-blue-800/80">
+                    <li><strong>Điều kiện Credit:</strong> Chỉ có thể sử dụng Credit vĩnh viễn để gia hạn dịch vụ. Credit có thời hạn chỉ dùng để đăng tin mới.</li>
                     <li>Nếu sản phẩm <strong>đã hết hạn</strong>, bạn bắt buộc phải gia hạn Sản phẩm.</li>
                     <li>Gia hạn nhiều dịch vụ cùng lúc, thời hạn sản phẩm sẽ được ưu tiên theo mức cao nhất (ví dụ: 60 ngày nếu có gia hạn Short Video).</li>
                   </ul>

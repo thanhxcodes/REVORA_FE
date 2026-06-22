@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { checkoutAPI } from '../paymentApi';
+﻿import { useState } from 'react';
+import { checkoutAPI, cancelPaymentAPI } from '../paymentApi';
+import toast from 'react-hot-toast';
 
 export const useCheckout = () => {
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
@@ -24,17 +25,31 @@ export const useCheckout = () => {
         }, 1500);
         // DO NOT set isCheckoutLoading to false here to prevent redirect glitch
       } else {
-        setCheckoutError(response.message || 'Có lỗi xảy ra khi tạo thanh toán.');
+        const errMsg = response.message || 'Có lỗi xảy ra khi tạo thanh toán.';
+        setCheckoutError(errMsg);
+        toast.error(errMsg);
         setIsCheckoutLoading(false);
         setLoadingPackageId(null);
       }
     } catch (error: any) {
       console.error('Checkout error:', error);
-      setCheckoutError(error.response?.data?.message || 'Không thể kết nối đến máy chủ thanh toán. Vui lòng thử lại sau.');
+      const errMsg = error.response?.data?.message || 'Không thể kết nối đến máy chủ thanh toán. Vui lòng thử lại sau.';
+      setCheckoutError(errMsg);
+      toast.error(errMsg);
       setIsCheckoutLoading(false);
       setLoadingPackageId(null);
     }
   };
 
-  return { initiateCheckout, isCheckoutLoading, loadingPackageId, checkoutError };
+  const cancelOrder = async (orderCode: string): Promise<boolean> => {
+    try {
+      const response = await cancelPaymentAPI(orderCode);
+      return response.success;
+    } catch (error) {
+      console.error('Cancel order error:', error);
+      return false;
+    }
+  };
+
+  return { initiateCheckout, isCheckoutLoading, loadingPackageId, checkoutError, cancelOrder };
 };
