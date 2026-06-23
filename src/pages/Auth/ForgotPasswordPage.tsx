@@ -1,11 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowLeft, CheckCircle, AlertCircle, KeyRound } from 'lucide-react';
+import { motion } from 'framer-motion';
 import logoImg from '../../assets/images/logo.jpg';
 
 import { sendResetPasswordOtpAPI, verifyResetPasswordOtpAPI, resetPasswordWithOtpAPI } from '../../providers/authProvider/authService';
 
 type Step = 'email' | 'otp' | 'newPassword' | 'success';
+
+const DECORATIVE_PATTERN_STYLE: React.CSSProperties = {
+  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='g' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 10 0 L 0 0 0 10' fill='none' stroke='white' stroke-width='0.8'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23g)'/%3E%3C/svg%3E")`,
+};
+
+const BRAND_STYLE: React.CSSProperties = {
+  fontFamily: 'Raleway, sans-serif',
+  letterSpacing: '0.25em',
+};
+
+const FLOATING_IMAGES = [
+  { url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop', top: '10%', left: '8%', width: '180px', delay: 0, rotate: -6 },
+  { url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=400&auto=format&fit=crop', top: '65%', left: '12%', width: '150px', delay: 1.5, rotate: 4 },
+  { url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=400&auto=format&fit=crop', top: '15%', right: '10%', width: '160px', delay: 0.5, rotate: 8 },
+  { url: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=400&auto=format&fit=crop', top: '55%', right: '6%', width: '200px', delay: 2, rotate: -5 },
+  { url: 'https://images.unsplash.com/photo-1509319117193-57bab727e09d?q=80&w=400&auto=format&fit=crop', bottom: '-5%', left: '30%', width: '220px', delay: 1, rotate: 12 },
+  { url: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=400&auto=format&fit=crop', top: '5%', right: '35%', width: '180px', delay: 2.5, rotate: -10 },
+];
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -17,6 +36,7 @@ export default function ForgotPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -107,10 +127,12 @@ export default function ForgotPasswordPage() {
   const handleResendOtp = async () => {
     setOtp(['', '', '', '', '', '']);
     setError('');
+    setSuccessMsg('');
     setLoading(true);
     try {
       await sendResetPasswordOtpAPI(email);
-      alert('Mã OTP mới đã được gửi đến email của bạn!');
+      setSuccessMsg('Mã OTP mới đã được gửi thành công!');
+      setTimeout(() => setSuccessMsg(''), 5000); // Tự động ẩn sau 5 giây
     } catch (err: any) {
       setError(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
     } finally {
@@ -118,22 +140,125 @@ export default function ForgotPasswordPage() {
     }
   };
 
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({
+        x: (e.clientX - window.innerWidth / 2) * 0.03,
+        y: (e.clientY - window.innerHeight / 2) * 0.03,
+      });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2D5A3D] via-[#3D7054] to-[#2D5A3D] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-3 mb-4">
-            <img src={logoImg} alt="REVORA Logo" className="w-16 h-16 rounded-full shadow-lg object-cover" />
-          </Link>
-          <h1 className="text-white text-3xl font-bold tracking-widest" style={{ fontFamily: 'Raleway, sans-serif', letterSpacing: '0.22em' }}>
-            REVORA
-          </h1>
-          <p className="text-white/70 text-xs tracking-[0.18em] uppercase mt-1">Revive Your Aura</p>
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-brand-dark">
+      {/* Nền chuyển sắc trang trí (Animated) */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.5 }}
+        className="absolute inset-0 bg-gradient-to-br from-[#122a1f] via-[#20422c] to-[#0a1a10]" 
+      />
+
+      {/* Lớp Parallax chứa các họa tiết trôi nổi và hình ảnh */}
+      <motion.div 
+        animate={{ x: -mousePos.x, y: -mousePos.y }}
+        transition={{ type: "spring", stiffness: 50, damping: 20, mass: 0.5 }}
+        className="absolute inset-0 pointer-events-none z-0"
+      >
+        {/* Vòng tròn họa tiết trang trí trôi nổi */}
+        <div className="absolute inset-0 overflow-hidden opacity-80">
+          <motion.div 
+            animate={{ y: [0, -30, 0], rotate: [0, 10, 0], scale: [1, 1.1, 1] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" 
+          />
+          <motion.div 
+            animate={{ y: [0, 40, 0], x: [0, -30, 0], scale: [1, 1.15, 1] }}
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-emerald-400/10 blur-3xl" 
+          />
+          <motion.div 
+            animate={{ y: ['-50%', '-40%', '-50%'], x: [0, 30, 0] }}
+            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+            className="absolute top-1/2 left-1/4 w-[30rem] h-[30rem] rounded-full bg-white/[0.02] blur-2xl" 
+          />
+          <div className="absolute inset-0 opacity-[0.04]" style={DECORATIVE_PATTERN_STYLE} />
         </div>
 
+        {/* Các hình ảnh thời trang trôi nổi */}
+        {FLOATING_IMAGES.map((img, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 0.45, scale: 1, y: [0, -20, 0] }}
+            transition={{
+              opacity: { duration: 1.5, delay: img.delay * 0.3 },
+              scale: { duration: 1.5, delay: img.delay * 0.3 },
+              y: { duration: 7 + (i % 3), repeat: Infinity, ease: "easeInOut", delay: img.delay }
+            }}
+            style={{
+              position: 'absolute',
+              top: img.top,
+              left: img.left,
+              right: img.right,
+              bottom: img.bottom,
+              width: img.width,
+              rotate: img.rotate,
+            }}
+            className="rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/10"
+          >
+            {/* Lớp phủ màu xanh lá để blend hình ảnh vào nền */}
+            <div className="absolute inset-0 bg-emerald-900/30 mix-blend-overlay z-10" />
+            <img 
+              src={img.url} 
+              alt="Fashion Inspiration" 
+              className="w-full h-auto object-cover filter grayscale-[30%] contrast-125 brightness-90"
+            />
+          </motion.div>
+        ))}
+      </motion.div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative w-full max-w-[460px] z-10"
+      >
+        {/* Logo */}
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="text-center mb-8"
+        >
+          <Link to="/" className="inline-block group">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <motion.img 
+                whileHover={{ rotate: 10, scale: 1.05 }}
+                transition={{ type: "spring", stiffness: 300 }}
+                src={logoImg} 
+                alt="REVORA Logo" 
+                className="w-[52px] h-[52px] rounded-full object-cover shadow-lg border-2 border-white/20" 
+              />
+              <div className="text-left">
+                <h1 className="text-4xl font-black text-white leading-none drop-shadow-md" style={BRAND_STYLE}>
+                  REVORA
+                </h1>
+                <p className="text-white/70 text-[10px] tracking-[0.25em] uppercase mt-1 font-semibold">
+                  Revive Your Aura
+                </p>
+              </div>
+            </div>
+          </Link>
+        </motion.div>
+
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/40">
+          <div className="h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500" />
           {/* Header */}
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-8 py-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -205,9 +330,21 @@ export default function ForgotPasswordPage() {
             {step === 'otp' && (
               <form onSubmit={handleOtpSubmit} className="space-y-6">
                 <div>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-sm text-gray-600 mb-2">
                     Mã OTP đã được gửi đến email <span className="font-semibold text-[#2D5A3D]">{email}</span>
                   </p>
+                  <p className="text-[13px] text-amber-700 bg-amber-50 px-3.5 py-3 rounded-xl mb-5 border border-amber-200 flex gap-2 items-start shadow-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 opacity-80" />
+                    <span>Lưu ý: Nếu không thấy email trong Hộp thư đến, vui lòng kiểm tra cả mục <b>Thư rác (Spam)</b> hoặc đợi vài phút.</span>
+                  </p>
+
+                  {successMsg && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-2 mb-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                      <span className="text-sm text-emerald-700 font-medium">{successMsg}</span>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 justify-center">
                     {otp.map((digit, index) => (
                       <input
@@ -367,7 +504,7 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

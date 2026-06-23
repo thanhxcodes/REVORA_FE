@@ -219,12 +219,18 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
           )}
 
           {isWaitingForVerification && !error && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 text-xs px-4 py-3 rounded-xl flex flex-col items-center justify-center gap-2 text-center animate-pulse">
-              <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
-              <span>
-                Chúng tôi đã gửi một email xác thực đến <b>{email}</b>. 
-                <br/>Vui lòng mở email và bấm vào link xác nhận. Hệ thống đang chờ...
-              </span>
+            <div className="flex flex-col gap-3">
+              <div className="bg-blue-50/80 border border-blue-200 text-blue-700 text-sm px-4 py-3 rounded-xl flex flex-col items-center justify-center gap-2 text-center animate-pulse backdrop-blur-sm">
+                <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
+                <span>
+                  Chúng tôi đã gửi một email xác thực đến <b>{email}</b>. 
+                  <br/>Vui lòng mở email và bấm vào link xác nhận. Hệ thống đang chờ...
+                </span>
+              </div>
+              <div className="text-[13px] text-amber-700 bg-amber-50/90 px-3.5 py-3 rounded-xl border border-amber-200 flex gap-2 items-start shadow-sm backdrop-blur-sm">
+                <span className="flex-shrink-0 mt-0.5 opacity-80">⚠️</span>
+                <span>Lưu ý: Nếu không thấy email trong Hộp thư đến, vui lòng kiểm tra cả mục <b>Thư rác (Spam/Junk)</b> nhé.</span>
+              </div>
             </div>
           )}
 
