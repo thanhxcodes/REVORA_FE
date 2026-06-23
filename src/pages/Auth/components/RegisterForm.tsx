@@ -164,44 +164,44 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
 
       {step === 1 ? (
         <form onSubmit={handleSendLink} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{REGISTER_TXT.emailLabel}</label>
+          <div className="group/input">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 group-focus-within/input:text-emerald-600 transition-colors">{REGISTER_TXT.emailLabel}</label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
               <input
                 type={AUTO_COMPLETE_EMAIL}
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); setIsWaitingForVerification(false); }}
                 placeholder={REGISTER_TXT.emailPlaceholder}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm"
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400 font-medium"
                 disabled={isWaitingForVerification}
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nhập lại Email</label>
+          <div className="group/input">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 group-focus-within/input:text-emerald-600 transition-colors">Nhập lại Email</label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
               <input
                 type={AUTO_COMPLETE_EMAIL}
                 value={confirmEmail}
                 onChange={(e) => { setConfirmEmail(e.target.value); setError(''); setIsWaitingForVerification(false); }}
                 placeholder="Xác nhận lại email"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm"
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400 font-medium"
                 disabled={isWaitingForVerification}
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tỉnh/Thành phố</label>
+          <div className="group/input">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 group-focus-within/input:text-emerald-600 transition-colors">Tỉnh/Thành phố</label>
             <div className="relative">
-              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
               <select
                 value={city}
                 onChange={(e) => { setCity(e.target.value); setError(''); setIsWaitingForVerification(false); }}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 text-sm appearance-none"
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 font-medium appearance-none"
                 disabled={isWaitingForVerification}
               >
                 <option value="" disabled>Chọn Tỉnh/Thành phố</option>
@@ -213,8 +213,8 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-2.5 rounded-xl flex items-center gap-2">
-              <span className="text-red-400 flex-shrink-0">{WARNING_ICON}</span> {error}
+            <div className="bg-red-50/80 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2 animate-shake">
+              <span className="text-red-500 flex-shrink-0 font-bold">{WARNING_ICON}</span> <span className="font-medium">{error}</span>
             </div>
           )}
 
@@ -231,91 +231,94 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
           <button
             type="submit"
             disabled={isSubmitting || isWaitingForVerification}
-            className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary text-white py-3.5 rounded-2xl hover:shadow-lg hover:shadow-brand-primary/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none font-semibold mt-1 cursor-pointer"
+            className="relative w-full overflow-hidden group bg-gradient-to-r from-[#2D5A3D] via-emerald-600 to-[#2D5A3D] bg-[length:200%_auto] text-white py-3.5 rounded-xl hover:shadow-[0_8px_20px_rgb(45,90,61,0.3)] hover:-translate-y-0.5 transition-all duration-500 flex items-center justify-center gap-2.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none font-bold mt-4 text-[15px]"
+            style={{ backgroundPosition: 'left center' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundPosition = 'right center')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundPosition = 'left center')}
           >
             {isSubmitting ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : isWaitingForVerification ? (
-              <>Đang chờ xác thực...</>
+              <span className="relative z-10 flex items-center gap-2">Đang chờ xác thực...</span>
             ) : (
-              <>Xác thực Email <ArrowRight className="w-[18px] h-[18px]" /></>
+              <span className="relative z-10 flex items-center gap-2">Xác thực Email <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" /></span>
             )}
           </button>
         </form>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{REGISTER_TXT.fullNameLabel}</label>
+          <div className="group/input">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 group-focus-within/input:text-emerald-600 transition-colors">{REGISTER_TXT.fullNameLabel}</label>
             <div className="relative">
-              <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
               <input
                 type={INPUT_TYPE_TEXT}
                 value={fullName}
                 onChange={(e) => { setFullName(e.target.value); setError(''); }}
                 placeholder={REGISTER_TXT.fullNamePlaceholder}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm"
+                className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400 font-medium"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{REGISTER_TXT.usernameLabel}</label>
+          <div className="group/input">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 group-focus-within/input:text-emerald-600 transition-colors">{REGISTER_TXT.usernameLabel}</label>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">{AT_SYMBOL}</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium group-focus-within/input:text-emerald-500 transition-colors duration-300">{AT_SYMBOL}</span>
               <input
                 type={INPUT_TYPE_TEXT}
                 value={username}
                 onChange={(e) => { setUsername(e.target.value.toLowerCase()); setError(''); }}
                 placeholder={REGISTER_TXT.usernamePlaceholder}
-                className="w-full pl-8 pr-3 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm"
+                className="w-full pl-8 pr-3 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400 font-medium"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{REGISTER_TXT.passwordLabel}</label>
+          <div className="group/input">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 group-focus-within/input:text-emerald-600 transition-colors">{REGISTER_TXT.passwordLabel}</label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
               <input
                 type={showPassword ? INPUT_TYPE_TEXT : INPUT_TYPE_PASSWORD}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
                 placeholder={REGISTER_TXT.passwordPlaceholder}
-                className="w-full pl-10 pr-9 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 text-sm"
+                className="w-full pl-11 pr-9 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 font-medium tracking-wide"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors duration-300 bg-white rounded-full p-0.5"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">{REGISTER_TXT.confirmPasswordLabel}</label>
+          <div className="group/input">
+            <label className="block text-sm font-bold text-gray-700 mb-1.5 group-focus-within/input:text-emerald-600 transition-colors">{REGISTER_TXT.confirmPasswordLabel}</label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
               <input
                 type={showConfirm ? INPUT_TYPE_TEXT : INPUT_TYPE_PASSWORD}
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
                 placeholder={REGISTER_TXT.confirmPasswordPlaceholder}
-                className={`w-full pl-10 pr-9 py-3 rounded-xl border focus:outline-none focus:ring-2 bg-gray-50 focus:bg-white transition-all text-gray-900 text-sm ${
+                className={`w-full pl-11 pr-9 py-3.5 rounded-xl border focus:outline-none focus:ring-[3px] bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 font-medium tracking-wide ${
                   confirmPassword && password !== confirmPassword
-                    ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+                    ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
                     : confirmPassword && password === confirmPassword
-                    ? 'border-green-300 focus:ring-green-200 focus:border-green-400'
-                    : 'border-gray-200 focus:ring-brand-primary/25 focus:border-brand-primary/40'
+                    ? 'border-green-300 focus:ring-emerald-500/20 focus:border-emerald-500'
+                    : 'border-gray-200 focus:ring-emerald-500/20 focus:border-emerald-500'
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors duration-300 bg-white rounded-full p-0.5"
               >
-                {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>
@@ -379,30 +382,38 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
           </label>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-2.5 rounded-xl flex items-center gap-2">
-              <span className="text-red-400 flex-shrink-0">{WARNING_ICON}</span> {error}
+            <div className="bg-red-50/80 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2 animate-shake">
+              <span className="text-red-500 flex-shrink-0 font-bold">{WARNING_ICON}</span> <span className="font-medium">{error}</span>
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => { setStep(1); setError(''); setIsWaitingForVerification(false); }}
-            className="w-full bg-gray-100 text-gray-700 py-3.5 rounded-2xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2.5 font-semibold mt-1 cursor-pointer"
-          >
-            Quay lại
-          </button>
-          
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary text-white py-3.5 rounded-2xl hover:shadow-lg hover:shadow-brand-primary/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none font-semibold mt-2 cursor-pointer"
-          >
-            {isSubmitting ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>{REGISTER_TXT.submitBtn} <ArrowRight className="w-[18px] h-[18px]" /></>
-            )}
-          </button>
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => { setStep(1); setError(''); setIsWaitingForVerification(false); }}
+              className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl hover:bg-gray-200 transition-all duration-300 flex items-center justify-center font-bold"
+            >
+              Quay lại
+            </button>
+            
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-[2] relative overflow-hidden group bg-gradient-to-r from-[#2D5A3D] via-emerald-600 to-[#2D5A3D] bg-[length:200%_auto] text-white py-3.5 rounded-xl hover:shadow-[0_8px_20px_rgb(45,90,61,0.3)] hover:-translate-y-0.5 transition-all duration-500 flex items-center justify-center gap-2.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none font-bold text-[15px]"
+              style={{ backgroundPosition: 'left center' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundPosition = 'right center')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundPosition = 'left center')}
+            >
+              {isSubmitting ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <span className="relative z-10 flex items-center gap-2">
+                  {REGISTER_TXT.submitBtn} 
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+                </span>
+              )}
+            </button>
+          </div>
         </form>
       )}
 
