@@ -108,16 +108,16 @@ export default function LoginForm({
         )}
 
         {/* Email */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">{LOGIN_TXT.emailLabel}</label>
+        <div className="group/input">
+          <label className="block text-sm font-bold text-gray-700 mb-2 group-focus-within/input:text-emerald-600 transition-colors">{LOGIN_TXT.emailLabel}</label>
           <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
             <input
               type="text"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setError(''); setSuggestedAccount(null); }}
               placeholder={LOGIN_TXT.emailPlaceholder}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900 placeholder-gray-400"
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400 font-medium"
               required
               autoComplete={AUTO_COMPLETE_EMAIL}
             />
@@ -125,41 +125,41 @@ export default function LoginForm({
         </div>
 
         {/* Password */}
-        <div>
+        <div className="group/input">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-semibold text-gray-700">{LOGIN_TXT.passwordLabel}</label>
+            <label className="text-sm font-bold text-gray-700 group-focus-within/input:text-emerald-600 transition-colors">{LOGIN_TXT.passwordLabel}</label>
             <button
               type="button"
               onClick={onForgot}
-              className="text-xs text-brand-primary hover:text-brand-secondary hover:underline transition-colors font-medium cursor-pointer"
+              className="text-xs text-emerald-600 hover:text-emerald-500 hover:underline transition-colors font-semibold"
             >
               {LOGIN_TXT.forgotPassword}
             </button>
           </div>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400" />
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within/input:text-emerald-500 transition-colors duration-300" />
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(''); }}
               placeholder={LOGIN_TXT.passwordPlaceholder}
-              className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/25 focus:border-brand-primary/40 bg-gray-50 focus:bg-white transition-all text-gray-900"
+              className="w-full pl-11 pr-12 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 font-medium tracking-wide"
               required
               autoComplete={AUTO_COMPLETE_PASSWORD}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors duration-300 bg-white rounded-full p-0.5"
             >
-              {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-            <span className="text-red-400 flex-shrink-0">{WARNING_ICON}</span> {error}
+          <div className="bg-red-50/80 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2 animate-shake">
+            <span className="text-red-500 flex-shrink-0 font-bold">{WARNING_ICON}</span> <span className="font-medium">{error}</span>
           </div>
         )}
 
@@ -167,17 +167,33 @@ export default function LoginForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary text-white py-3.5 rounded-2xl hover:shadow-lg hover:shadow-brand-primary/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none font-semibold mt-2 cursor-pointer"
+          className="relative w-full overflow-hidden group bg-gradient-to-r from-[#2D5A3D] via-emerald-600 to-[#2D5A3D] bg-[length:200%_auto] text-white py-3.5 rounded-xl hover:shadow-[0_8px_20px_rgb(45,90,61,0.3)] hover:-translate-y-0.5 transition-all duration-500 flex items-center justify-center gap-2.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none font-bold mt-4 text-[15px]"
+          style={{ backgroundPosition: 'left center' }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundPosition = 'right center')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundPosition = 'left center')}
         >
           {isSubmitting ? (
             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
-            <>{LOGIN_TXT.submitBtn} <ArrowRight className="w-[18px] h-[18px]" /></>
+            <span className="relative z-10 flex items-center gap-2">
+              {LOGIN_TXT.submitBtn} 
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+            </span>
           )}
         </button>
       </form>
 
-      <GoogleLoginButton />
+      <div className="mt-6">
+        <div className="relative flex items-center justify-center mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200"></div>
+          </div>
+          <div className="relative bg-white px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Hoặc
+          </div>
+        </div>
+        <GoogleLoginButton />
+      </div>
 
       {/* Switch to Register */}
       <p className="text-center text-sm text-gray-500 mt-5 pt-4 border-t border-gray-100">
