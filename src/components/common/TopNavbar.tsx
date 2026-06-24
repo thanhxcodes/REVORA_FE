@@ -201,8 +201,21 @@ export default function TopNavbar({
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#2D5A3D] shadow-lg">
-      <div className="flex items-center justify-between h-16 px-4">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#244831] shadow-lg">
+      {/* Animated Background & Sparkles */}
+      <div 
+        className="absolute inset-0 overflow-hidden pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 2px, transparent 0)',
+          backgroundSize: '24px 24px'
+        }}
+      >
+        <Sparkles className="absolute top-2 left-[20%] w-4 h-4 text-emerald-300 opacity-50 animate-pulse delay-150" />
+        <Sparkles className="absolute top-4 right-[25%] w-3 h-3 text-emerald-400 opacity-70 animate-bounce delay-700" />
+        <Sparkles className="absolute top-10 right-[15%] w-2 h-2 text-emerald-500 opacity-40 animate-pulse delay-500" />
+      </div>
+
+      <div className="flex items-center justify-between h-16 px-4 relative z-10">
         {/* Left: Menu + Logo */}
         <div className="flex items-center space-x-4">
           <button

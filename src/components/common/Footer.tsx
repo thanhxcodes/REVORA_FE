@@ -1,10 +1,24 @@
-import { Heart, Mail, Phone, MapPin, Facebook, Instagram, Youtube } from 'lucide-react';
+import { Heart, Mail, Phone, MapPin, Facebook, Instagram, Youtube, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] text-white mt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <footer 
+      className="bg-[#244831] text-white mt-20 relative overflow-hidden"
+      style={{
+        backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 2px, transparent 0)',
+        backgroundSize: '24px 24px'
+      }}
+    >
+      {/* Animated Background Sparkles */}
+      <div className="absolute inset-0 pointer-events-none">
+        <Sparkles className="absolute top-10 left-[15%] w-6 h-6 text-emerald-300 opacity-50 animate-pulse delay-150" />
+        <Sparkles className="absolute bottom-20 right-[20%] w-5 h-5 text-emerald-400 opacity-70 animate-bounce delay-700" />
+        <Sparkles className="absolute top-20 right-[10%] w-4 h-4 text-emerald-500 opacity-40 animate-pulse delay-500" />
+        <Sparkles className="absolute bottom-10 left-[25%] w-3 h-3 text-emerald-200 opacity-60 animate-ping delay-300" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* About Section */}

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { X, Video, Image as ImageIcon, Sparkles, Crown, Upload, Info, FileText, CheckCircle } from 'lucide-react';
+import { CheckCircle, Info, Trash2, Tag, Briefcase, Camera, Video, ArrowLeft, Gem, Upload, X, Crown, Image as ImageIcon, Sparkles, FileText } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { uploadProductImagesAPI, uploadProductVideoAPI, createProductAPI, getMyCreditsAPI, getCategoriesAPI, getProductDetailAPI, updateProductAPI } from '../../features/products/services/productApi';
 import CreditDisplay from '../../components/common/CreditDisplay';
+import RenewModal from '../../features/products/components/RenewModal';
+import InsufficientCreditsModal from '../../features/products/components/InsufficientCreditsModal';
 import { fetchUserCreditBatches } from '../../features/credits/services/creditPackageService';
+import { ProductDetailResponseDto } from '../../features/products/types';
 import type { CreditBatch } from '../../features/credits/types';
 
 const conditions = ['Mới 100%', 'Như Mới', 'Tuyệt Vời', 'Tốt', 'Khá'];
@@ -101,6 +104,15 @@ export default function SellProductPage() {
   const [isShortActive, setIsShortActive] = useState(false);
   const [isBannerActive, setIsBannerActive] = useState(false);
 
+  const [hasShortHistory, setHasShortHistory] = useState(false);
+  const [hasBannerHistory, setHasBannerHistory] = useState(false);
+
+  const [productToRenew, setProductToRenew] = useState<ProductDetailResponseDto | null>(null);
+  const [showRenewModal, setShowRenewModal] = useState(false);
+  
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [creditModalType, setCreditModalType] = useState<'posting' | 'featured'>('posting');
+
   const [enableVideoUpload, setEnableVideoUpload] = useState(false);
   const [enableBannerBoost, setEnableBannerBoost] = useState(false);
 
@@ -118,9 +130,55 @@ export default function SellProductPage() {
 
   const totalFeaturedCreditsUsed = (enableVideoUpload ? 1 : 0) + (enableBannerBoost ? 1 : 0);
 
+  const isAddingNewBanner = isEditMode && !hasBannerHistory && enableBannerBoost;
+  const isAddingNewShort = isEditMode && !hasShortHistory && enableVideoUpload;
+  const isAddingAnyNew = isAddingNewBanner || isAddingNewShort;
+
+  const getHighlightDurationString = () => {
+    if (!productCreatedAt) return "30 ngày 0 giờ";
+    const utcDateStr = productCreatedAt + (productCreatedAt.endsWith('Z') ? '' : 'Z');
+    const createdDate = new Date(utcDateStr).getTime();
+    const now = new Date().getTime();
+    const remainingMs = Math.max(0, (30 * 24 * 60 * 60 * 1000) - (now - createdDate));
+    const extra30DaysMs = 30 * 24 * 60 * 60 * 1000;
+    const totalRemainingMs = remainingMs + extra30DaysMs;
+    const days = Math.floor(totalRemainingMs / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((totalRemainingMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    return `${days} ngày ${hours} giờ`;
+  };
+
+  const highlightDurationString = getHighlightDurationString();
+  const newFeaturedCreditsUsed = (isAddingNewShort ? 1 : 0) + (isAddingNewBanner ? 1 : 0);
+
   // LOAD ĐỒNG THỜI CATEGORIES VÀ CREDITS TỪ BACKEND
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoadingData(true);
+
+      // Reset form immediately when switching route/mode to prevent state bleeding
+      setFormData({
+        title: '',
+        categoryId: 0,
+        condition: '',
+        price: 0,
+        brand: '',
+        description: '',
+      });
+      setDisplayPrice('');
+      setPriceText('');
+      setUploadedImages([]);
+      setUploadedVideo(null);
+      setUploadedBanner(null);
+      setEnableVideoUpload(false);
+      setEnableBannerBoost(false);
+      setHasShortHistory(false);
+      setHasBannerHistory(false);
+      setIsShortActive(false);
+      setIsBannerActive(false);
+      setProductCreatedAt(null);
+      setEditTimeLeft(null);
+      setProductToRenew(null);
+
       try {
         const [creditRes, categoryRes, batchesRes] = await Promise.all([
           getMyCreditsAPI(),
@@ -131,6 +189,11 @@ export default function SellProductPage() {
         if (creditRes.success) {
           setPostingCredits(creditRes.data.postingCredits);
           setFeaturedCredits(creditRes.data.featuredCredits);
+          
+          if (!isEditMode && creditRes.data.postingCredits < 1) {
+            setCreditModalType('posting');
+            setShowCreditModal(true);
+          }
         }
         if (batchesRes) {
           setUserCreditBatches(batchesRes);
@@ -143,6 +206,7 @@ export default function SellProductPage() {
           const detailRes = await getProductDetailAPI(editId);
           if (detailRes.success) {
             const prod = detailRes.data;
+            setProductToRenew(prod);
             const matchedCategory = categoryRes.data?.find((c: any) => c.name === prod.categoryName)?.categoryId || 0;
             
             setFormData({
@@ -171,10 +235,12 @@ export default function SellProductPage() {
             }
             
             if (prod.shortExpiredAt) {
+              setHasShortHistory(true);
               const shortExp = new Date(prod.shortExpiredAt + (prod.shortExpiredAt.endsWith('Z') ? '' : 'Z')).getTime();
               if (shortExp > new Date().getTime()) setIsShortActive(true);
             }
             if (prod.bannerExpiredAt) {
+              setHasBannerHistory(true);
               const bannerExp = new Date(prod.bannerExpiredAt + (prod.bannerExpiredAt.endsWith('Z') ? '' : 'Z')).getTime();
               if (bannerExp > new Date().getTime()) setIsBannerActive(true);
             }
@@ -345,10 +411,24 @@ export default function SellProductPage() {
     if (uploadedImages.length === 0) return toast.error('Vui lòng tải lên ít nhất 1 hình ảnh.');
     
     if (!isEditMode) {
-        if (postingCredits < 1) return toast.error('Bạn đã hết Credit Đăng Tin.');
-        if (enableVideoUpload && !uploadedVideo) return toast.error('Vui lòng chọn file Video Shorts.');
-        if (enableBannerBoost && !uploadedBanner) return toast.error('Vui lòng chọn ảnh cho Banner nổi bật.');
-        if (totalFeaturedCreditsUsed > featuredCredits) return toast.error('Bạn không đủ Credit Nổi Bật để dùng các tính năng này.');
+      if (postingCredits < 1) {
+        setCreditModalType('posting');
+        setShowCreditModal(true);
+        return;
+      }
+      if (enableVideoUpload && !uploadedVideo) return toast.error('Vui lòng chọn file Video Shorts.');
+      if (enableBannerBoost && !uploadedBanner) return toast.error('Vui lòng chọn ảnh cho Banner nổi bật.');
+      if (totalFeaturedCreditsUsed > featuredCredits) {
+        setCreditModalType('featured');
+        setShowCreditModal(true);
+        return;
+      }
+    } else {
+      if (newFeaturedCreditsUsed > featuredCredits) {
+        setCreditModalType('featured');
+        setShowCreditModal(true);
+        return;
+      }
     }
 
     try {
@@ -394,8 +474,18 @@ export default function SellProductPage() {
 
       <form onSubmit={handleSubmit} className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        <div className="text-center mb-12">
-          <h1 className="text-4xl text-gray-900 mb-4 font-bold">{isEditMode ? 'Sửa Sản Phẩm' : 'Đăng Sản Phẩm Thời Trang'}</h1>
+        <div className="text-center mb-12 relative">
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={() => navigate('/manage-products')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center space-x-2 text-gray-500 hover:text-gray-900 transition-colors bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Quay lại</span>
+            </button>
+          )}
+          <h1 className="text-4xl text-gray-900 mb-4 font-bold">{isEditMode ? 'Chỉnh Sửa Sản Phẩm' : 'Đăng Sản Phẩm Thời Trang'}</h1>
           <p className="text-gray-600">{isEditMode ? 'Chỉnh sửa thông tin sản phẩm của bạn' : 'Điền thông tin và chọn tính năng nâng cao để tối đa hóa lượt tiếp cận'}</p>
         </div>
 
@@ -516,27 +606,59 @@ export default function SellProductPage() {
             </div>
 
             {/* VIDEO SHORTS PREMIUM */}
-            {(!isEditMode || isShortActive) && (
-                <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${enableVideoUpload ? 'border-[#2D5A3D] bg-[#2D5A3D]/[0.02]' : 'border-gray-100'}`}>
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${enableVideoUpload ? 'bg-[#2D5A3D] text-white' : 'bg-gray-100 text-gray-400'}`}>
-                        <Video className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Tính năng Video Shorts</h2>
-                        <p className="text-sm text-gray-500">Người dùng sẽ xem review ngay trên bảng feed</p>
-                      </div>
+            <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${(isEditMode && hasShortHistory && !isShortActive) ? 'opacity-80' : ''} ${enableVideoUpload ? 'border-[#2D5A3D] bg-[#2D5A3D]/[0.02]' : 'border-gray-100'}`}>
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${enableVideoUpload ? 'bg-[#2D5A3D] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                      <Video className="w-6 h-6" />
                     </div>
-                    {isEditMode ? (
-                      <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full whitespace-nowrap">Sửa Video (Còn hạn)</span>
-                    ) : (
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
-                        <input type="checkbox" checked={enableVideoUpload} onChange={(e) => setEnableVideoUpload(e.target.checked)} disabled={featuredCredits === 0} className="w-5 h-5 accent-[#2D5A3D] rounded border-gray-300 cursor-pointer disabled:cursor-not-allowed" />
-                      </label>
-                    )}
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Tính năng Video Shorts</h2>
+                      <p className="text-sm text-gray-500">Người dùng sẽ xem review ngay trên bảng feed</p>
+                    </div>
                   </div>
+                  {isEditMode ? (
+                    hasShortHistory ? (
+                      isShortActive ? (
+                        <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full whitespace-nowrap">Sửa Video (Còn hạn)</span>
+                      ) : (
+                        <div className="flex items-center gap-2 pointer-events-auto">
+                          <span className="text-xs font-bold text-red-700 bg-red-100 px-3 py-1.5 rounded-full whitespace-nowrap">Đã hết hạn</span>
+                          <button type="button" onClick={() => setShowRenewModal(true)} className="text-xs font-bold text-white bg-[#2D5A3D] hover:bg-[#2D5A3D]/90 px-3 py-1.5 rounded-full whitespace-nowrap transition-colors shadow-sm">
+                            Gia hạn ngay
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      <div className="flex items-center gap-3 pointer-events-auto">
+                        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full whitespace-nowrap">Chưa có</span>
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
+                          <input type="checkbox" checked={enableVideoUpload} onChange={(e) => {
+                            if (e.target.checked && featuredCredits - (enableBannerBoost ? 1 : 0) <= 0) {
+                              setCreditModalType('featured');
+                              setShowCreditModal(true);
+                            } else {
+                              setEnableVideoUpload(e.target.checked);
+                            }
+                          }} className="w-5 h-5 accent-[#2D5A3D] rounded border-gray-300 cursor-pointer" />
+                        </label>
+                      </div>
+                    )
+                  ) : (
+                    <label className="flex items-center gap-3 cursor-pointer group pointer-events-auto">
+                      <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
+                      <input type="checkbox" checked={enableVideoUpload} onChange={(e) => {
+                        if (e.target.checked && featuredCredits - (enableBannerBoost ? 1 : 0) <= 0) {
+                          setCreditModalType('featured');
+                          setShowCreditModal(true);
+                        } else {
+                          setEnableVideoUpload(e.target.checked);
+                        }
+                      }} className="w-5 h-5 accent-[#2D5A3D] rounded border-gray-300 cursor-pointer" />
+                    </label>
+                  )}
+                </div>
 
                   {enableVideoUpload && (
                     <div>
@@ -565,30 +687,60 @@ export default function SellProductPage() {
                     </div>
                   )}
                 </div>
-            )}
-
             {/* BANNER BOOST PREMIUM */}
-            {(!isEditMode || isBannerActive) && (
-                <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${enableBannerBoost ? 'border-orange-500 bg-orange-50/30' : 'border-gray-100'}`}>
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${enableBannerBoost ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                        <Crown className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Tính năng Banner VIP</h2>
-                        <p className="text-sm text-gray-500">Chiếm trọn sự chú ý trong 24 giờ đầu</p>
-                      </div>
+            <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${(isEditMode && hasBannerHistory && !isBannerActive) ? 'opacity-80' : ''} ${enableBannerBoost ? 'border-orange-500 bg-orange-50/30' : 'border-gray-100'}`}>
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${enableBannerBoost ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                      <Crown className="w-6 h-6" />
                     </div>
-                    {isEditMode ? (
-                      <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full whitespace-nowrap">Sửa Ảnh (Còn hạn)</span>
-                    ) : (
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
-                        <input type="checkbox" checked={enableBannerBoost} onChange={(e) => setEnableBannerBoost(e.target.checked)} disabled={featuredCredits - (enableVideoUpload ? 1 : 0) === 0} className="w-5 h-5 accent-orange-500 rounded border-gray-300 cursor-pointer disabled:cursor-not-allowed" />
-                      </label>
-                    )}
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Tính năng Banner VIP</h2>
+                      <p className="text-sm text-gray-500">Chiếm trọn sự chú ý trong 24 giờ đầu</p>
+                    </div>
                   </div>
+                  {isEditMode ? (
+                    hasBannerHistory ? (
+                      isBannerActive ? (
+                        <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full whitespace-nowrap">Sửa Ảnh (Còn hạn)</span>
+                      ) : (
+                        <div className="flex items-center gap-2 pointer-events-auto">
+                          <span className="text-xs font-bold text-red-700 bg-red-100 px-3 py-1.5 rounded-full whitespace-nowrap">Đã hết hạn</span>
+                          <button type="button" onClick={() => setShowRenewModal(true)} className="text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 px-3 py-1.5 rounded-full whitespace-nowrap transition-colors shadow-sm">
+                            Gia hạn ngay
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      <div className="flex items-center gap-3 pointer-events-auto">
+                        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full whitespace-nowrap">Chưa có</span>
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
+                          <input type="checkbox" checked={enableBannerBoost} onChange={(e) => {
+                            if (e.target.checked && featuredCredits - (enableVideoUpload ? 1 : 0) <= 0) {
+                              setCreditModalType('featured');
+                              setShowCreditModal(true);
+                            } else {
+                              setEnableBannerBoost(e.target.checked);
+                            }
+                          }} className="w-5 h-5 accent-orange-500 rounded border-gray-300 cursor-pointer" />
+                        </label>
+                      </div>
+                    )
+                  ) : (
+                    <label className="flex items-center gap-3 cursor-pointer group pointer-events-auto">
+                      <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Dùng 1 Nổi Bật</span>
+                      <input type="checkbox" checked={enableBannerBoost} onChange={(e) => {
+                        if (e.target.checked && featuredCredits - (enableVideoUpload ? 1 : 0) <= 0) {
+                          setCreditModalType('featured');
+                          setShowCreditModal(true);
+                        } else {
+                          setEnableBannerBoost(e.target.checked);
+                        }
+                      }} className="w-5 h-5 accent-orange-500 rounded border-gray-300 cursor-pointer" />
+                    </label>
+                  )}
+                </div>
 
                   {enableBannerBoost && (
                     <div className="space-y-4">
@@ -617,8 +769,6 @@ export default function SellProductPage() {
                     </div>
                   )}
                 </div>
-            )}
-
           </div>
 
           {/* SIDEBAR TÍNH TOÁN CREDIT BÊN PHẢI */}
@@ -638,21 +788,23 @@ export default function SellProductPage() {
                 </div>
               )}
 
-              {!isEditMode && (
+              {(!isEditMode || isAddingAnyNew) && (
                   <div className="border-t border-gray-100 pt-6">
                     <h4 className="text-sm font-semibold text-gray-900 mb-4">Chi Phí Dự Kiến:</h4>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">Phí lên sàn</span>
-                        <span className="font-bold text-blue-600">-1</span>
-                      </div>
-                      {enableVideoUpload && (
+                      {!isEditMode && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600">Phí lên sàn</span>
+                          <span className="font-bold text-blue-600">-1</span>
+                        </div>
+                      )}
+                      {(!isEditMode && enableVideoUpload || isAddingNewShort) && (
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-gray-600">Tích hợp Video Shorts</span>
                           <span className="font-bold text-orange-600">-1</span>
                         </div>
                       )}
-                      {enableBannerBoost && (
+                      {(!isEditMode && enableBannerBoost || isAddingNewBanner) && (
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-gray-600">Banner VIP</span>
                           <span className="font-bold text-orange-600">-1</span>
@@ -660,24 +812,68 @@ export default function SellProductPage() {
                       )}
 
                       <div className="border-t border-dashed border-gray-200 pt-3 mt-4">
-                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Số dư khả dụng sau khi đăng:</div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-gray-600">Đăng tin:</span>
-                          <span className="font-bold text-blue-600">{Math.max(0, postingCredits - 1)}</span>
-                        </div>
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Số dư khả dụng sau khi lưu:</div>
+                        {!isEditMode && (
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-600">Đăng tin:</span>
+                            <span className="font-bold text-blue-600">{Math.max(0, postingCredits - 1)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between text-sm mb-4">
                           <span className="text-gray-600">Nổi bật:</span>
-                          <span className="font-bold text-orange-600">{Math.max(0, featuredCredits - totalFeaturedCreditsUsed)}</span>
+                          <span className="font-bold text-orange-600">{Math.max(0, featuredCredits - (!isEditMode ? totalFeaturedCreditsUsed : newFeaturedCreditsUsed))}</span>
                         </div>
-                        <div className="flex justify-between text-sm bg-green-50 p-2.5 rounded-xl border border-green-100">
-                          <span className="text-green-700 font-medium">Tin tồn tại đến:</span>
-                          <span className="font-bold text-green-700">
-                            {(() => {
-                              const d = new Date();
-                              d.setDate(d.getDate() + (totalFeaturedCreditsUsed > 0 ? 60 : 30));
-                              return d.toLocaleDateString('vi-VN');
-                            })()}
-                          </span>
+                        <div className="space-y-2 text-sm bg-green-50 p-3 rounded-xl border border-green-100 mt-4">
+                          <div className="text-green-800 font-semibold mb-1">Dự kiến thời gian hiển thị:</div>
+                          {!isEditMode ? (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Bài đăng:</span>
+                                <span className="font-bold text-green-700">+ {totalFeaturedCreditsUsed > 0 ? 60 : 30} ngày</span>
+                              </div>
+                              {enableBannerBoost && (
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Banner VIP:</span>
+                                  <span className="font-bold text-green-700">+ 24 giờ</span>
+                                </div>
+                              )}
+                              {enableVideoUpload && (
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Video Short:</span>
+                                  <span className="font-bold text-green-700">+ 60 ngày</span>
+                                </div>
+                              )}
+                              {(enableBannerBoost || enableVideoUpload) && (
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Viền nổi bật:</span>
+                                  <span className="font-bold text-green-700">+ 60 ngày</span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Bài đăng:</span>
+                                <span className="font-bold text-green-700">+ 30 ngày</span>
+                              </div>
+                              {isAddingNewBanner && (
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Banner VIP:</span>
+                                  <span className="font-bold text-green-700">+ 24 giờ</span>
+                                </div>
+                              )}
+                              {isAddingNewShort && (
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Video Short:</span>
+                                  <span className="font-bold text-green-700">+ {highlightDurationString}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between">
+                                <span className="text-green-700 flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Viền nổi bật:</span>
+                                <span className="font-bold text-green-700">+ {highlightDurationString}</span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -699,7 +895,14 @@ export default function SellProductPage() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || (!isEditMode && postingCredits < 1) || !acceptRules}
+                disabled={isSubmitting || !acceptRules}
+                onClick={(e) => {
+                  if (!isEditMode && postingCredits < 1) {
+                    e.preventDefault();
+                    setCreditModalType('posting');
+                    setShowCreditModal(true);
+                  }
+                }}
                 className="w-full mt-5 bg-[#2D5A3D] text-white py-4 rounded-2xl font-semibold text-sm hover:bg-[#234830] hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
@@ -757,6 +960,40 @@ export default function SellProductPage() {
           </div>
         </div>
       )}
+
+      {productToRenew && (
+        <RenewModal
+          isOpen={showRenewModal}
+          onClose={() => setShowRenewModal(false)}
+          productToRenew={productToRenew}
+          totalPostingPermanent={userCreditBatches.posting.filter(b => b.isPermanent).reduce((acc, curr) => acc + curr.quantity, 0)}
+          totalFeaturedPermanent={userCreditBatches.featured.filter(b => b.isPermanent).reduce((acc, curr) => acc + curr.quantity, 0)}
+          onRenewSuccess={() => {
+            setShowRenewModal(false);
+            if (editId) getProductDetailAPI(editId).then(res => {
+              if (res.success) {
+                setProductToRenew(res.data);
+                if (res.data.shortExpiredAt) {
+                  setHasShortHistory(true);
+                  const shortExp = new Date(res.data.shortExpiredAt + (res.data.shortExpiredAt.endsWith('Z') ? '' : 'Z')).getTime();
+                  if (shortExp > new Date().getTime()) setIsShortActive(true);
+                }
+                if (res.data.bannerExpiredAt) {
+                  setHasBannerHistory(true);
+                  const bannerExp = new Date(res.data.bannerExpiredAt + (res.data.bannerExpiredAt.endsWith('Z') ? '' : 'Z')).getTime();
+                  if (bannerExp > new Date().getTime()) setIsBannerActive(true);
+                }
+              }
+            });
+          }}
+        />
+      )}
+
+      <InsufficientCreditsModal 
+        isOpen={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        type={creditModalType}
+      />
     </div>
   );
 } 
