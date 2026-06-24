@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
   Star, MapPin, Calendar, Shield, Heart, Package, Award,
   Camera, Edit3, Save, X, Lock, Eye, EyeOff, Phone,
@@ -23,15 +24,18 @@ import FollowListModal from './Profile/components/FollowListModal';
 
 
 const AVATAR_COLORS = [
-  '#2D5A3D', '#1a1a2e', '#0f3460', '#533483', '#2d6a4f', '#b5451b', '#774936', '#374151',
-];
-
-const VIETNAM_CITIES = [
-  'Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ',
-  'Nghệ An', 'Quảng Ninh', 'Bình Dương', 'Đồng Nai', 'Huế', 'Nha Trang', 'Đà Lạt',
+  '#2D5A3D', '#C4603A', '#4F46E5', '#DB2777',
+  '#059669', '#D97706', '#7C3AED', '#DC2626'
 ];
 
 type TabKey = 'profile' | 'products' | 'wishlist' | 'security';
+
+const FLOATING_IMAGES = [
+  { url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop', top: '5%', left: '8%', width: '140px', delay: 0, rotate: -6 },
+  { url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=400&auto=format&fit=crop', top: '35%', left: '22%', width: '120px', delay: 1.5, rotate: 8 },
+  { url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=400&auto=format&fit=crop', top: '10%', right: '10%', width: '130px', delay: 0.5, rotate: 6 },
+  { url: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=400&auto=format&fit=crop', top: '40%', right: '25%', width: '150px', delay: 2, rotate: -5 },
+];
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode; badge?: string }[] = [
   { key: 'profile', label: 'Hồ Sơ', icon: <User className="w-4 h-4" /> },
@@ -427,13 +431,47 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Banner - Abstract Mesh Gradient */}
-      <div className="h-72 relative overflow-hidden bg-[#2D5A3D]">
+      <div className="h-72 relative overflow-hidden bg-[#0a1a10]">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_#20422c_0%,_#122a1f_50%,_#0a1a10_100%)]" />
+        
+        {/* Floating Clothes Images */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+          {FLOATING_IMAGES.map((img, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 0.25, scale: 1, y: [0, -15, 0] }}
+              transition={{
+                opacity: { duration: 1.5, delay: img.delay * 0.3 },
+                scale: { duration: 1.5, delay: img.delay * 0.3 },
+                y: { duration: 7 + (i % 3), repeat: Infinity, ease: "easeInOut", delay: img.delay }
+              }}
+              style={{
+                position: 'absolute',
+                top: img.top,
+                left: img.left,
+                right: img.right,
+                width: img.width,
+                rotate: img.rotate,
+              }}
+              className="rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/5"
+            >
+              {/* Lớp phủ màu xanh lá để blend hình ảnh vào nền */}
+              <div className="absolute inset-0 bg-emerald-900/50 mix-blend-overlay z-10" />
+              <img 
+                src={img.url} 
+                alt="Fashion Decor" 
+                className="w-full h-auto object-cover filter grayscale-[30%] contrast-125 brightness-90"
+              />
+            </motion.div>
+          ))}
+        </div>
+
         {/* Animated Mesh Gradients */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-60 mix-blend-screen">
+        <div className="absolute top-0 left-0 w-full h-full opacity-60 mix-blend-screen pointer-events-none z-0">
           <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[150%] bg-gradient-to-br from-[#3D7054] to-[#C4603A]/30 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '8s' }} />
           <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[120%] bg-gradient-to-bl from-[#C4603A]/20 to-[#2D5A3D] rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '1s' }} />
         </div>
-        <div className="absolute inset-0 bg-black/10" />
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">

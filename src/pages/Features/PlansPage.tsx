@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sparkles, Image, Check, X, QrCode, History, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, AlertCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../providers/authProvider/AuthContext';
+import toast from 'react-hot-toast';
 import CreditDisplay from '../../components/common/CreditDisplay';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { authClient } from '../../providers/authProvider/authService';
@@ -512,6 +515,9 @@ const renderPackagePurchaseButton = (
 
 export default function PlansPage() {
   const { initiateCheckout, isCheckoutLoading, loadingPackageId, checkoutError, cancelOrder } = useCheckout();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleCancelOrder = async (orderCode: string) => {
     const success = await cancelOrder(orderCode);
@@ -544,6 +550,11 @@ export default function PlansPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const loadCreditBatches = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsCreditLoading(false);
+      return;
+    }
+
     setIsCreditLoading(true);
     setCreditError(null);
 
@@ -571,7 +582,7 @@ export default function PlansPage() {
     }
 
     setIsCreditLoading(false);
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (activeTab !== 'packages') {
@@ -615,6 +626,12 @@ export default function PlansPage() {
     let isMounted = true;
 
     const loadTransactions = async () => {
+      if (!isAuthenticated) {
+        setTransactions([]);
+        setIsTransactionsLoading(false);
+        return;
+      }
+
       setIsTransactionsLoading(true);
       setTransactionsError(null);
       setCurrentPage(1);
@@ -648,7 +665,7 @@ export default function PlansPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeTab]);
+  }, [activeTab, isAuthenticated]);
 
   useEffect(() => {
     let isMounted = true;
@@ -702,6 +719,11 @@ export default function PlansPage() {
   );
 
   const handleSelectPackage = (pkg: Package) => {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để mua gói.');
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
     setSelectedPackageForBuy(pkg);
   };
 
@@ -726,7 +748,7 @@ export default function PlansPage() {
     <div className="min-h-screen bg-[#f4f6f5]">
 
       {/* ── Premium Dark Hero Header ── */}
-      <div 
+      <div
         className="relative bg-[#0b1a12] overflow-hidden"
         style={{
           backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.12) 2px, transparent 0)',
@@ -740,7 +762,7 @@ export default function PlansPage() {
           <Sparkles className="absolute top-16 right-[15%] w-6 h-6 text-emerald-300 opacity-50 animate-pulse delay-150" />
           <Sparkles className="absolute top-32 right-[8%] w-4 h-4 text-emerald-400 opacity-70 animate-bounce delay-700" />
           <Sparkles className="absolute top-48 left-[5%] w-4 h-4 text-emerald-500 opacity-30 animate-pulse delay-500" />
-          
+
           <div className="absolute -top-24 left-1/3 w-[500px] h-[500px] bg-[#2D5A3D]/25 rounded-full blur-[120px]" />
           <div className="absolute top-8 right-1/4 w-64 h-64 bg-[#C4603A]/12 rounded-full blur-[80px]" />
           <div
@@ -779,22 +801,20 @@ export default function PlansPage() {
           <div className="inline-flex bg-white rounded-2xl shadow-lg shadow-black/8 p-1.5 border border-gray-100/80">
             <button
               onClick={() => setActiveTab('packages')}
-              className={`flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                activeTab === 'packages'
+              className={`flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'packages'
                   ? 'bg-[#2D5A3D] text-white shadow-md shadow-[#2D5A3D]/30'
                   : 'text-gray-500 hover:text-gray-800'
-              }`}
+                }`}
             >
               <Sparkles className="w-4 h-4" />
               Gói Credits
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                activeTab === 'history'
+              className={`flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${activeTab === 'history'
                   ? 'bg-[#2D5A3D] text-white shadow-md shadow-[#2D5A3D]/30'
                   : 'text-gray-500 hover:text-gray-800'
-              }`}
+                }`}
             >
               <History className="w-4 h-4" />
               Lịch Sử Giao Dịch
@@ -806,17 +826,19 @@ export default function PlansPage() {
         {activeTab === 'packages' && (
           <>
             {/* Current Credits Dashboard */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-12">
-              <div className="flex items-center gap-2.5 mb-5">
-                <div className="w-1 h-5 rounded-full bg-[#2D5A3D]" />
-                <h2 className="text-base font-bold text-gray-900">Credits Hiện Tại</h2>
-                {creditError && <p className="text-xs text-amber-600 ml-1">{creditError}</p>}
+            {isAuthenticated && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-12">
+                <div className="flex items-center gap-2.5 mb-5">
+                  <div className="w-1 h-5 rounded-full bg-[#2D5A3D]" />
+                  <h2 className="text-base font-bold text-gray-900">Credits Hiện Tại</h2>
+                  {creditError && <p className="text-xs text-amber-600 ml-1">{creditError}</p>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CreditDisplay type="posting" batches={isCreditLoading ? [] : userCreditBatches.posting} />
+                  <CreditDisplay type="featured" batches={isCreditLoading ? [] : userCreditBatches.featured} />
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <CreditDisplay type="posting" batches={isCreditLoading ? [] : userCreditBatches.posting} />
-                <CreditDisplay type="featured" batches={isCreditLoading ? [] : userCreditBatches.featured} />
-              </div>
-            </div>
+            )}
 
             {/* ── Posting Packages ── */}
             <div className="mb-14">
@@ -857,20 +879,18 @@ export default function PlansPage() {
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative rounded-2xl transition-all duration-300 p-[2px] ${
-                        purchaseState === 'available' ? 'hover:-translate-y-1' : 'opacity-90'
-                      } ${
-                        isDark
-                          ? 'bg-gradient-to-br from-[#4ade80] via-[#2D5A3D] to-[#022c22] shadow-2xl shadow-[#2D5A3D]/40'
+                      className={`relative rounded-2xl transition-all duration-300 p-[2px] ${purchaseState === 'available' ? 'hover:-translate-y-1' : 'opacity-90'
+                        } ${isDark
+                          ? 'bg-gradient-to-br from-blue-400 via-blue-800 to-[#0f172a] shadow-2xl shadow-blue-800/40'
                           : isHighlighted
-                          ? 'bg-gradient-to-br from-blue-300 via-blue-400 to-blue-600 shadow-xl shadow-blue-200'
-                          : 'bg-transparent border border-blue-100 shadow-sm'
-                      }`}
+                            ? 'bg-gradient-to-br from-blue-300 via-blue-400 to-blue-600 shadow-xl shadow-blue-200'
+                            : 'bg-transparent border border-blue-100 shadow-sm'
+                        }`}
                     >
                       <div
                         className="relative h-full rounded-[14px]"
                         style={isDark ? {
-                          backgroundImage: 'radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,0.08) 1.5px, transparent 0), linear-gradient(145deg, #0d2118 0%, #18372a 100%)',
+                          backgroundImage: 'radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,0.08) 1.5px, transparent 0), linear-gradient(145deg, #0f172a 0%, #1e3a8a 100%)',
                           backgroundSize: '20px 20px, auto'
                         } : isHighlighted ? {
                           background: 'linear-gradient(145deg, #dbeafe 0%, #eff6ff 100%)',
@@ -881,10 +901,10 @@ export default function PlansPage() {
                         {/* Sparkles for Premium */}
                         {isDark && (
                           <>
-                            <Sparkles className="absolute top-4 left-4 w-6 h-6 text-emerald-300 opacity-90 animate-pulse z-10" />
-                            <Sparkles className="absolute bottom-6 right-6 w-8 h-8 text-emerald-400 opacity-70 animate-pulse delay-150 z-10" />
-                            <Sparkles className="absolute top-1/3 -left-3 w-5 h-5 text-emerald-200 opacity-80 animate-bounce delay-300 z-10" />
-                            <Sparkles className="absolute top-6 right-1/4 w-4 h-4 text-emerald-300 opacity-60 animate-ping delay-700 z-10" />
+                            <Sparkles className="absolute top-4 left-4 w-6 h-6 text-blue-300 opacity-90 animate-pulse z-10" />
+                            <Sparkles className="absolute bottom-6 right-6 w-8 h-8 text-blue-400 opacity-70 animate-pulse delay-150 z-10" />
+                            <Sparkles className="absolute top-1/3 -left-3 w-5 h-5 text-blue-200 opacity-80 animate-bounce delay-300 z-10" />
+                            <Sparkles className="absolute top-6 right-1/4 w-4 h-4 text-blue-300 opacity-60 animate-ping delay-700 z-10" />
                           </>
                         )}
 
@@ -898,79 +918,76 @@ export default function PlansPage() {
                         )}
 
                         <div className="p-7">
-                        {/* Badge row */}
-                        <div className="flex items-start justify-between mb-5">
-                          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
-                            isDark
-                              ? 'bg-white/15 text-emerald-300'
-                              : pkg.badgeColor
-                          }`}>
-                            {pkg.badge}
-                          </span>
-                          {pkg.discountPercent && (
-                            <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
-                              -{pkg.discountPercent}%
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <h3 className={`text-xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                          {pkg.title}
-                        </h3>
-
-                        {/* Price */}
-                        <div className="mb-5">
-                          <span className={`text-[32px] font-black leading-none ${isDark ? 'text-white' : 'text-blue-600'}`}>
-                            {pkg.price.toLocaleString('vi-VN')}đ
-                          </span>
-                          {pkg.originalPrice && (
-                            <div className="mt-1">
-                              <span className={`text-sm line-through ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
-                                {pkg.originalPrice.toLocaleString('vi-VN')}đ
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Credits highlight */}
-                        <div className={`rounded-xl p-4 mb-5 text-center ${
-                          isDark ? 'bg-white/10 border border-white/15' : 'bg-blue-50 border border-blue-100'
-                        }`}>
-                          <div className={`text-4xl font-black tabular-nums ${isDark ? 'text-emerald-300' : 'text-blue-600'}`}>
-                            {pkg.credits}
-                          </div>
-                          <div className={`text-xs font-medium mt-0.5 ${isDark ? 'text-white/55' : 'text-gray-500'}`}>
-                            Credits Đăng Tin
-                          </div>
-                        </div>
-
-                        {/* Features */}
-                        <ul className="space-y-2.5 mb-6">
-                          {pkg.features.map((feature, index) => (
-                            <li key={index} className="flex items-start gap-2.5">
-                              <div className={`w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 mt-px ${
-                                isDark ? 'bg-emerald-400/20' : 'bg-green-100'
+                          {/* Badge row */}
+                          <div className="flex items-start justify-between mb-5">
+                            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${isDark
+                                ? 'bg-white/15 text-blue-300'
+                                : pkg.badgeColor
                               }`}>
-                                <Check className={`w-2.5 h-2.5 ${isDark ? 'text-emerald-300' : 'text-green-600'}`} />
-                              </div>
-                              <span className={`text-sm leading-snug ${isDark ? 'text-white/75' : 'text-gray-600'}`}>
-                                {feature}
+                              {pkg.badge}
+                            </span>
+                            {pkg.discountPercent && (
+                              <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
+                                -{pkg.discountPercent}%
                               </span>
-                            </li>
-                          ))}
-                        </ul>
+                            )}
+                          </div>
 
-                        {renderPackagePurchaseButton(
-                          purchaseState,
-                          () => handleSelectPackage(pkg),
-                          'posting',
-                          loadingPackageId === pkg.paidCreditPackageId,
-                          isCheckoutLoading,
-                          postingPurchaseStatus,
-                          pkg.paidCreditPackageId,
-                          handleCancelOrder
-                        )}
+                          {/* Title */}
+                          <h3 className={`text-xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            {pkg.title}
+                          </h3>
+
+                          {/* Price */}
+                          <div className="mb-5">
+                            <span className={`text-[32px] font-black leading-none ${isDark ? 'text-white' : 'text-blue-600'}`}>
+                              {pkg.price.toLocaleString('vi-VN')}đ
+                            </span>
+                            {pkg.originalPrice && (
+                              <div className="mt-1">
+                                <span className={`text-sm line-through ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                                  {pkg.originalPrice.toLocaleString('vi-VN')}đ
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Credits highlight */}
+                          <div className={`rounded-xl p-4 mb-5 text-center ${isDark ? 'bg-white/10 border border-white/15' : 'bg-blue-50 border border-blue-100'
+                            }`}>
+                            <div className={`text-4xl font-black tabular-nums ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
+                              {pkg.credits}
+                            </div>
+                            <div className={`text-xs font-medium mt-0.5 ${isDark ? 'text-white/55' : 'text-gray-500'}`}>
+                              Credits Đăng Tin
+                            </div>
+                          </div>
+
+                          {/* Features */}
+                          <ul className="space-y-2.5 mb-6">
+                            {pkg.features.map((feature, index) => (
+                              <li key={index} className="flex items-start gap-2.5">
+                                <div className={`w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 mt-px ${isDark ? 'bg-blue-400/20' : 'bg-green-100'
+                                  }`}>
+                                  <Check className={`w-2.5 h-2.5 ${isDark ? 'text-blue-300' : 'text-green-600'}`} />
+                                </div>
+                                <span className={`text-sm leading-snug ${isDark ? 'text-white/75' : 'text-gray-600'}`}>
+                                  {feature}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {renderPackagePurchaseButton(
+                            purchaseState,
+                            () => handleSelectPackage(pkg),
+                            'posting',
+                            loadingPackageId === pkg.paidCreditPackageId,
+                            isCheckoutLoading,
+                            postingPurchaseStatus,
+                            pkg.paidCreditPackageId,
+                            handleCancelOrder
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1020,15 +1037,13 @@ export default function PlansPage() {
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative rounded-2xl transition-all duration-300 p-[2px] ${
-                        purchaseState === 'available' ? 'hover:-translate-y-1' : 'opacity-90'
-                      } ${
-                        isPremium
+                      className={`relative rounded-2xl transition-all duration-300 p-[2px] ${purchaseState === 'available' ? 'hover:-translate-y-1' : 'opacity-90'
+                        } ${isPremium
                           ? 'bg-gradient-to-br from-[#fbd38d] via-[#C4603A] to-[#7b341e] shadow-2xl shadow-[#C4603A]/40'
                           : isRecommended
-                          ? 'bg-gradient-to-br from-orange-300 via-orange-400 to-orange-500 shadow-xl shadow-orange-200'
-                          : 'bg-transparent border border-orange-100 shadow-sm'
-                      }`}
+                            ? 'bg-gradient-to-br from-orange-300 via-orange-400 to-orange-500 shadow-xl shadow-orange-200'
+                            : 'bg-transparent border border-orange-100 shadow-sm'
+                        }`}
                     >
                       <div
                         className="relative h-full rounded-[14px]"
@@ -1061,79 +1076,76 @@ export default function PlansPage() {
                         )}
 
                         <div className="p-7">
-                        {/* Badge row */}
-                        <div className="flex items-start justify-between mb-5">
-                          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
-                            isPremium
-                              ? 'bg-white/15 text-orange-300'
-                              : pkg.badgeColor
-                          }`}>
-                            {pkg.badge}
-                          </span>
-                          {pkg.discountPercent && (
-                            <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
-                              -{pkg.discountPercent}%
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <h3 className={`text-xl font-bold mb-3 ${isPremium ? 'text-white' : 'text-gray-900'}`}>
-                          {pkg.title}
-                        </h3>
-
-                        {/* Price */}
-                        <div className="mb-5">
-                          <span className={`text-[32px] font-black leading-none ${isPremium ? 'text-white' : 'text-[#C4603A]'}`}>
-                            {pkg.price.toLocaleString('vi-VN')}đ
-                          </span>
-                          {pkg.originalPrice && (
-                            <div className="mt-1">
-                              <span className={`text-sm line-through ${isPremium ? 'text-white/40' : 'text-gray-400'}`}>
-                                {pkg.originalPrice.toLocaleString('vi-VN')}đ
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Credits highlight */}
-                        <div className={`rounded-xl p-4 mb-5 text-center ${
-                          isPremium ? 'bg-white/10 border border-white/15' : 'bg-orange-50 border border-orange-100'
-                        }`}>
-                          <div className={`text-4xl font-black tabular-nums ${isPremium ? 'text-orange-300' : 'text-[#C4603A]'}`}>
-                            {pkg.credits}
-                          </div>
-                          <div className={`text-xs font-medium mt-0.5 ${isPremium ? 'text-white/55' : 'text-gray-500'}`}>
-                            Credits Nổi Bật
-                          </div>
-                        </div>
-
-                        {/* Features */}
-                        <ul className="space-y-2.5 mb-6">
-                          {pkg.features.map((feature, index) => (
-                            <li key={index} className="flex items-start gap-2.5">
-                              <div className={`w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 mt-px ${
-                                isPremium ? 'bg-orange-400/20' : 'bg-orange-100'
+                          {/* Badge row */}
+                          <div className="flex items-start justify-between mb-5">
+                            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${isPremium
+                                ? 'bg-white/15 text-orange-300'
+                                : pkg.badgeColor
                               }`}>
-                                <Check className={`w-2.5 h-2.5 ${isPremium ? 'text-orange-300' : 'text-[#C4603A]'}`} />
-                              </div>
-                              <span className={`text-sm leading-snug ${isPremium ? 'text-white/75' : 'text-gray-600'}`}>
-                                {feature}
+                              {pkg.badge}
+                            </span>
+                            {pkg.discountPercent && (
+                              <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
+                                -{pkg.discountPercent}%
                               </span>
-                            </li>
-                          ))}
-                        </ul>
+                            )}
+                          </div>
 
-                        {renderPackagePurchaseButton(
-                          purchaseState,
-                          () => handleSelectPackage(pkg),
-                          'featured',
-                          loadingPackageId === pkg.paidCreditPackageId,
-                          isCheckoutLoading,
-                          featuredPurchaseStatus,
-                          pkg.paidCreditPackageId,
-                          handleCancelOrder
-                        )}
+                          {/* Title */}
+                          <h3 className={`text-xl font-bold mb-3 ${isPremium ? 'text-white' : 'text-gray-900'}`}>
+                            {pkg.title}
+                          </h3>
+
+                          {/* Price */}
+                          <div className="mb-5">
+                            <span className={`text-[32px] font-black leading-none ${isPremium ? 'text-white' : 'text-[#C4603A]'}`}>
+                              {pkg.price.toLocaleString('vi-VN')}đ
+                            </span>
+                            {pkg.originalPrice && (
+                              <div className="mt-1">
+                                <span className={`text-sm line-through ${isPremium ? 'text-white/40' : 'text-gray-400'}`}>
+                                  {pkg.originalPrice.toLocaleString('vi-VN')}đ
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Credits highlight */}
+                          <div className={`rounded-xl p-4 mb-5 text-center ${isPremium ? 'bg-white/10 border border-white/15' : 'bg-orange-50 border border-orange-100'
+                            }`}>
+                            <div className={`text-4xl font-black tabular-nums ${isPremium ? 'text-orange-300' : 'text-[#C4603A]'}`}>
+                              {pkg.credits}
+                            </div>
+                            <div className={`text-xs font-medium mt-0.5 ${isPremium ? 'text-white/55' : 'text-gray-500'}`}>
+                              Credits Nổi Bật
+                            </div>
+                          </div>
+
+                          {/* Features */}
+                          <ul className="space-y-2.5 mb-6">
+                            {pkg.features.map((feature, index) => (
+                              <li key={index} className="flex items-start gap-2.5">
+                                <div className={`w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 mt-px ${isPremium ? 'bg-orange-400/20' : 'bg-orange-100'
+                                  }`}>
+                                  <Check className={`w-2.5 h-2.5 ${isPremium ? 'text-orange-300' : 'text-[#C4603A]'}`} />
+                                </div>
+                                <span className={`text-sm leading-snug ${isPremium ? 'text-white/75' : 'text-gray-600'}`}>
+                                  {feature}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {renderPackagePurchaseButton(
+                            purchaseState,
+                            () => handleSelectPackage(pkg),
+                            'featured',
+                            loadingPackageId === pkg.paidCreditPackageId,
+                            isCheckoutLoading,
+                            featuredPurchaseStatus,
+                            pkg.paidCreditPackageId,
+                            handleCancelOrder
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1217,80 +1229,77 @@ export default function PlansPage() {
                         <div key={tx.id} className="px-7 py-4 hover:bg-gray-50/70 transition-colors">
                           <div className="flex items-start justify-between gap-4">
                             {/* Left */}
-                      <div className="flex items-start gap-3.5 min-w-0">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          tx.packageType === 'posting' ? 'bg-blue-50' : 'bg-orange-50'
-                        }`}>
-                          <TrendingUp className={`w-5 h-5 ${
-                            tx.packageType === 'posting' ? 'text-blue-500' : 'text-[#C4603A]'
-                          }`} />
-                        </div>
+                            <div className="flex items-start gap-3.5 min-w-0">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.packageType === 'posting' ? 'bg-blue-50' : 'bg-orange-50'
+                                }`}>
+                                <TrendingUp className={`w-5 h-5 ${tx.packageType === 'posting' ? 'text-blue-500' : 'text-[#C4603A]'
+                                  }`} />
+                              </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                            <h3 className="text-sm font-semibold text-gray-900">{tx.packageName}</h3>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                              tx.packageType === 'posting' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-[#C4603A]'
-                            }`}>
-                              {tx.creditTypeDisplayName}
-                            </span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center ${getTransactionStatusClass(tx.status)}`}>
-                              {getTransactionStatusIcon(tx.status)}
-                              {tx.status === 'late_paid' ? 'Thanh toán trễ' : tx.statusLabel}
-                            </span>
-                            {tx.creditsGranted && tx.status !== 'late_paid' && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700">
-                                Đã cộng credits
-                              </span>
-                            )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                  <h3 className="text-sm font-semibold text-gray-900">{tx.packageName}</h3>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${tx.packageType === 'posting' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-[#C4603A]'
+                                    }`}>
+                                    {tx.creditTypeDisplayName}
+                                  </span>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center ${getTransactionStatusClass(tx.status)}`}>
+                                    {getTransactionStatusIcon(tx.status)}
+                                    {tx.status === 'late_paid' ? 'Thanh toán trễ' : tx.statusLabel}
+                                  </span>
+                                  {tx.creditsGranted && tx.status !== 'late_paid' && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700">
+                                      Đã cộng credits
+                                    </span>
+                                  )}
+                                </div>
+
+                                {tx.status === 'late_paid' && (
+                                  <p className="text-[11px] text-amber-700/80 mb-1.5 leading-snug">
+                                    Bạn đã chuyển tiền sau khi mã QR hết hạn. Hệ thống đã linh động ghi nhận và cộng credits thành công.
+                                  </p>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {tx.date} {tx.time}
+                                  </span>
+                                  <span>·</span>
+                                  <span>Mã đơn: {tx.orderCode}</span>
+                                  <span>·</span>
+                                  <span>Mã GD: {tx.transactionCode}</span>
+                                  <span>·</span>
+                                  <span>{tx.paymentMethod}</span>
+                                </div>
+                                {tx.paidAt && (
+                                  <p className="text-[11px] text-gray-400 mt-0.5">
+                                    Thanh toán lúc: {formatTransactionDateTime(tx.paidAt).date} {formatTransactionDateTime(tx.paidAt).time}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right */}
+                            <div className="text-right flex-shrink-0">
+                              <div className="flex items-center gap-1 justify-end mb-0.5">
+                                <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                                <span className="text-sm font-bold text-red-600">
+                                  -{getTransactionAmount(tx).toLocaleString('vi-VN')}đ
+                                </span>
+                              </div>
+                              {tx.status === 'completed' && tx.expectedAmount !== tx.receivedAmount && (
+                                <p className="text-[10px] text-gray-400 mb-0.5">
+                                  Dự kiến: {tx.expectedAmount.toLocaleString('vi-VN')}đ
+                                </p>
+                              )}
+                              <div className={`text-[11px] font-bold ${tx.packageType === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'}`}>
+                                +{tx.credits} credits
+                              </div>
+                            </div>
                           </div>
-
-                          {tx.status === 'late_paid' && (
-                            <p className="text-[11px] text-amber-700/80 mb-1.5 leading-snug">
-                              Bạn đã chuyển tiền sau khi mã QR hết hạn. Hệ thống đã linh động ghi nhận và cộng credits thành công.
-                            </p>
-                          )}
-
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {tx.date} {tx.time}
-                            </span>
-                            <span>·</span>
-                            <span>Mã đơn: {tx.orderCode}</span>
-                            <span>·</span>
-                            <span>Mã GD: {tx.transactionCode}</span>
-                            <span>·</span>
-                            <span>{tx.paymentMethod}</span>
-                          </div>
-                          {tx.paidAt && (
-                            <p className="text-[11px] text-gray-400 mt-0.5">
-                              Thanh toán lúc: {formatTransactionDateTime(tx.paidAt).date} {formatTransactionDateTime(tx.paidAt).time}
-                            </p>
-                          )}
                         </div>
-                      </div>
-
-                      {/* Right */}
-                      <div className="text-right flex-shrink-0">
-                        <div className="flex items-center gap-1 justify-end mb-0.5">
-                          <TrendingDown className="w-3.5 h-3.5 text-red-500" />
-                          <span className="text-sm font-bold text-red-600">
-                            -{getTransactionAmount(tx).toLocaleString('vi-VN')}đ
-                          </span>
-                        </div>
-                        {tx.status === 'completed' && tx.expectedAmount !== tx.receivedAmount && (
-                          <p className="text-[10px] text-gray-400 mb-0.5">
-                            Dự kiến: {tx.expectedAmount.toLocaleString('vi-VN')}đ
-                          </p>
-                        )}
-                        <div className={`text-[11px] font-bold ${tx.packageType === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'}`}>
-                          +{tx.credits} credits
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                      ))}
 
                       {/* Pagination Controls */}
                       {totalPages > 1 && (
