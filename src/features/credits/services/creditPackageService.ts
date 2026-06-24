@@ -11,6 +11,7 @@ export interface AdminUpdatePackagePayload {
   discountedPrice: number;
   isActive: boolean;
   rewardBadgeId: number | null;
+  badgeDurationDays: number | null;
   descriptions: string[];
 }
 
