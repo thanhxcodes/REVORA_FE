@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Image, Check, X, QrCode, History, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, AlertCircle, XCircle } from 'lucide-react';
+import { Sparkles, Image, Check, X, QrCode, History, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, AlertCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import CreditDisplay from '../../components/common/CreditDisplay';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { authClient } from '../../providers/authProvider/authService';
@@ -541,6 +541,7 @@ export default function PlansPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTransactionsLoading, setIsTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadCreditBatches = useCallback(async () => {
     setIsCreditLoading(true);
@@ -616,6 +617,7 @@ export default function PlansPage() {
     const loadTransactions = async () => {
       setIsTransactionsLoading(true);
       setTransactionsError(null);
+      setCurrentPage(1);
 
       try {
         const response = await authClient.get<ApiResponse<PaymentTransactionApi[]>>(
@@ -1204,10 +1206,17 @@ export default function PlansPage() {
                   <p className="text-gray-400 text-xs">Lịch sử mua gói của bạn sẽ hiển thị tại đây</p>
                 </div>
               ) : (
-                transactions.map((tx) => (
-                  <div key={tx.id} className="px-7 py-4 hover:bg-gray-50/70 transition-colors">
-                    <div className="flex items-start justify-between gap-4">
-                      {/* Left */}
+                (() => {
+                  const ITEMS_PER_PAGE = 5;
+                  const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
+                  const currentTransactions = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+                  return (
+                    <>
+                      {currentTransactions.map((tx) => (
+                        <div key={tx.id} className="px-7 py-4 hover:bg-gray-50/70 transition-colors">
+                          <div className="flex items-start justify-between gap-4">
+                            {/* Left */}
                       <div className="flex items-start gap-3.5 min-w-0">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                           tx.packageType === 'posting' ? 'bg-blue-50' : 'bg-orange-50'
@@ -1277,11 +1286,39 @@ export default function PlansPage() {
                         )}
                         <div className={`text-[11px] font-bold ${tx.packageType === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'}`}>
                           +{tx.credits} credits
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+
+                      {/* Pagination Controls */}
+                      {totalPages > 1 && (
+                        <div className="px-7 py-4 flex items-center justify-between border-t border-gray-50">
+                          <span className="text-xs text-gray-500">
+                            Trang {currentPage} / {totalPages}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                              disabled={currentPage === 1}
+                              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                              disabled={currentPage === totalPages}
+                              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
               )}
             </div>
 
