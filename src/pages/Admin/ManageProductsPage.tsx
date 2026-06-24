@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Edit2, Trash2, X, CreditCard, TrendingUp, Clock, ArrowDownLeft, Package, Star, RefreshCw, Image, Sparkles, RefreshCcw, Heart, ChevronDown, ChevronUp, Info, CheckCircle, Video } from 'lucide-react';
+import { Eye, EyeOff, Edit2, Trash2, X, CreditCard, TrendingUp, Clock, ArrowDownLeft, Package, Star, RefreshCw, Image, Sparkles, RefreshCcw, Heart, ChevronDown, ChevronUp, Info, CheckCircle, Video, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getMyProductsAPI, toggleProductStatusAPI, deleteProductAPI, getMyDeletedProductsAPI, renewProductAPI, uploadProductImagesAPI, changeShortStatusAPI } from '../../features/products/services/productApi';
 import { ProductResponseDto } from '../../features/products/types';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchMyUsageHistory, fetchUserCreditBatches } from '../../features/credits/services/creditPackageService';
 
 type CreditType = 'posting' | 'featured';
@@ -78,7 +78,6 @@ export default function ManageProductsPage() {
   const [renewProductOption, setRenewProductOption] = useState(false);
   const [renewBannerOption, setRenewBannerOption] = useState(false);
   const [renewShortOption, setRenewShortOption] = useState(false);
-  const [newBannerFile, setNewBannerFile] = useState<File | null>(null);
   const [isRenewing, setIsRenewing] = useState(false);
   const [showRenewInfoModal, setShowRenewInfoModal] = useState(false);
 
@@ -93,6 +92,8 @@ export default function ManageProductsPage() {
   }, [renewShortOption, productToRenew, isProductExpired]);
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const renewProductId = searchParams.get('renewProductId');
 
   const [usageHistory, setUsageHistory] = useState<CreditUsage[]>([]);
   const [totalPostingRemaining, setTotalPostingRemaining] = useState(0);
@@ -196,7 +197,7 @@ export default function ManageProductsPage() {
 
   const formatCountdown = (expiredAtStr?: string) => {
     if (!expiredAtStr) return '';
-    const expiredAt = new Date(expiredAtStr);
+    const expiredAt = new Date(expiredAtStr + (expiredAtStr.endsWith('Z') ? '' : 'Z'));
     const now = new Date();
     const diffMs = expiredAt.getTime() - now.getTime();
     if (diffMs <= 0) return 'Đã hết hạn';
@@ -268,9 +269,19 @@ export default function ManageProductsPage() {
     setRenewProductOption(isExpired); // Tự động chọn nếu hết hạn, ngược lại không cho chọn
     setRenewBannerOption(false);
     setRenewShortOption(false);
-    setNewBannerFile(null);
     setShowRenewModal(true);
   };
+
+  useEffect(() => {
+    if (renewProductId && products.length > 0) {
+      const prod = products.find(p => p.productId === Number(renewProductId));
+      if (prod) {
+        openRenewModal(prod);
+        // Remove param from URL
+        setSearchParams(new URLSearchParams());
+      }
+    }
+  }, [renewProductId, products, setSearchParams]);
 
   const confirmRenew = async () => {
     if (!productToRenew) return;
@@ -282,21 +293,11 @@ export default function ManageProductsPage() {
     setIsRenewing(true);
     const toastId = toast.loading('Đang xử lý gia hạn...');
     try {
-      let bannerUrl = undefined;
-      if (renewBannerOption && newBannerFile) {
-        const uploadRes = await uploadProductImagesAPI([newBannerFile]);
-        if (uploadRes.success && uploadRes.urls.length > 0) {
-          bannerUrl = uploadRes.urls[0];
-        } else {
-          throw new Error('Lỗi tải ảnh Banner');
-        }
-      }
-
       const res = await renewProductAPI(productToRenew.productId, {
         renewProduct: renewProductOption,
         renewBanner: renewBannerOption,
         renewShort: renewShortOption,
-        newBannerUrl: bannerUrl
+        newBannerUrl: undefined
       });
 
       if (res.success) {
@@ -496,7 +497,12 @@ export default function ManageProductsPage() {
                           ) : (
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-gray-600">Hạn Banner:</span>
-                              <span className="text-gray-400 italic">Không dùng</span>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-gray-400 italic">Không dùng</span>
+                                <button onClick={() => handleEdit(product)} className="w-5 h-5 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center hover:bg-orange-100 transition-colors ml-1" title="Thêm Banner">
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           )}
                           {product.shortExpiredAt ? (
@@ -510,6 +516,25 @@ export default function ManageProductsPage() {
                           ) : (
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-gray-600">Hạn Video Short:</span>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-gray-400 italic">Không dùng</span>
+                                <button onClick={() => handleEdit(product)} className="w-5 h-5 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center hover:bg-orange-100 transition-colors ml-1" title="Thêm Video Short">
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {product.highlightExpiredAt ? (
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-gray-600">Hạn Viền Nổi Bật:</span>
+                              <div className="flex items-center space-x-2">
+                                <span className="font-semibold">{formatVNTime(product.highlightExpiredAt)}</span>
+                                <span className="text-orange-600 font-semibold bg-orange-50 px-2 py-0.5 rounded text-[10px]">{formatCountdown(product.highlightExpiredAt)}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-gray-600">Hạn Viền Nổi Bật:</span>
                               <span className="text-gray-400 italic">Không dùng</span>
                             </div>
                           )}
@@ -962,9 +987,9 @@ export default function ManageProductsPage() {
                 </div>
               </div>
               
-              <div className="flex flex-col gap-6">
-                {/* Hàng 1: Lựa chọn dịch vụ */}
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Cột 1: Lựa chọn dịch vụ */}
+                <div className="flex flex-col">
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Sản phẩm đang chọn</label>
                     <input type="text" value={productToRenew.title} disabled className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 font-medium" />
@@ -984,70 +1009,31 @@ export default function ManageProductsPage() {
                     </label>
 
                 {/* Renew Banner */}
-                <label className="flex items-start space-x-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer flex-col transition-colors">
-                  <div className="flex items-start space-x-3 w-full">
+                {!!productToRenew.bannerExpiredAt && (
+                  <label className="flex items-start space-x-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
                     <input type="checkbox" checked={renewBannerOption} onChange={(e) => setRenewBannerOption(e.target.checked)} className="mt-1 w-4 h-4 text-orange-500 rounded border-gray-300" disabled={isRenewing} />
                     <div>
                       <span className="block text-sm font-semibold text-gray-900">Gia hạn Banner (+24h)</span>
                       <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-orange-500" /> Tốn 1 Credit Nổi Bật vĩnh viễn</span>
                     </div>
-                  </div>
-                  {renewBannerOption && (
-                    <div className="mt-4 w-full pl-6 pr-2">
-                      <label className="block text-xs font-semibold text-gray-700 mb-2">Ảnh Banner Mới (Tùy chọn)</label>
-                      
-                      {!newBannerFile ? (
-                        <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-gray-50 hover:border-purple-300 transition-all group cursor-pointer">
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={(e) => setNewBannerFile(e.target.files?.[0] || null)} 
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                            disabled={isRenewing} 
-                          />
-                          <div className="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                            <Image className="w-6 h-6 text-purple-500" />
-                          </div>
-                          <p className="text-sm font-semibold text-gray-700">Nhấn để chọn ảnh banner</p>
-                          <p className="text-xs text-gray-500 mt-1">PNG, JPG hoặc GIF (Tối đa 5MB)</p>
-                          <p className="text-xs text-purple-600 font-medium mt-3 bg-purple-50 px-3 py-1.5 rounded-full">Bỏ qua nếu muốn giữ banner cũ</p>
-                        </div>
-                      ) : (
-                        <div className="relative rounded-xl border border-gray-200 overflow-hidden shadow-sm group">
-                          <img 
-                            src={URL.createObjectURL(newBannerFile)} 
-                            alt="Banner Preview" 
-                            className="w-full h-40 object-cover" 
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button 
-                              type="button"
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNewBannerFile(null); }}
-                              className="bg-white text-red-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-50 flex items-center space-x-2 shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-all"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              <span>Xóa ảnh</span>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </label>
+                  </label>
+                )}
 
                 {/* Renew Short */}
-                <label className="flex items-start space-x-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                {!!productToRenew.shortExpiredAt && (
+                  <label className="flex items-start space-x-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
                   <input type="checkbox" checked={renewShortOption} onChange={(e) => setRenewShortOption(e.target.checked)} className="mt-1 w-4 h-4 text-orange-500 rounded border-gray-300" disabled={isRenewing} />
                   <div>
                     <span className="block text-sm font-semibold text-gray-900">Gia hạn Short Video</span>
                     <span className="block text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-orange-500" /> Tốn 1 Credit Nổi Bật vĩnh viễn (Không hỗ trợ đổi Video)</span>
                   </div>
-                </label>
+                  </label>
+                )}
               </div>
             </div>
 
-              {/* Hàng 2: Tổng kết */}
-              <div>
+              {/* Cột 2: Tổng kết */}
+              <div className="flex flex-col h-full">
                 <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 h-full flex flex-col justify-center">
                   <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-[#2D5A3D]" />
@@ -1072,15 +1058,29 @@ export default function ManageProductsPage() {
                   <div className="space-y-2 text-sm text-[#2D5A3D] font-medium bg-green-50/70 p-4 rounded-xl border border-green-100/50 flex-grow flex flex-col justify-center">
                     {(() => {
                       let productDays = 0;
-                      if (renewShortOption) productDays = 60;
-                      else if (renewProductOption && renewBannerOption) productDays = 60;
-                      else if (renewProductOption) productDays = 30;
-                      else if (renewBannerOption) productDays = 30;
+                      let highlightDays = 0;
+                      
+                      if (renewShortOption) {
+                        productDays = 60;
+                        highlightDays = 60;
+                      }
+                      else if (renewProductOption && renewBannerOption) {
+                        productDays = 60;
+                        highlightDays = 60;
+                      }
+                      else if (renewProductOption) {
+                        productDays = 30;
+                      }
+                      else if (renewBannerOption) {
+                        productDays = 30;
+                        highlightDays = 30;
+                      }
 
                       const results = [];
                       if (productDays > 0) results.push(`+ ${productDays} ngày Sản Phẩm`);
                       if (renewShortOption) results.push(`+ 60 ngày Video Short`);
                       if (renewBannerOption) results.push(`+ 24 giờ Banner`);
+                      if (highlightDays > 0) results.push(`+ ${highlightDays} ngày Viền Nổi Bật`);
                       
                       if (results.length === 0) return <span className="text-gray-500 font-normal italic text-center w-full block">Vui lòng chọn dịch vụ để xem trước.</span>;
                       return results.map((res, i) => <div key={i} className="flex items-center space-x-2"><CheckCircle className="w-4 h-4 text-[#2D5A3D] flex-shrink-0" /><span>{res}</span></div>);

@@ -217,15 +217,41 @@ export default function HomePage() {
 
       {/* Premium CTA Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="bg-gradient-to-r from-[#2D5A3D] via-[#3D7054] to-[#2D5A3D] rounded-3xl p-12 text-center text-white relative overflow-hidden">
-          <div className="absolute inset-0 bg-black/10"></div>
+        <div 
+          className="relative rounded-3xl p-12 text-center text-white overflow-hidden bg-[#0b1a12]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.12) 2px, transparent 0)',
+            backgroundSize: '24px 24px'
+          }}
+        >
+          {/* Animated Background */}
+          
+          <Sparkles className="absolute top-12 left-[15%] w-6 h-6 text-emerald-300 opacity-50 animate-pulse delay-150 pointer-events-none" />
+          <Sparkles className="absolute bottom-16 right-[20%] w-5 h-5 text-emerald-400 opacity-70 animate-bounce delay-700 pointer-events-none" />
+          <Sparkles className="absolute top-20 right-[10%] w-4 h-4 text-emerald-500 opacity-30 animate-pulse delay-500 pointer-events-none" />
+          
+          <div className="absolute -top-32 left-1/4 w-[400px] h-[400px] bg-[#2D5A3D]/40 rounded-full blur-[100px] pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] bg-[#C4603A]/20 rounded-full blur-[80px] pointer-events-none" />
+
           <div className="relative z-10">
-            <Sparkles className="w-16 h-16 mx-auto mb-6 text-[#C4603A] animate-pulse" />
-            <h2 className="text-4xl md:text-5xl mb-4 font-bold">Nâng Cấp Tài Khoản Premium</h2>
-            <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+            <div className="inline-flex items-center gap-2 bg-[#2D5A3D]/40 border border-[#2D5A3D]/50 text-emerald-400 text-xs font-semibold px-4 py-1.5 rounded-full mb-6 tracking-wide uppercase shadow-lg shadow-[#2D5A3D]/20 backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5" />
+              Gói Credits REVORA
+            </div>
+            
+            <h2 className="text-4xl md:text-5xl mb-4 font-black tracking-tight leading-tight">
+              Nâng Cấp Tài Khoản{' '}
+              <span
+                className="italic"
+                style={{ background: 'linear-gradient(90deg, #4ade80, #86efac)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+              >
+                Premium
+              </span>
+            </h2>
+            <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto font-medium leading-relaxed">
               Tăng độ hiển thị, ưu tiên trong tìm kiếm và nhiều tính năng độc quyền dành riêng cho bạn
             </p>
-            <Link to="/plans" className="inline-block bg-white text-[#2D5A3D] px-10 py-4 rounded-full hover:shadow-2xl hover:scale-105 transition-all font-bold text-lg">
+            <Link to="/plans" className="inline-block bg-white text-[#1A3A26] px-10 py-4 rounded-full hover:shadow-2xl hover:shadow-emerald-500/20 hover:scale-105 transition-all font-bold text-lg">
               Xem Gói Dịch Vụ Ngay
             </Link>
           </div>

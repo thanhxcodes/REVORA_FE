@@ -13,8 +13,8 @@ const REGISTER_MODE = 'register';
 const ADMIN_DASHBOARD = '/admin/dashboard';
 
 export enum UserRole {
-   ADMIN = 'Admin',
-   USER = 'User'
+  ADMIN = 'Admin',
+  USER = 'User'
 }
 
 interface LoginFormProps {
@@ -31,11 +31,11 @@ export default function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [suggestedAccount, setSuggestedAccount] = useState<{fullName: string, avatarUrl: string, username: string} | null>(null);
+  const [suggestedAccount, setSuggestedAccount] = useState<{ fullName: string, avatarUrl: string, username: string } | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const { login, currentUser } = useAuth();
 
   const [firstLogin, setFirstLogin] = useState(false);
@@ -93,10 +93,10 @@ export default function LoginForm({
       <form onSubmit={handleSubmit} className="space-y-4">
         {suggestedAccount && (
           <div className="flex items-center gap-3 p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-xl mb-2 animate-fade-in">
-            <img 
-              src={suggestedAccount.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + suggestedAccount.username} 
-              alt="Avatar" 
-              className="w-10 h-10 rounded-full object-cover border border-white shadow-sm" 
+            <img
+              src={suggestedAccount.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + suggestedAccount.username}
+              alt="Avatar"
+              className="w-10 h-10 rounded-full object-cover border border-white shadow-sm"
             />
             <div>
               <p className="text-xs text-gray-500 font-medium mb-0.5">Bạn muốn đăng nhập vào tài khoản này?</p>
@@ -120,6 +120,7 @@ export default function LoginForm({
               className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400 font-medium"
               required
               autoComplete={AUTO_COMPLETE_EMAIL}
+              tabIndex={1}
             />
           </div>
         </div>
@@ -132,6 +133,7 @@ export default function LoginForm({
               type="button"
               onClick={onForgot}
               className="text-xs text-emerald-600 hover:text-emerald-500 hover:underline transition-colors font-semibold"
+              tabIndex={3}
             >
               {LOGIN_TXT.forgotPassword}
             </button>
@@ -146,11 +148,13 @@ export default function LoginForm({
               className="w-full pl-11 pr-12 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-[3px] focus:ring-emerald-500/20 focus:border-emerald-500 bg-gray-50/50 hover:bg-gray-50 focus:bg-white transition-all duration-300 text-gray-900 font-medium tracking-wide"
               required
               autoComplete={AUTO_COMPLETE_PASSWORD}
+              tabIndex={2}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-emerald-600 transition-colors duration-300 bg-white rounded-full p-0.5"
+              tabIndex={-1}
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -171,12 +175,13 @@ export default function LoginForm({
           style={{ backgroundPosition: 'left center' }}
           onMouseEnter={(e) => (e.currentTarget.style.backgroundPosition = 'right center')}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundPosition = 'left center')}
+          tabIndex={4}
         >
           {isSubmitting ? (
             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
             <span className="relative z-10 flex items-center gap-2">
-              {LOGIN_TXT.submitBtn} 
+              {LOGIN_TXT.submitBtn}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
             </span>
           )}
@@ -185,12 +190,6 @@ export default function LoginForm({
 
       <div className="mt-6">
         <div className="relative flex items-center justify-center mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200"></div>
-          </div>
-          <div className="relative bg-white px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Hoặc
-          </div>
         </div>
         <GoogleLoginButton />
       </div>
