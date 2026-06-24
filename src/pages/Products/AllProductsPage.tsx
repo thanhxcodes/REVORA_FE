@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Filter, ChevronDown, Grid3x3, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion } from 'motion/react';
 import ProductCard from './components/ProductCard';
 import { getFilteredProductsAPI, getCategoriesAPI } from '../../features/products/services/productApi';
 import { useSearchParams } from 'react-router-dom';
@@ -122,14 +123,19 @@ export default function AllProductsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Header */}
-        <div className="mb-8">
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
           <h1 className="text-4xl text-gray-900 mb-2 font-bold">
             {searchKeyword ? `Kết quả tìm kiếm cho: "${searchKeyword}"` : 'Tất Cả Sản Phẩm'}
           </h1>
           <p className="text-gray-600">
             Tìm thấy <span className="font-semibold text-[#2D5A3D]">{totalCount}</span> sản phẩm phù hợp
           </p>
-        </div>
+        </motion.div>
 
         {/* Đã sửa thành flex-col trên mobile, flex-row trên PC để Sidebar nhảy sang phải */}
         <div className="flex flex-col md:flex-row gap-8 relative items-start">
@@ -138,7 +144,12 @@ export default function AllProductsPage() {
           <div className="flex-1 w-full order-2 md:order-1">
             
             {/* Toolbar */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex items-center justify-between">
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex items-center justify-between"
+            >
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
@@ -172,7 +183,7 @@ export default function AllProductsPage() {
                   <option value="priceDesc">Giá: Cao đến Thấp</option>
                 </select>
               </div>
-            </div>
+            </motion.div>
 
             {/* Danh sách SP */}
             {isLoading ? (
@@ -183,13 +194,20 @@ export default function AllProductsPage() {
             ) : products.length > 0 ? (
               <>
                 <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-                  {products.map((product) => (
-                    <ProductCard 
-                      key={product.productId} 
-                      {...product as any} 
-                      imageUrls={product.imageUrl ? [product.imageUrl] : []}
-                      viewMode={viewMode} 
-                    />
+                  {products.map((product, index) => (
+                    <motion.div
+                      key={product.productId}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: "-20px" }}
+                      transition={{ duration: 0.5, delay: (index % 12) * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <ProductCard 
+                        {...product as any} 
+                        imageUrls={product.imageUrl ? [product.imageUrl] : []}
+                        viewMode={viewMode} 
+                      />
+                    </motion.div>
                   ))}
                 </div>
 
@@ -252,7 +270,12 @@ export default function AllProductsPage() {
 
           {/* Filters Sidebar (PHẢI) */}
           {showFilters && (
-            <aside className="w-full md:w-72 flex-shrink-0 sticky top-24 order-1 md:order-2">
+            <motion.aside 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              className="w-full md:w-72 flex-shrink-0 sticky top-24 order-1 md:order-2"
+            >
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -363,7 +386,7 @@ export default function AllProductsPage() {
 
                 </div>
               </div>
-            </aside>
+            </motion.aside>
           )}
 
         </div>
