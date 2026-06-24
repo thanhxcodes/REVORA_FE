@@ -259,7 +259,7 @@ const postingPackageMeta: Record<string, Pick<Package, 'badge' | 'badgeColor' | 
     tier: 1,
   },
   'Tăng Tốc': {
-    badge: 'Phổ Biến',
+    badge: 'Tiêu Chuẩn',
     badgeColor: 'bg-purple-100 text-purple-800',
     cta: 'Chọn Gói',
     tier: 2,
@@ -280,7 +280,7 @@ const featuredPackageMeta: Record<string, Pick<Package, 'badge' | 'badgeColor' |
     tier: 1,
   },
   'Trending': {
-    badge: 'Được Đề Xuất',
+    badge: 'Thịnh Hành',
     badgeColor: 'bg-pink-100 text-pink-800',
     cta: 'Nâng Cấp',
     tier: 2,
@@ -721,68 +721,119 @@ export default function PlansPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl text-gray-900 mb-4">Nâng Cấp Sức Mạnh Đăng Tin</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Chọn gói phù hợp để tăng khả năng hiển thị, đăng sản phẩm và nổi bật trong cộng đồng thời trang REVORA
-          </p>
+    <div className="min-h-screen bg-[#f4f6f5]">
+
+      {/* ── Premium Dark Hero Header ── */}
+      <div 
+        className="relative bg-[#0b1a12] overflow-hidden"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.12) 2px, transparent 0)',
+          backgroundSize: '24px 24px'
+        }}
+      >
+        {/* Ambient glows and Stars */}
+        <div className="absolute inset-0 pointer-events-none">
+          <Sparkles className="absolute top-10 left-[10%] w-5 h-5 text-emerald-400 opacity-60 animate-pulse" />
+          <Sparkles className="absolute top-24 left-[20%] w-3 h-3 text-emerald-200 opacity-40 animate-ping delay-300" />
+          <Sparkles className="absolute top-16 right-[15%] w-6 h-6 text-emerald-300 opacity-50 animate-pulse delay-150" />
+          <Sparkles className="absolute top-32 right-[8%] w-4 h-4 text-emerald-400 opacity-70 animate-bounce delay-700" />
+          <Sparkles className="absolute top-48 left-[5%] w-4 h-4 text-emerald-500 opacity-30 animate-pulse delay-500" />
+          
+          <div className="absolute -top-24 left-1/3 w-[500px] h-[500px] bg-[#2D5A3D]/25 rounded-full blur-[120px]" />
+          <div className="absolute top-8 right-1/4 w-64 h-64 bg-[#C4603A]/12 rounded-full blur-[80px]" />
+          <div
+            className="absolute bottom-0 left-0 right-0 h-px"
+            style={{ background: 'linear-gradient(90deg, transparent, rgba(45,90,61,0.4), transparent)' }}
+          />
         </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-20">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-2 bg-[#2D5A3D]/20 border border-[#2D5A3D]/30 text-emerald-400 text-xs font-semibold px-4 py-1.5 rounded-full mb-5 tracking-wide uppercase">
+              <Sparkles className="w-3 h-3" />
+              Gói Credits REVORA
+            </div>
+            <h1 className="text-4xl md:text-[52px] font-black text-white tracking-tight leading-tight mb-4">
+              Nâng Cấp Sức Mạnh{' '}
+              <span
+                className="italic"
+                style={{ background: 'linear-gradient(90deg, #4ade80, #86efac)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+              >
+                Đăng Tin
+              </span>
+            </h1>
+            <p className="text-gray-400 text-base max-w-xl mx-auto leading-relaxed">
+              Chọn gói phù hợp để tăng khả năng hiển thị, đăng sản phẩm và nổi bật trong cộng đồng thời trang REVORA
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main Content (lifted up over hero bottom) ── */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-16 z-10">
 
         {/* Tabs */}
-        <div className="flex items-center justify-center space-x-2 mb-8">
-          <button
-            onClick={() => setActiveTab('packages')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === 'packages'
-              ? 'bg-[#2D5A3D] text-white shadow-lg'
-              : 'bg-white text-gray-600 hover:bg-gray-50'
+        <div className="flex items-center justify-center mb-10">
+          <div className="inline-flex bg-white rounded-2xl shadow-lg shadow-black/8 p-1.5 border border-gray-100/80">
+            <button
+              onClick={() => setActiveTab('packages')}
+              className={`flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                activeTab === 'packages'
+                  ? 'bg-[#2D5A3D] text-white shadow-md shadow-[#2D5A3D]/30'
+                  : 'text-gray-500 hover:text-gray-800'
               }`}
-          >
-            <Sparkles className="w-5 h-5" />
-            <span>Gói Credits</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all ${activeTab === 'history'
-              ? 'bg-[#2D5A3D] text-white shadow-lg'
-              : 'bg-white text-gray-600 hover:bg-gray-50'
+            >
+              <Sparkles className="w-4 h-4" />
+              Gói Credits
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                activeTab === 'history'
+                  ? 'bg-[#2D5A3D] text-white shadow-md shadow-[#2D5A3D]/30'
+                  : 'text-gray-500 hover:text-gray-800'
               }`}
-          >
-            <History className="w-5 h-5" />
-            <span>Lịch Sử Giao Dịch</span>
-          </button>
+            >
+              <History className="w-4 h-4" />
+              Lịch Sử Giao Dịch
+            </button>
+          </div>
         </div>
 
-        {/* Tab Content: Packages */}
+        {/* ── Tab: Packages ── */}
         {activeTab === 'packages' && (
           <>
             {/* Current Credits Dashboard */}
-            <div className="bg-white rounded-3xl shadow-lg p-8 mb-16">
-              <div className="mb-6">
-                <h2 className="text-2xl text-gray-900 mb-2">Credits Hiện Tại</h2>
-                {creditError && <p className="text-sm text-amber-600">{creditError}</p>}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-12">
+              <div className="flex items-center gap-2.5 mb-5">
+                <div className="w-1 h-5 rounded-full bg-[#2D5A3D]" />
+                <h2 className="text-base font-bold text-gray-900">Credits Hiện Tại</h2>
+                {creditError && <p className="text-xs text-amber-600 ml-1">{creditError}</p>}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <CreditDisplay type="posting" batches={isCreditLoading ? [] : userCreditBatches.posting} />
                 <CreditDisplay type="featured" batches={isCreditLoading ? [] : userCreditBatches.featured} />
               </div>
             </div>
 
-            {/* Posting Packages Section */}
-            <div className="mb-16">
-              <div className="flex items-center space-x-3 mb-8">
-                <div className="p-2 bg-blue-100 rounded-xl">
-                  <Image className="w-6 h-6 text-blue-600" />
+            {/* ── Posting Packages ── */}
+            <div className="mb-14">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2.5 bg-blue-50 rounded-xl border border-blue-100">
+                  <Image className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-3xl text-gray-900">Gói Credits Đăng Tin</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Gói Credits Đăng Tin</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Đăng sản phẩm lên cộng đồng REVORA</p>
+                </div>
               </div>
+
               {packageError && <p className="mb-4 text-sm text-amber-600">{packageError}</p>}
+
               {creditSummaries.posting?.purchaseBlockReason && (
-                <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                <div className="mb-7 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-amber-800">Thông báo</h4>
@@ -790,61 +841,120 @@ export default function PlansPage() {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {isPackageLoading ? (
-                  <div className="md:col-span-3 bg-white rounded-3xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
+                  <div className="md:col-span-3 bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center text-gray-400 text-sm">
                     Đang tải danh sách gói credits...
                   </div>
                 ) : postingPackages.length > 0 ? postingPackages.map((pkg) => {
                   const purchaseState = getPackagePurchaseState(pkg.paidCreditPackageId, postingPurchaseStatus);
+                  const isHighlighted = pkg.tier === 2;
+                  const isDark = pkg.tier === 3;
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${purchaseState === 'available'
-                        ? 'hover:shadow-2xl hover:scale-105'
-                        : 'opacity-90'
-                        }`}
+                      className={`relative rounded-2xl transition-all duration-300 p-[2px] ${
+                        purchaseState === 'available' ? 'hover:-translate-y-1' : 'opacity-90'
+                      } ${
+                        isDark
+                          ? 'bg-gradient-to-br from-[#4ade80] via-[#2D5A3D] to-[#022c22] shadow-2xl shadow-[#2D5A3D]/40'
+                          : isHighlighted
+                          ? 'bg-gradient-to-br from-blue-300 via-blue-400 to-blue-600 shadow-xl shadow-blue-200'
+                          : 'bg-transparent border border-blue-100 shadow-sm'
+                      }`}
                     >
-                      {/* Badge */}
-                      <div className="absolute top-6 right-6">
-                        <span className={`${pkg.badgeColor} px-4 py-1.5 rounded-full text-xs font-bold`}>
-                          {pkg.badge}
-                        </span>
-                      </div>
+                      <div
+                        className="relative h-full rounded-[14px]"
+                        style={isDark ? {
+                          backgroundImage: 'radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,0.08) 1.5px, transparent 0), linear-gradient(145deg, #0d2118 0%, #18372a 100%)',
+                          backgroundSize: '20px 20px, auto'
+                        } : isHighlighted ? {
+                          background: 'linear-gradient(145deg, #dbeafe 0%, #eff6ff 100%)',
+                        } : {
+                          background: 'linear-gradient(145deg, #f0f7ff 0%, #e8f3ff 100%)',
+                        }}
+                      >
+                        {/* Sparkles for Premium */}
+                        {isDark && (
+                          <>
+                            <Sparkles className="absolute top-4 left-4 w-6 h-6 text-emerald-300 opacity-90 animate-pulse z-10" />
+                            <Sparkles className="absolute bottom-6 right-6 w-8 h-8 text-emerald-400 opacity-70 animate-pulse delay-150 z-10" />
+                            <Sparkles className="absolute top-1/3 -left-3 w-5 h-5 text-emerald-200 opacity-80 animate-bounce delay-300 z-10" />
+                            <Sparkles className="absolute top-6 right-1/4 w-4 h-4 text-emerald-300 opacity-60 animate-ping delay-700 z-10" />
+                          </>
+                        )}
 
-                      <div className="mt-8">
-                        <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>
-                        <div className="mb-6">
-                          <div className="flex items-baseline space-x-2">
-                            <span className="text-4xl font-bold text-blue-600">
-                              {pkg.price.toLocaleString('vi-VN')}đ
+                        {/* "Popular" ribbon for tier 2 */}
+                        {isHighlighted && (
+                          <div className="absolute -top-3.5 inset-x-0 flex justify-center z-10">
+                            <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-[10px] font-black px-4 py-1 rounded-full shadow-md uppercase tracking-widest whitespace-nowrap">
+                              Phổ Biến
                             </span>
                           </div>
+                        )}
+
+                        <div className="p-7">
+                        {/* Badge row */}
+                        <div className="flex items-start justify-between mb-5">
+                          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
+                            isDark
+                              ? 'bg-white/15 text-emerald-300'
+                              : pkg.badgeColor
+                          }`}>
+                            {pkg.badge}
+                          </span>
+                          {pkg.discountPercent && (
+                            <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
+                              -{pkg.discountPercent}%
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Title */}
+                        <h3 className={`text-xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          {pkg.title}
+                        </h3>
+
+                        {/* Price */}
+                        <div className="mb-5">
+                          <span className={`text-[32px] font-black leading-none ${isDark ? 'text-white' : 'text-blue-600'}`}>
+                            {pkg.price.toLocaleString('vi-VN')}đ
+                          </span>
                           {pkg.originalPrice && (
-                            <div className="flex items-center space-x-2 mt-2">
-                              <span className="text-gray-500 line-through text-sm">
+                            <div className="mt-1">
+                              <span className={`text-sm line-through ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
                                 {pkg.originalPrice.toLocaleString('vi-VN')}đ
-                              </span>
-                              <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">
-                                -{pkg.discountPercent}%
                               </span>
                             </div>
                           )}
                         </div>
 
-                        <div className="bg-blue-50 rounded-xl p-4 mb-6">
-                          <div className="text-center">
-                            <div className="text-3xl font-bold text-blue-600">{pkg.credits}</div>
-                            <div className="text-sm text-gray-600">Credits Đăng Tin</div>
+                        {/* Credits highlight */}
+                        <div className={`rounded-xl p-4 mb-5 text-center ${
+                          isDark ? 'bg-white/10 border border-white/15' : 'bg-blue-50 border border-blue-100'
+                        }`}>
+                          <div className={`text-4xl font-black tabular-nums ${isDark ? 'text-emerald-300' : 'text-blue-600'}`}>
+                            {pkg.credits}
+                          </div>
+                          <div className={`text-xs font-medium mt-0.5 ${isDark ? 'text-white/55' : 'text-gray-500'}`}>
+                            Credits Đăng Tin
                           </div>
                         </div>
 
-                        <ul className="space-y-3 mb-8">
+                        {/* Features */}
+                        <ul className="space-y-2.5 mb-6">
                           {pkg.features.map((feature, index) => (
-                            <li key={index} className="flex items-start space-x-3">
-                              <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                              <span className="text-sm text-gray-700">{feature}</span>
+                            <li key={index} className="flex items-start gap-2.5">
+                              <div className={`w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 mt-px ${
+                                isDark ? 'bg-emerald-400/20' : 'bg-green-100'
+                              }`}>
+                                <Check className={`w-2.5 h-2.5 ${isDark ? 'text-emerald-300' : 'text-green-600'}`} />
+                              </div>
+                              <span className={`text-sm leading-snug ${isDark ? 'text-white/75' : 'text-gray-600'}`}>
+                                {feature}
+                              </span>
                             </li>
                           ))}
                         </ul>
@@ -859,29 +969,34 @@ export default function PlansPage() {
                           pkg.paidCreditPackageId,
                           handleCancelOrder
                         )}
+                        </div>
                       </div>
                     </div>
                   );
                 }) : (
-                  <div className="md:col-span-3 bg-white rounded-3xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
+                  <div className="md:col-span-3 bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center text-gray-400 text-sm">
                     Chưa có gói đăng tin nào khả dụng.
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Featured Packages Section */}
-            <div className="mb-16">
-              <div className="flex items-center space-x-3 mb-8">
-                <div className="p-2 bg-[#C4603A]/10 rounded-xl">
-                  <Sparkles className="w-6 h-6 text-[#C4603A]" />
+            {/* ── Featured Packages ── */}
+            <div className="mb-14">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2.5 bg-orange-50 rounded-xl border border-orange-100">
+                  <Sparkles className="w-5 h-5 text-[#C4603A]" />
                 </div>
-                <h2 className="text-3xl text-gray-900">Gói Credits Nổi Bật</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Gói Credits Nổi Bật</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Tăng tốc độ hiển thị và vượt qua đối thủ</p>
+                </div>
               </div>
+
               {creditSummaries.featured?.purchaseBlockReason && (
-                <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                <div className="mb-7 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-amber-800">Thông báo</h4>
@@ -889,61 +1004,120 @@ export default function PlansPage() {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {isPackageLoading ? (
-                  <div className="md:col-span-3 bg-white rounded-3xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
+                  <div className="md:col-span-3 bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center text-gray-400 text-sm">
                     Đang tải danh sách gói credits...
                   </div>
                 ) : featuredPackages.length > 0 ? featuredPackages.map((pkg) => {
                   const purchaseState = getPackagePurchaseState(pkg.paidCreditPackageId, featuredPurchaseStatus);
+                  const isRecommended = pkg.tier === 2;
+                  const isPremium = pkg.tier === 3;
 
                   return (
                     <div
                       key={pkg.id}
-                      className={`relative bg-white rounded-3xl shadow-lg p-8 transition-all ${purchaseState === 'available'
-                        ? 'hover:shadow-2xl hover:scale-105'
-                        : 'opacity-90'
-                        }`}
+                      className={`relative rounded-2xl transition-all duration-300 p-[2px] ${
+                        purchaseState === 'available' ? 'hover:-translate-y-1' : 'opacity-90'
+                      } ${
+                        isPremium
+                          ? 'bg-gradient-to-br from-[#fbd38d] via-[#C4603A] to-[#7b341e] shadow-2xl shadow-[#C4603A]/40'
+                          : isRecommended
+                          ? 'bg-gradient-to-br from-orange-300 via-orange-400 to-orange-500 shadow-xl shadow-orange-200'
+                          : 'bg-transparent border border-orange-100 shadow-sm'
+                      }`}
                     >
-                      {/* Badge */}
-                      <div className="absolute top-6 right-6">
-                        <span className={`${pkg.badgeColor} px-4 py-1.5 rounded-full text-xs font-bold`}>
-                          {pkg.badge}
-                        </span>
-                      </div>
+                      <div
+                        className="relative h-full rounded-[14px]"
+                        style={isPremium ? {
+                          backgroundImage: 'radial-gradient(circle at 1.5px 1.5px, rgba(255,255,255,0.08) 1.5px, transparent 0), linear-gradient(145deg, #1f0d08 0%, #3d1f12 100%)',
+                          backgroundSize: '20px 20px, auto'
+                        } : isRecommended ? {
+                          background: 'linear-gradient(145deg, #ffedd5 0%, #fff7ed 100%)',
+                        } : {
+                          background: 'linear-gradient(145deg, #fff7f0 0%, #fff0e6 100%)',
+                        }}
+                      >
+                        {/* Sparkles for Premium */}
+                        {isPremium && (
+                          <>
+                            <Sparkles className="absolute top-4 right-4 w-6 h-6 text-yellow-300 opacity-90 animate-pulse z-10" />
+                            <Sparkles className="absolute bottom-6 left-6 w-8 h-8 text-yellow-400 opacity-70 animate-pulse delay-150 z-10" />
+                            <Sparkles className="absolute top-1/3 -right-3 w-5 h-5 text-yellow-200 opacity-80 animate-bounce delay-300 z-10" />
+                            <Sparkles className="absolute top-6 left-1/4 w-4 h-4 text-orange-300 opacity-60 animate-ping delay-700 z-10" />
+                          </>
+                        )}
 
-                      <div className="mt-8">
-                        <h3 className="text-2xl text-gray-900 mb-4">{pkg.title}</h3>
-                        <div className="mb-6">
-                          <div className="flex items-baseline space-x-2">
-                            <span className="text-4xl font-bold text-[#C4603A]">
-                              {pkg.price.toLocaleString('vi-VN')}đ
+                        {/* "Recommended" ribbon for tier 2 */}
+                        {isRecommended && (
+                          <div className="absolute -top-3.5 inset-x-0 flex justify-center z-10">
+                            <span className="bg-gradient-to-r from-[#C4603A] to-[#d4724a] text-white text-[10px] font-black px-4 py-1 rounded-full shadow-md uppercase tracking-widest whitespace-nowrap">
+                              Được Đề Xuất
                             </span>
                           </div>
+                        )}
+
+                        <div className="p-7">
+                        {/* Badge row */}
+                        <div className="flex items-start justify-between mb-5">
+                          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
+                            isPremium
+                              ? 'bg-white/15 text-orange-300'
+                              : pkg.badgeColor
+                          }`}>
+                            {pkg.badge}
+                          </span>
+                          {pkg.discountPercent && (
+                            <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full">
+                              -{pkg.discountPercent}%
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Title */}
+                        <h3 className={`text-xl font-bold mb-3 ${isPremium ? 'text-white' : 'text-gray-900'}`}>
+                          {pkg.title}
+                        </h3>
+
+                        {/* Price */}
+                        <div className="mb-5">
+                          <span className={`text-[32px] font-black leading-none ${isPremium ? 'text-white' : 'text-[#C4603A]'}`}>
+                            {pkg.price.toLocaleString('vi-VN')}đ
+                          </span>
                           {pkg.originalPrice && (
-                            <div className="flex items-center space-x-2 mt-2">
-                              <span className="text-gray-500 line-through text-sm">
+                            <div className="mt-1">
+                              <span className={`text-sm line-through ${isPremium ? 'text-white/40' : 'text-gray-400'}`}>
                                 {pkg.originalPrice.toLocaleString('vi-VN')}đ
-                              </span>
-                              <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">
-                                -{pkg.discountPercent}%
                               </span>
                             </div>
                           )}
                         </div>
 
-                        <div className="bg-[#C4603A]/10 rounded-xl p-4 mb-6">
-                          <div className="text-center">
-                            <div className="text-3xl font-bold text-[#C4603A]">{pkg.credits}</div>
-                            <div className="text-sm text-gray-600">Credits Nổi Bật</div>
+                        {/* Credits highlight */}
+                        <div className={`rounded-xl p-4 mb-5 text-center ${
+                          isPremium ? 'bg-white/10 border border-white/15' : 'bg-orange-50 border border-orange-100'
+                        }`}>
+                          <div className={`text-4xl font-black tabular-nums ${isPremium ? 'text-orange-300' : 'text-[#C4603A]'}`}>
+                            {pkg.credits}
+                          </div>
+                          <div className={`text-xs font-medium mt-0.5 ${isPremium ? 'text-white/55' : 'text-gray-500'}`}>
+                            Credits Nổi Bật
                           </div>
                         </div>
 
-                        <ul className="space-y-3 mb-8">
+                        {/* Features */}
+                        <ul className="space-y-2.5 mb-6">
                           {pkg.features.map((feature, index) => (
-                            <li key={index} className="flex items-start space-x-3">
-                              <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                              <span className="text-sm text-gray-700">{feature}</span>
+                            <li key={index} className="flex items-start gap-2.5">
+                              <div className={`w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 mt-px ${
+                                isPremium ? 'bg-orange-400/20' : 'bg-orange-100'
+                              }`}>
+                                <Check className={`w-2.5 h-2.5 ${isPremium ? 'text-orange-300' : 'text-[#C4603A]'}`} />
+                              </div>
+                              <span className={`text-sm leading-snug ${isPremium ? 'text-white/75' : 'text-gray-600'}`}>
+                                {feature}
+                              </span>
                             </li>
                           ))}
                         </ul>
@@ -958,135 +1132,150 @@ export default function PlansPage() {
                           pkg.paidCreditPackageId,
                           handleCancelOrder
                         )}
+                        </div>
                       </div>
                     </div>
                   );
                 }) : (
-                  <div className="md:col-span-3 bg-white rounded-3xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
+                  <div className="md:col-span-3 bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center text-gray-400 text-sm">
                     Chưa có gói nổi bật nào khả dụng.
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Payment Guide Link */}
-            <div className="bg-white rounded-3xl shadow-lg p-8 flex flex-col items-center justify-center text-center">
-              <h2 className="text-2xl text-gray-900 mb-4">Câu Hỏi Thường Gặp & Hướng Dẫn</h2>
-              <p className="text-gray-600 mb-6 max-w-2xl">
-                Bạn cần tìm hiểu thêm về cách thức thanh toán, chính sách hoàn tiền hoặc cách sử dụng credits sau khi mua?
-              </p>
-              <button
-                onClick={() => window.location.href = '/payment-guide'}
-                className="bg-[#2D5A3D] text-white px-8 py-3 rounded-full font-semibold hover:bg-green-800 transition-colors"
-              >
-                Xem Hướng Dẫn Thanh Toán
-              </button>
+            {/* ── Payment Guide CTA ── */}
+            <div
+              className="relative rounded-2xl overflow-hidden p-8"
+              style={{ background: 'linear-gradient(130deg, #0b1a12 0%, #122b1e 60%, #1a2e1a 100%)' }}
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#2D5A3D]/20 rounded-full blur-[80px] pointer-events-none" />
+              <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <QrCode className="w-4 h-4 text-emerald-400" />
+                    <span className="text-emerald-400 text-xs font-semibold uppercase tracking-widest">Hỗ Trợ</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-white mb-1.5">Câu Hỏi Thường Gặp &amp; Hướng Dẫn</h2>
+                  <p className="text-gray-400 text-sm max-w-md leading-relaxed">
+                    Tìm hiểu về thanh toán, chính sách hoàn tiền và cách sử dụng credits sau khi mua.
+                  </p>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/payment-guide'}
+                  className="flex-shrink-0 bg-white text-[#2D5A3D] px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-lg whitespace-nowrap"
+                >
+                  Xem Hướng Dẫn
+                </button>
+              </div>
             </div>
           </>
         )}
 
-        {/* Tab Content: Transaction History */}
+        {/* ── Tab: Transaction History ── */}
         {activeTab === 'history' && (
-          <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {/* Header */}
-            <div className="px-8 py-6 border-b border-gray-100">
-              <h2 className="text-2xl text-gray-900 font-bold flex items-center gap-2">
-                <History className="w-6 h-6 text-[#2D5A3D]" />
-                Lịch Sử Giao Dịch
-              </h2>
-              <p className="text-gray-600 text-sm mt-1">Danh sách các giao dịch mua gói credits</p>
+            <div className="px-7 py-5 border-b border-gray-100 flex items-center gap-3">
+              <div className="p-2 bg-[#2D5A3D]/10 rounded-xl">
+                <History className="w-5 h-5 text-[#2D5A3D]" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-base font-bold text-gray-900">Lịch Sử Giao Dịch</h2>
+                <p className="text-xs text-gray-500">Danh sách các giao dịch mua gói credits</p>
+              </div>
               {transactionsError && (
-                <p className="text-sm text-amber-600 mt-2">{transactionsError}</p>
+                <p className="text-xs text-amber-600">{transactionsError}</p>
               )}
             </div>
 
-            {/* Transaction List */}
+            {/* Transaction rows */}
             <div className="divide-y divide-gray-50">
               {isTransactionsLoading ? (
-                <div className="text-center py-16 text-gray-500">
+                <div className="text-center py-16 text-gray-400 text-sm">
                   Đang tải lịch sử giao dịch...
                 </div>
               ) : transactions.length === 0 ? (
                 <div className="text-center py-16">
-                  <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Chưa có giao dịch nào</h3>
-                  <p className="text-gray-500 text-sm">Lịch sử mua gói của bạn sẽ hiển thị tại đây</p>
+                  <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <History className="w-7 h-7 text-gray-300" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-600 mb-1">Chưa có giao dịch nào</h3>
+                  <p className="text-gray-400 text-xs">Lịch sử mua gói của bạn sẽ hiển thị tại đây</p>
                 </div>
               ) : (
                 transactions.map((tx) => (
-                  <div key={tx.id} className="px-8 py-5 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between gap-6">
-                      {/* Left: Transaction Info */}
-                      <div className="flex items-start gap-4 min-w-0">
-                        {/* Icon */}
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.packageType === 'posting' ? 'bg-blue-50' : 'bg-orange-50'
-                          }`}>
-                          <TrendingUp className={`w-6 h-6 ${tx.packageType === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'
-                            }`} />
+                  <div key={tx.id} className="px-7 py-4 hover:bg-gray-50/70 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left */}
+                      <div className="flex items-start gap-3.5 min-w-0">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          tx.packageType === 'posting' ? 'bg-blue-50' : 'bg-orange-50'
+                        }`}>
+                          <TrendingUp className={`w-5 h-5 ${
+                            tx.packageType === 'posting' ? 'text-blue-500' : 'text-[#C4603A]'
+                          }`} />
                         </div>
 
-                        {/* Details */}
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-gray-900">{tx.packageName}</h3>
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${tx.packageType === 'posting'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-orange-100 text-[#C4603A]'
-                              }`}>
+                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                            <h3 className="text-sm font-semibold text-gray-900">{tx.packageName}</h3>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              tx.packageType === 'posting' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-[#C4603A]'
+                            }`}>
                               {tx.creditTypeDisplayName}
                             </span>
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold inline-flex items-center ${getTransactionStatusClass(tx.status)}`}>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center ${getTransactionStatusClass(tx.status)}`}>
                               {getTransactionStatusIcon(tx.status)}
                               {tx.status === 'late_paid' ? 'Thanh toán trễ' : tx.statusLabel}
                             </span>
                             {tx.creditsGranted && tx.status !== 'late_paid' && (
-                              <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-50 text-emerald-700">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700">
                                 Đã cộng credits
                               </span>
                             )}
                           </div>
 
                           {tx.status === 'late_paid' && (
-                            <p className="text-xs text-amber-700/80 mb-2 mt-0.5 leading-snug">
+                            <p className="text-[11px] text-amber-700/80 mb-1.5 leading-snug">
                               Bạn đã chuyển tiền sau khi mã QR hết hạn. Hệ thống đã linh động ghi nhận và cộng credits thành công.
                             </p>
                           )}
 
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
                             <span className="flex items-center gap-1">
-                              <Calendar className="w-3.5 h-3.5" />
+                              <Calendar className="w-3 h-3" />
                               {tx.date} {tx.time}
                             </span>
-                            <span>•</span>
+                            <span>·</span>
                             <span>Mã đơn: {tx.orderCode}</span>
-                            <span>•</span>
+                            <span>·</span>
                             <span>Mã GD: {tx.transactionCode}</span>
-                            <span>•</span>
+                            <span>·</span>
                             <span>{tx.paymentMethod}</span>
                           </div>
                           {tx.paidAt && (
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-[11px] text-gray-400 mt-0.5">
                               Thanh toán lúc: {formatTransactionDateTime(tx.paidAt).date} {formatTransactionDateTime(tx.paidAt).time}
                             </p>
                           )}
                         </div>
                       </div>
 
-                      {/* Right: Amount & Credits */}
+                      {/* Right */}
                       <div className="text-right flex-shrink-0">
-                        <div className="flex items-center gap-1 justify-end mb-1">
-                          <TrendingDown className="w-4 h-4 text-red-500" />
-                          <span className="text-lg font-bold text-red-600">
+                        <div className="flex items-center gap-1 justify-end mb-0.5">
+                          <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                          <span className="text-sm font-bold text-red-600">
                             -{getTransactionAmount(tx).toLocaleString('vi-VN')}đ
                           </span>
                         </div>
                         {tx.status === 'completed' && tx.expectedAmount !== tx.receivedAmount && (
-                          <p className="text-xs text-gray-400 mb-1">
+                          <p className="text-[10px] text-gray-400 mb-0.5">
                             Dự kiến: {tx.expectedAmount.toLocaleString('vi-VN')}đ
                           </p>
                         )}
-                        <div className={`text-sm font-semibold ${tx.packageType === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'
-                          }`}>
+                        <div className={`text-[11px] font-bold ${tx.packageType === 'posting' ? 'text-blue-600' : 'text-[#C4603A]'}`}>
                           +{tx.credits} credits
                         </div>
                       </div>
@@ -1096,28 +1285,26 @@ export default function PlansPage() {
               )}
             </div>
 
-            {/* Summary */}
+            {/* Summary stats */}
             {!isTransactionsLoading && transactions.length > 0 && (
-              <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Tổng số giao dịch:</span>
-                  <span className="font-bold text-gray-900">{transactions.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-2">
-                  <span className="text-gray-600">Giao dịch thành công:</span>
-                  <span className="font-bold text-green-700">{successfulTransactions.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-2">
-                  <span className="text-gray-600">Tổng chi tiêu:</span>
-                  <span className="font-bold text-red-600">
-                    {totalSpent.toLocaleString('vi-VN')}đ
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-2">
-                  <span className="text-gray-600">Tổng credits đã cộng:</span>
-                  <span className="font-bold text-[#2D5A3D]">
-                    {totalCreditsPurchased} credits
-                  </span>
+              <div className="px-7 py-5 border-t border-gray-100 bg-gray-50/60">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-xl font-black text-gray-900 tabular-nums">{transactions.length}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wider font-semibold">Tổng giao dịch</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-emerald-700 tabular-nums">{successfulTransactions.length}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wider font-semibold">Thành công</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-red-600 tabular-nums">{totalSpent.toLocaleString('vi-VN')}đ</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wider font-semibold">Tổng chi tiêu</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-[#2D5A3D] tabular-nums">{totalCreditsPurchased}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wider font-semibold">Credits đã cộng</div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1128,16 +1315,13 @@ export default function PlansPage() {
       {/* Global Checkout Loading Overlay */}
       {isCheckoutLoading && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
-          {/* Backdrop Blur */}
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-md transition-opacity duration-300" />
-
-          {/* Loading Card */}
-          <div className="relative bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-gray-100 animate-in fade-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-black/35 backdrop-blur-md transition-opacity duration-300" />
+          <div className="relative bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-gray-100">
             <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-[#2D5A3D] rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 border-4 border-gray-100 rounded-full" />
+              <div className="absolute inset-0 border-4 border-[#2D5A3D] rounded-full border-t-transparent animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2 h-2 bg-[#2D5A3D] rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-[#2D5A3D] rounded-full animate-pulse" />
               </div>
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">Đang xử lý</h3>

@@ -23,6 +23,7 @@ interface CreditPackageApi {
   discountRate: number;
   discountedPrice: number;
   rewardBadgeId?: number | null;
+  badgeDurationDays?: number | null;
   isActive: boolean;
   descriptions: string[];
 }
@@ -106,6 +107,7 @@ export default function AdminPackagesPage() {
         discountedPrice: editingPackage.discountedPrice,
         isActive: editingPackage.isActive,
         rewardBadgeId: editingPackage.rewardBadgeId || null,
+        badgeDurationDays: editingPackage.badgeDurationDays || null,
         descriptions: editingPackage.descriptions.filter(d => d.trim() !== ''),
       });
       setEditingPackage(null);
@@ -420,18 +422,32 @@ export default function AdminPackagesPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Reward Badge (Tuỳ chọn)</label>
-                <select
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none"
-                  value={editingPackage.rewardBadgeId || ''}
-                  onChange={(e) => setEditingPackage({ ...editingPackage, rewardBadgeId: e.target.value ? Number(e.target.value) : null })}
-                >
-                  <option value="">-- Không có Badge --</option>
-                  {badges.map(b => (
-                    <option key={b.badgeId} value={b.badgeId}>{b.name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Reward Badge (Tuỳ chọn)</label>
+                  <select
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none"
+                    value={editingPackage.rewardBadgeId || ''}
+                    onChange={(e) => setEditingPackage({ ...editingPackage, rewardBadgeId: e.target.value ? Number(e.target.value) : null })}
+                  >
+                    <option value="">-- Không có Badge --</option>
+                    {badges.map(b => (
+                      <option key={b.badgeId} value={b.badgeId}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Hạn sử dụng Huy hiệu (ngày)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#2D5A3D] focus:border-[#2D5A3D] transition-all outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                    value={editingPackage.badgeDurationDays || ''}
+                    onChange={(e) => setEditingPackage({ ...editingPackage, badgeDurationDays: e.target.value ? Number(e.target.value) : null })}
+                    min="1"
+                    disabled={!editingPackage.rewardBadgeId}
+                    placeholder="VD: 30"
+                  />
+                </div>
               </div>
 
               <div>
