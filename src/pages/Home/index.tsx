@@ -1,10 +1,29 @@
 import { useState, useEffect } from 'react';
 import { ChevronRight, Sparkles, TrendingUp, Clock, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import ProductCarousel from '../Products/components/ProductCarousel';
 import BannerCarousel from './components/BannerCarousel';
 import { getFeaturedProductsAPI, getNewestProductsAPI, getLovedProductsAPI, getCategoriesAPI, getMostViewedProductsAPI } from '../../features/products/services/productApi';
 import { ProductResponseDto } from '../../features/products/types';
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 40 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
+};
 
 const categories = [
   { name: 'Quần Áo', image: 'https://images.unsplash.com/photo-1495121605193-b116b5b9c5fe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400' },
@@ -85,38 +104,56 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#fafaf7]">
       {/* Banner Carousel */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mb-8">
+      <motion.section 
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mb-8"
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      >
         {!isLoading && <BannerCarousel banners={displayBanners} />}
         {isLoading && (
           <div className="w-full h-[500px] rounded-3xl bg-gray-200 animate-pulse flex items-center justify-center">
             <div className="w-12 h-12 border-4 border-[#2D5A3D]/20 border-t-[#2D5A3D] rounded-full animate-spin"></div>
           </div>
         )}
-      </section>
+      </motion.section>
 
       {/* Categories */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-        <div className="bg-white rounded-3xl shadow-lg p-8">
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-6">
+      <motion.section 
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={sectionVariants}
+      >
+        <div className="bg-white rounded-3xl shadow-sm hover:shadow-md transition-shadow p-8 border border-gray-100">
+          <motion.div 
+            className="grid grid-cols-3 md:grid-cols-6 gap-6"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.2 }}
+          >
             {categories.map((category) => {
               const matchedCat = apiCategories.find(c => c.name.toLowerCase() === category.name.toLowerCase());
               const catId = matchedCat ? matchedCat.categoryId : '';
               return (
-                <Link
-                  key={category.name}
-                  to={`/all-products${catId ? `?category=${catId}` : ''}`}
-                  className="flex flex-col items-center space-y-3 group"
-                >
-                  <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md group-hover:shadow-xl transition-all group-hover:scale-105">
-                    <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
-                  </div>
-                  <span className="text-sm text-gray-700 font-medium group-hover:text-[#2D5A3D] transition-colors">{category.name}</span>
-                </Link>
+                <motion.div key={category.name} variants={staggerItem}>
+                  <Link
+                    to={`/all-products${catId ? `?category=${catId}` : ''}`}
+                    className="flex flex-col items-center space-y-3 group"
+                  >
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-sm group-hover:shadow-xl transition-all group-hover:scale-105 group-hover:-translate-y-1">
+                      <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                    </div>
+                    <span className="text-sm text-gray-700 font-semibold group-hover:text-[#2D5A3D] transition-colors">{category.name}</span>
+                  </Link>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Tải dữ liệu... */}
       {isLoading ? (
@@ -127,98 +164,128 @@ export default function HomePage() {
         <>
           {/* Featured Products Section */}
           {featuredProducts.length > 0 && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+            <motion.section 
+              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+              variants={sectionVariants}
+            >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-xl">
+                  <div className="p-2 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-xl shadow-sm">
                     <Sparkles className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl text-gray-900 font-bold">Sản Phẩm Nổi Bật</h2>
-                    <p className="text-sm text-gray-600">Các sản phẩm được ưu tiên hiển thị</p>
+                    <h2 className="text-3xl text-gray-900 font-bold tracking-tight">Sản Phẩm Nổi Bật</h2>
+                    <p className="text-sm text-gray-500 mt-1">Các sản phẩm được ưu tiên hiển thị</p>
                   </div>
                 </div>
-                <Link to="/all-products?sort=featured" className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-full hover:shadow-lg hover:scale-105 transition-all font-semibold">
+                <Link to="/all-products?sort=featured" className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white rounded-full hover:shadow-xl transition-all font-semibold">
                   <span>Tất Cả Sản Phẩm</span>
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
               <ProductCarousel products={featuredProducts} itemsToShow={5} />
-            </section>
+            </motion.section>
           )}
 
           {/* Best Sellers Section */}
           {bestSellers.length > 0 && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+            <motion.section 
+              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+              variants={sectionVariants}
+            >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl">
+                  <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl shadow-sm">
                     <TrendingUp className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl text-gray-900 font-bold">Được yêu thích nhất</h2>
-                    <p className="text-sm text-gray-600">Top sản phẩm được quan tâm nhiều nhất</p>
+                    <h2 className="text-3xl text-gray-900 font-bold tracking-tight">Được Yêu Thích Nhất</h2>
+                    <p className="text-sm text-gray-500 mt-1">Top sản phẩm được quan tâm nhiều nhất</p>
                   </div>
                 </div>
-                <Link to="/all-products?sort=loved" className="flex items-center space-x-2 px-6 py-3 bg-white text-orange-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-orange-500">
+                <Link to="/all-products?sort=loved" className="group flex items-center space-x-2 px-6 py-3 bg-white text-orange-600 rounded-full hover:shadow-md transition-all font-semibold border border-orange-200 hover:border-orange-500">
                   <span>Tất Cả Sản Phẩm</span>
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
               <ProductCarousel products={bestSellers} itemsToShow={5} />
-            </section>
+            </motion.section>
           )}
 
           {/* Most Viewed Products Section */}
           {mostViewedProducts.length > 0 && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+            <motion.section 
+              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+              variants={sectionVariants}
+            >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl">
+                  <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl shadow-sm">
                     <Eye className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl text-gray-900 font-bold">Được xem nhiều nhất</h2>
-                    <p className="text-sm text-gray-600">Sản phẩm có lượt xem cao nhất</p>
+                    <h2 className="text-3xl text-gray-900 font-bold tracking-tight">Được Xem Nhiều Nhất</h2>
+                    <p className="text-sm text-gray-500 mt-1">Sản phẩm có lượt xem cao nhất</p>
                   </div>
                 </div>
-                <Link to="/all-products?sort=most-viewed" className="flex items-center space-x-2 px-6 py-3 bg-white text-teal-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-teal-500">
+                <Link to="/all-products?sort=most-viewed" className="group flex items-center space-x-2 px-6 py-3 bg-white text-teal-600 rounded-full hover:shadow-md transition-all font-semibold border border-teal-200 hover:border-teal-500">
                   <span>Tất Cả Sản Phẩm</span>
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
               <ProductCarousel products={mostViewedProducts} itemsToShow={5} />
-            </section>
+            </motion.section>
           )}
 
           {/* Newest Products Section */}
           {newestProducts.length > 0 && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+            <motion.section 
+              className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+              variants={sectionVariants}
+            >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl">
+                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl shadow-sm">
                     <Clock className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl text-gray-900 font-bold">Mới Nhất</h2>
-                    <p className="text-sm text-gray-600">Sản phẩm vừa được đăng lên</p>
+                    <h2 className="text-3xl text-gray-900 font-bold tracking-tight">Mới Nhất</h2>
+                    <p className="text-sm text-gray-500 mt-1">Sản phẩm vừa được đăng lên</p>
                   </div>
                 </div>
-                <Link to="/all-products?sort=newest" className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-full hover:shadow-lg transition-all font-semibold border-2 border-blue-500">
+                <Link to="/all-products?sort=newest" className="group flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-full hover:shadow-md transition-all font-semibold border border-blue-200 hover:border-blue-500">
                   <span>Tất Cả Sản Phẩm</span>
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
               <ProductCarousel products={newestProducts} itemsToShow={5} />
-            </section>
+            </motion.section>
           )}
         </>
       )}
 
       {/* Premium CTA Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      <motion.section 
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div 
-          className="relative rounded-3xl p-12 text-center text-white overflow-hidden bg-[#0b1a12]"
+          className="relative rounded-3xl p-12 text-center text-white overflow-hidden bg-[#0b1a12] shadow-2xl"
           style={{
             backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.12) 2px, transparent 0)',
             backgroundSize: '24px 24px'
@@ -256,7 +323,7 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
     </div>
   );
 }

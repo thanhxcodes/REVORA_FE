@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, Info, Trash2, Tag, Briefcase, Camera, Video, ArrowLeft, Gem, Upload, X, Crown, Image as ImageIcon, Sparkles, FileText } from 'lucide-react';
+import { CheckCircle, Info, Trash2, Tag, Briefcase, Camera, Video, ArrowLeft, Gem, Upload, X, Crown, Image as ImageIcon, Sparkles, FileText, ShoppingBag, Shirt, Scissors } from 'lucide-react';
+import { motion, useMotionTemplate, useMotionValue } from 'motion/react';
 import toast, { Toaster } from 'react-hot-toast';
 import { uploadProductImagesAPI, uploadProductVideoAPI, createProductAPI, getMyCreditsAPI, getCategoriesAPI, getProductDetailAPI, updateProductAPI } from '../../features/products/services/productApi';
 import CreditDisplay from '../../components/common/CreditDisplay';
@@ -68,6 +69,39 @@ const DOCSO = {
     return ketQua.replace(/\s+/g, ' ').trim();
   }
 };
+
+function SpotlightCard({ children, className = '', ...props }: any) {
+  let mouseX = useMotionValue(0);
+  let mouseY = useMotionValue(0);
+
+  function handleMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent) {
+    let { left, top } = currentTarget.getBoundingClientRect();
+    mouseX.set(clientX - left);
+    mouseY.set(clientY - top);
+  }
+
+  return (
+    <div
+      className={`group relative overflow-hidden rounded-3xl ${className}`}
+      onMouseMove={handleMouseMove}
+      {...props}
+    >
+      <motion.div
+        className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 transition duration-500 group-hover:opacity-100 z-0"
+        style={{
+          background: useMotionTemplate`
+            radial-gradient(
+              650px circle at ${mouseX}px ${mouseY}px,
+              rgba(45, 90, 61, 0.05),
+              transparent 80%
+            )
+          `,
+        }}
+      />
+      <div className="relative z-10 h-full">{children}</div>
+    </div>
+  );
+}
 
 export default function SellProductPage() {
   const navigate = useNavigate();
@@ -470,30 +504,109 @@ export default function SellProductPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+      {/* Background decorations for the white area */}
+      <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center">
+        <motion.div 
+          animate={{ x: [-30, 30, -30], y: [-30, 30, -30] }} 
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#2D5A3D]/5 rounded-full blur-[100px]" 
+        />
+        <motion.div 
+          animate={{ x: [30, -30, 30], y: [30, -30, 30] }} 
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[20%] right-[-10%] w-[400px] h-[400px] bg-[#C4603A]/5 rounded-full blur-[80px]" 
+        />
+        <motion.div
+          animate={{ rotate: [0, 10, 0], y: [0, -20, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-10 left-10 text-[#2D5A3D] opacity-[0.03]"
+        >
+           <Shirt className="w-[400px] h-[400px]" />
+        </motion.div>
+        <motion.div
+          animate={{ rotate: [0, -10, 0], y: [0, 20, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[40%] right-10 text-[#C4603A] opacity-[0.03]"
+        >
+           <ShoppingBag className="w-[300px] h-[300px]" />
+        </motion.div>
+      </div>
 
-      <form onSubmit={handleSubmit} className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ── Premium Dark Hero Header ── */}
+      <div
+        className="relative z-10 bg-[#0b1a12] overflow-hidden pt-12 pb-24"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.08) 2px, transparent 0)',
+          backgroundSize: '24px 24px'
+        }}
+      >
+        {/* Ambient glows and Stars & Fashion Icons */}
+        <div className="absolute inset-0 pointer-events-none">
+          <Sparkles className="absolute top-10 left-[15%] w-5 h-5 text-emerald-400 opacity-60 animate-pulse" />
+          <Sparkles className="absolute top-24 right-[20%] w-4 h-4 text-orange-400 opacity-40 animate-ping delay-300" />
+          <Sparkles className="absolute bottom-16 left-[25%] w-6 h-6 text-emerald-300 opacity-50 animate-pulse delay-150" />
+          
+          <motion.div animate={{ y: [0, -10, 0], rotate: [0, 5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className="absolute top-8 right-[10%] text-[#C4603A] opacity-20">
+            <ShoppingBag className="w-16 h-16" />
+          </motion.div>
+          <motion.div animate={{ y: [0, 15, 0], rotate: [0, -10, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="absolute bottom-12 left-[8%] text-[#2D5A3D] opacity-20">
+            <Shirt className="w-20 h-20" />
+          </motion.div>
+          <motion.div animate={{ y: [0, -8, 0], rotate: [15, 25, 15] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute top-20 left-[30%] text-emerald-500 opacity-10">
+            <Scissors className="w-12 h-12" />
+          </motion.div>
 
-        <div className="text-center mb-12 relative">
-          {isEditMode && (
-            <button
-              type="button"
-              onClick={() => navigate('/manage-products')}
-              className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center space-x-2 text-gray-500 hover:text-gray-900 transition-colors bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Quay lại</span>
-            </button>
-          )}
-          <h1 className="text-4xl text-gray-900 mb-4 font-bold">{isEditMode ? 'Chỉnh Sửa Sản Phẩm' : 'Đăng Sản Phẩm Thời Trang'}</h1>
-          <p className="text-gray-600">{isEditMode ? 'Chỉnh sửa thông tin sản phẩm của bạn' : 'Điền thông tin và chọn tính năng nâng cao để tối đa hóa lượt tiếp cận'}</p>
+          <div className="absolute -top-24 left-1/3 w-[500px] h-[500px] bg-[#2D5A3D]/25 rounded-full blur-[120px]" />
+          <div className="absolute top-8 right-1/4 w-64 h-64 bg-[#C4603A]/12 rounded-full blur-[80px]" />
+          <div
+            className="absolute bottom-0 left-0 right-0 h-px"
+            style={{ background: 'linear-gradient(90deg, transparent, rgba(45,90,61,0.4), transparent)' }}
+          />
         </div>
 
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center relative"
+          >
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={() => navigate('/manage-products')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center space-x-2 text-white hover:text-emerald-300 transition-colors bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 shadow-sm"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Quay lại</span>
+              </button>
+            )}
+            <h1 className="text-4xl md:text-[52px] font-black text-white mb-4 tracking-tight">
+              {isEditMode ? 'Chỉnh Sửa ' : 'Đăng Sản Phẩm '}
+              <span className="italic" style={{ background: 'linear-gradient(90deg, #4ade80, #86efac)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                Thời Trang
+              </span>
+            </h1>
+            <p className="text-gray-400 text-base max-w-xl mx-auto">
+              {isEditMode ? 'Chỉnh sửa thông tin sản phẩm của bạn' : 'Điền thông tin và chọn tính năng nâng cao để tối đa hóa lượt tiếp cận'}
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 z-10 pb-16">
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+          <motion.div 
+            className="lg:col-span-2 space-y-6"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
 
             {/* THÔNG TIN SẢN PHẨM */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 relative">
+            <SpotlightCard className="bg-white shadow-sm border border-gray-100 p-8">
               
               {isEditMode && editTimeLeft !== null && (
                 <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${editTimeLeft > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
@@ -520,7 +633,7 @@ export default function SellProductPage() {
                     type="text"
                     disabled={isEditMode && editTimeLeft === 0}
                     placeholder="Ví dụ: Áo Khoác Da Vintage"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -532,7 +645,7 @@ export default function SellProductPage() {
                       value={formData.categoryId}
                       onChange={handleChange}
                       disabled={isLoadingData || (isEditMode && editTimeLeft === 0)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value={0}>{isLoadingData ? "Đang tải danh mục..." : "Chọn danh mục"}</option>
                       {categories.map((cat) => (
@@ -542,7 +655,7 @@ export default function SellProductPage() {
                   </div>
                   <div>
                     <label className="block text-sm mb-2 text-gray-700 font-medium">Tình Trạng *</label>
-                    <select name="condition" value={formData.condition} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors bg-white">
+                    <select name="condition" value={formData.condition} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all bg-white">
                       <option value="">Chọn tình trạng</option>
                       {conditions.map((cond) => <option key={cond} value={cond}>{cond}</option>)}
                     </select>
@@ -552,31 +665,31 @@ export default function SellProductPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm mb-2 text-gray-700 font-medium">Giá (VNĐ) *</label>
-                    <input value={displayPrice} onChange={handlePriceChange} type="text" placeholder="0" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors font-semibold text-gray-900" />
+                    <input value={displayPrice} onChange={handlePriceChange} type="text" placeholder="0" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all font-semibold text-gray-900" />
                     {priceText && <p className="text-sm text-[#C4603A] mt-2 font-medium italic animate-fade-in">{priceText}</p>}
                   </div>
                   <div>
                     <label className="block text-sm mb-2 text-gray-700 font-medium">Thương Hiệu</label>
-                    <input name="brand" value={formData.brand} onChange={handleChange} type="text" placeholder="Ví dụ: Gucci, Chanel" className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors" />
+                    <input name="brand" value={formData.brand} onChange={handleChange} type="text" placeholder="Ví dụ: Gucci, Chanel" className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm mb-2 text-gray-700 font-medium">Mô Tả *</label>
-                  <textarea name="description" value={formData.description} onChange={handleChange} rows={5} placeholder="Mô tả chi tiết sản phẩm của bạn..." className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 focus:border-[#2D5A3D] transition-colors resize-none" />
+                  <textarea name="description" value={formData.description} onChange={handleChange} rows={5} placeholder="Mô tả chi tiết sản phẩm của bạn..." className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all resize-none" />
                 </div>
               </div>
-            </div>
+            </SpotlightCard>
 
             {/* HÌNH ẢNH SẢN PHẨM */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+            <SpotlightCard className="bg-white shadow-sm border border-gray-100 p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl text-gray-900 font-semibold">Hình Ảnh Sản Phẩm *</h2>
                 <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">{uploadedImages.length}/5 ảnh</span>
               </div>
 
               {uploadedImages.length < 5 && (
-                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-[#2D5A3D] hover:bg-[#2D5A3D]/5 transition-all cursor-pointer relative group mb-6">
+                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-[#2D5A3D] hover:bg-[#2D5A3D]/5 transition-all cursor-pointer relative group mb-6 hover:shadow-inner">
                   <input type="file" multiple accept="image/*" onChange={handleImageUpload} disabled={isUploadingImage} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
                   {isUploadingImage ? (
                     <div className="text-[#2D5A3D] font-medium flex flex-col items-center gap-3">
@@ -603,10 +716,10 @@ export default function SellProductPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </SpotlightCard>
 
             {/* VIDEO SHORTS PREMIUM */}
-            <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${(isEditMode && hasShortHistory && !isShortActive) ? 'opacity-80' : ''} ${enableVideoUpload ? 'border-[#2D5A3D] bg-[#2D5A3D]/[0.02]' : 'border-gray-100'}`}>
+            <SpotlightCard className={`bg-white shadow-sm p-8 border-2 transition-all ${(isEditMode && hasShortHistory && !isShortActive) ? 'opacity-80' : ''} ${enableVideoUpload ? 'border-[#2D5A3D] bg-[#2D5A3D]/[0.02]' : 'border-gray-100'}`}>
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${enableVideoUpload ? 'bg-[#2D5A3D] text-white' : 'bg-gray-100 text-gray-400'}`}>
@@ -686,9 +799,9 @@ export default function SellProductPage() {
                       )}
                     </div>
                   )}
-                </div>
+            </SpotlightCard>
             {/* BANNER BOOST PREMIUM */}
-            <div className={`bg-white rounded-3xl shadow-sm p-8 border-2 transition-all ${(isEditMode && hasBannerHistory && !isBannerActive) ? 'opacity-80' : ''} ${enableBannerBoost ? 'border-orange-500 bg-orange-50/30' : 'border-gray-100'}`}>
+            <SpotlightCard className={`bg-white shadow-sm p-8 border-2 transition-all ${(isEditMode && hasBannerHistory && !isBannerActive) ? 'opacity-80' : ''} ${enableBannerBoost ? 'border-orange-500 bg-orange-50/30' : 'border-gray-100'}`}>
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${enableBannerBoost ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
@@ -768,12 +881,17 @@ export default function SellProductPage() {
                       )}
                     </div>
                   )}
-                </div>
-          </div>
+            </SpotlightCard>
+          </motion.div>
 
           {/* SIDEBAR TÍNH TOÁN CREDIT BÊN PHẢI */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sticky top-24">
+          <motion.div 
+            className="lg:col-span-1 space-y-6"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <SpotlightCard className="bg-white shadow-sm border border-gray-100 p-6 sticky top-24">
               <h3 className="text-lg font-bold text-gray-900 mb-6">Credits Của Bạn</h3>
 
               {isLoadingData ? (
@@ -893,7 +1011,9 @@ export default function SellProductPage() {
                 </label>
               </div>
 
-              <button
+              <motion.button
+                whileHover={!isSubmitting && acceptRules ? { scale: 1.02, y: -2 } : {}}
+                whileTap={!isSubmitting && acceptRules ? { scale: 0.98 } : {}}
                 type="submit"
                 disabled={isSubmitting || !acceptRules}
                 onClick={(e) => {
@@ -903,16 +1023,16 @@ export default function SellProductPage() {
                     setShowCreditModal(true);
                   }
                 }}
-                className="w-full mt-5 bg-[#2D5A3D] text-white py-4 rounded-2xl font-semibold text-sm hover:bg-[#234830] hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-none flex items-center justify-center gap-2"
+                className="w-full mt-5 bg-[#2D5A3D] text-white py-4 rounded-2xl font-semibold text-sm hover:bg-[#234830] hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>{isEditMode ? 'Đang cập nhật...' : 'Hệ thống đang xuất bản...'}</>
                 ) : (
                   isEditMode ? 'Lưu Thay Đổi' : 'Đăng Sản Phẩm'
                 )}
-              </button>
-            </div>
-          </div>
+              </motion.button>
+            </SpotlightCard>
+          </motion.div>
         </div>
       </form>
 
