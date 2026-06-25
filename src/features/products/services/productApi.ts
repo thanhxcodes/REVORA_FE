@@ -199,3 +199,9 @@ export const changeShortStatusAPI = async (shortId: string | number, status: str
     const response = await authClient.put(`/Shorts/${shortId}/status`, { status });
     return response.data;
 };
+
+// Kháng cáo bài viết vi phạm
+export const submitAppealAPI = async (productId: string | number, reason: string) => {
+    const response = await authClient.post(`/Products/${productId}/appeal`, { reason });
+    return response.data;
+};

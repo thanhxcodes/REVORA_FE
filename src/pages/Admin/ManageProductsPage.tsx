@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Edit2, Trash2, X, CreditCard, TrendingUp, Clock, ArrowDownLeft, Package, Star, RefreshCw, Image, Sparkles, RefreshCcw, Heart, ChevronDown, ChevronUp, Info, CheckCircle, Video, Plus } from 'lucide-react';
+import { Eye, EyeOff, Edit2, Trash2, X, CreditCard, TrendingUp, Clock, ArrowDownLeft, Package, Star, RefreshCw, Image, Sparkles, RefreshCcw, Heart, ChevronDown, ChevronUp, Info, CheckCircle, Video, Plus, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getMyProductsAPI, toggleProductStatusAPI, deleteProductAPI, getMyDeletedProductsAPI, renewProductAPI, uploadProductImagesAPI, changeShortStatusAPI } from '../../features/products/services/productApi';
+import { getMyProductsAPI, toggleProductStatusAPI, deleteProductAPI, getMyDeletedProductsAPI, renewProductAPI, uploadProductImagesAPI, changeShortStatusAPI, submitAppealAPI } from '../../features/products/services/productApi';
 import { ProductResponseDto } from '../../features/products/types';
 import toast from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -50,7 +50,7 @@ const formatVNTime = (dateStr?: string) => {
 };
 
 export default function ManageProductsPage() {
-  const [activeTab, setActiveTab] = useState<'products' | 'shorts' | 'credits' | 'trash'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'shorts' | 'credits' | 'trash' | 'violated'>('products');
   const [products, setProducts] = useState<ProductResponseDto[]>([]);
   const [deletedProducts, setDeletedProducts] = useState<ProductResponseDto[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<ProductResponseDto | null>(null);
@@ -61,11 +61,17 @@ export default function ManageProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Pagination & Filter state
-  const [productStatusFilter, setProductStatusFilter] = useState<'all' | 'public' | 'private' | 'expired'>('all');
+  const [productStatusFilter, setProductStatusFilter] = useState<'all' | 'public' | 'private' | 'expired' | 'violated' | 'normal' | 'premium'>('all');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const [violatedProductsCount, setViolatedProductsCount] = useState(0);
+
+  const [showAppealModal, setShowAppealModal] = useState(false);
+  const [appealProduct, setAppealProduct] = useState<ProductResponseDto | null>(null);
+  const [appealReason, setAppealReason] = useState('');
+  const [isAppealing, setIsAppealing] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -137,9 +143,11 @@ export default function ManageProductsPage() {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
-      const [res, delRes] = await Promise.all([
-        getMyProductsAPI(productStatusFilter, page, pageSize),
-        getMyDeletedProductsAPI()
+      const actualStatusFilter = activeTab === 'violated' ? 'violated' : productStatusFilter;
+      const [res, delRes, violatedRes] = await Promise.all([
+        getMyProductsAPI(actualStatusFilter, page, pageSize),
+        getMyDeletedProductsAPI(),
+        getMyProductsAPI('violated', 1, 1)
       ]);
       
       if (res.success) {
@@ -149,6 +157,9 @@ export default function ManageProductsPage() {
       }
       if (delRes.success) {
         setDeletedProducts(delRes.data.items || []);
+      }
+      if (violatedRes && violatedRes.success) {
+        setViolatedProductsCount(violatedRes.data.totalCount || 0);
       }
     } catch (error: any) {
       toast.error('Không thể tải danh sách tin đăng.');
@@ -211,6 +222,11 @@ export default function ManageProductsPage() {
   };
 
   const handleRestore = async (product: ProductResponseDto) => {
+    if (product.productStatus === 'AdminDeleted') {
+      toast.error('Bài viết này đã bị quản trị viên xóa. Vui lòng liên hệ với quản trị viên để khôi phục.');
+      return;
+    }
+
     try {
       const toastId = toast.loading('Đang khôi phục sản phẩm...');
       const res = await toggleProductStatusAPI(product.productId, 'Private'); // Restore as private
@@ -219,8 +235,42 @@ export default function ManageProductsPage() {
         setDeletedProducts((prev) => prev.filter(p => p.productId !== product.productId));
         setProducts((prev) => [{...product, productStatus: 'Private'}, ...prev]);
       }
-    } catch (error) {
-      toast.error('Lỗi khi khôi phục sản phẩm.');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi khôi phục sản phẩm.');
+    }
+  };
+
+  const openAppealModal = (product: ProductResponseDto) => {
+    setAppealProduct(product);
+    setAppealReason('');
+    setShowAppealModal(true);
+  };
+
+  const handleAppealSubmit = async () => {
+    if (!appealProduct) return;
+    if (!appealReason.trim()) {
+      toast.error('Vui lòng nhập lý do kháng cáo.');
+      return;
+    }
+
+    try {
+      setIsAppealing(true);
+      const res = await submitAppealAPI(appealProduct.productId, appealReason);
+      if (res.success) {
+        toast.success('Gửi yêu cầu kháng cáo thành công.');
+        setShowAppealModal(false);
+        // Cập nhật local state
+        setProducts(prev => prev.map(p => 
+          p.productId === appealProduct.productId ? { ...p, productStatus: 'AppealPending' } : p
+        ));
+        setDeletedProducts(prev => prev.map(p => 
+          p.productId === appealProduct.productId ? { ...p, productStatus: 'AppealPending' } : p
+        ));
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gửi kháng cáo thất bại.');
+    } finally {
+      setIsAppealing(false);
     }
   };
 
@@ -373,10 +423,21 @@ export default function ManageProductsPage() {
               <Trash2 className="w-4 h-4" />
               <span>Thùng Rác ({deletedProducts.length})</span>
             </button>
+            <button
+              onClick={() => setActiveTab('violated')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'violated'
+                  ? 'bg-orange-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <span>Vi phạm ({violatedProductsCount})</span>
+            </button>
           </div>
 
           {/* Filter & Stats (Moved to Sticky Header) */}
-          {activeTab === 'products' && (
+          {(activeTab === 'products' || activeTab === 'violated') && (
             <div className="mt-4 flex items-center justify-between bg-gray-50/50 p-2 rounded-lg border border-gray-100">
               <div className="flex items-center space-x-2 text-sm px-2">
                 <span className="text-gray-700 font-medium">Tổng: {totalProductsCount} sản phẩm</span>
@@ -388,12 +449,15 @@ export default function ManageProductsPage() {
                     setProductStatusFilter(e.target.value as any);
                     setPage(1);
                   }}
-                  className="bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] focus:border-transparent font-medium"
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 cursor-pointer"
                 >
                   <option value="all">Tất cả trạng thái</option>
                   <option value="public">Công khai</option>
                   <option value="private">Riêng tư</option>
                   <option value="expired">Hết hạn</option>
+                  <option value="normal">Bài viết thường</option>
+                  <option value="premium">Bài viết nổi bật</option>
+                  {activeTab === 'violated' && <option value="violated">Vi phạm</option>}
                 </select>
               </div>
             </div>
@@ -402,7 +466,7 @@ export default function ManageProductsPage() {
       </div>
 
       {/* TAB: Tin Đăng */}
-      {activeTab === 'products' && (
+      {(activeTab === 'products' || activeTab === 'violated') && (
         <div className="max-w-7xl mx-auto px-4 py-6">
 
           {products.length === 0 ? (
@@ -448,6 +512,16 @@ export default function ManageProductsPage() {
                         <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center space-x-1 shadow-sm">
                           <Eye className="w-3 h-3" />
                           <span>Công khai</span>
+                        </div>
+                      ) : !isExpired && product.productStatus === 'Violated' ? (
+                        <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center space-x-1 shadow-sm">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>Vi phạm</span>
+                        </div>
+                      ) : !isExpired && product.productStatus === 'AppealPending' ? (
+                        <div className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center space-x-1 shadow-sm">
+                          <Clock className="w-3 h-3" />
+                          <span>Chờ kháng cáo</span>
                         </div>
                       ) : !isExpired ? (
                         <div className="bg-gray-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center space-x-1 shadow-sm">
@@ -546,42 +620,67 @@ export default function ManageProductsPage() {
                       <span className="flex items-center gap-1.5"><Heart className="w-4 h-4 text-red-500"/> {product.likeCount || 0} lượt thích</span>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
-                      <button
-                        onClick={() => requestTogglePublic(product)}
-                        className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
-                          product.productStatus === 'Public' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-green-50 text-green-700 hover:bg-green-100'
-                        }`}
-                      >
-                        {product.productStatus === 'Public' ? (
-                          <span className="flex items-center justify-center space-x-1">
-                            <EyeOff className="w-3 h-3" /><span>Ẩn</span>
-                          </span>
+                    {product.productStatus === 'Violated' || product.productStatus === 'AppealPending' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {product.productStatus === 'Violated' ? (
+                          <>
+                            <button
+                              onClick={() => handleEdit(product)}
+                              className="py-2.5 px-2 rounded-xl text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all flex items-center justify-center space-x-1 border border-blue-200 shadow-sm"
+                            >
+                              <Edit2 className="w-4 h-4" /><span>Sửa bài</span>
+                            </button>
+                            <button
+                              onClick={() => openAppealModal(product)}
+                              className="py-2.5 px-2 rounded-xl text-sm font-semibold bg-orange-50 text-orange-700 hover:bg-orange-100 transition-all flex items-center justify-center space-x-1 border border-orange-200 shadow-sm"
+                            >
+                              <AlertTriangle className="w-4 h-4" /><span>Gửi duyệt lại</span>
+                            </button>
+                          </>
                         ) : (
-                          <span className="flex items-center justify-center space-x-1">
-                            <Eye className="w-3 h-3" /><span>Hiện</span>
-                          </span>
+                          <div className="col-span-2 py-2.5 px-4 rounded-xl text-sm font-semibold bg-gray-50 text-gray-500 flex items-center justify-center space-x-2 w-full border border-gray-200 cursor-not-allowed">
+                            <Clock className="w-4 h-4" /><span>Đang chờ Admin duyệt kháng cáo</span>
+                          </div>
                         )}
-                      </button>
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="py-2 px-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all flex items-center justify-center space-x-1"
-                      >
-                        <Edit2 className="w-3 h-3" /><span>Sửa</span>
-                      </button>
-                      <button
-                        onClick={() => openRenewModal(product)}
-                        className="py-2 px-2 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 transition-all flex items-center justify-center space-x-1"
-                      >
-                        <RefreshCw className="w-3 h-3" /><span>Gia hạn</span>
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product)}
-                        className="py-2 px-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-all flex items-center justify-center space-x-1"
-                      >
-                        <Trash2 className="w-3 h-3" /><span>Xóa</span>
-                      </button>
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2">
+                        <button
+                          onClick={() => requestTogglePublic(product)}
+                          className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
+                            product.productStatus === 'Public' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-green-50 text-green-700 hover:bg-green-100'
+                          }`}
+                        >
+                          {product.productStatus === 'Public' ? (
+                            <span className="flex items-center justify-center space-x-1">
+                              <EyeOff className="w-3 h-3" /><span>Ẩn</span>
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-center space-x-1">
+                              <Eye className="w-3 h-3" /><span>Hiện</span>
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleEdit(product)}
+                          className="py-2 px-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all flex items-center justify-center space-x-1"
+                        >
+                          <Edit2 className="w-3 h-3" /><span>Sửa</span>
+                        </button>
+                        <button
+                          onClick={() => openRenewModal(product)}
+                          className="py-2 px-2 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 transition-all flex items-center justify-center space-x-1"
+                        >
+                          <RefreshCw className="w-3 h-3" /><span>Gia hạn</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product)}
+                          className="py-2 px-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-all flex items-center justify-center space-x-1"
+                        >
+                          <Trash2 className="w-3 h-3" /><span>Xóa</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )})}
@@ -716,23 +815,48 @@ export default function ManageProductsPage() {
                         <span>Đã Xóa</span>
                       </div>
                     </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-red-600/90 text-white text-xs font-bold py-1.5 text-center shadow-sm">
+                      Còn {(() => {
+                        if (!product.deletedAt) return 30;
+                        const dDate = new Date(product.deletedAt + (product.deletedAt.endsWith('Z') ? '' : 'Z'));
+                        const now = new Date();
+                        const diffTime = Math.abs(now.getTime() - dDate.getTime());
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        const left = 30 - diffDays;
+                        return left > 0 ? left : 0;
+                      })()} ngày trước khi bị xóa vĩnh viễn
+                    </div>
                   </div>
 
                   <div className="p-4">
                     <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">{product.title}</h3>
                     <p className="text-gray-500 font-bold text-lg mb-2">{product.price.toLocaleString()}đ</p>
                     <div className="flex items-center justify-between text-xs text-gray-500 mb-4 pb-4 border-b border-gray-100">
-                      <span>Đã xóa vào: {new Date().toLocaleDateString()}</span>
+                      <span>Đã xóa vào: {product.deletedAt ? new Date(product.deletedAt + (product.deletedAt.endsWith('Z') ? '' : 'Z')).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN')}</span>
                     </div>
 
-                    <div className="grid grid-cols-1">
-                      <button
-                        onClick={() => handleRestore(product)}
-                        className="py-2 px-3 rounded-lg text-sm font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-all flex items-center justify-center space-x-2"
-                      >
-                        <RefreshCcw className="w-4 h-4" /><span>Khôi phục tin đăng</span>
-                      </button>
-                    </div>
+                    {product.productStatus === 'AdminDeleted' ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="py-2 px-3 rounded-lg text-sm font-semibold bg-red-50 text-red-700 text-center border border-red-100 leading-snug">
+                           Bài viết đã bị quản trị viên xóa do vi phạm nghiêm trọng quy định.
+                        </div>
+                      </div>
+                    ) : product.productStatus === 'AppealPending' ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="py-2 px-3 rounded-lg text-sm font-semibold bg-gray-50 text-gray-500 flex items-center justify-center space-x-2 border border-gray-200 cursor-not-allowed">
+                           <Clock className="w-4 h-4" /><span>Đang chờ Admin duyệt kháng cáo</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1">
+                        <button
+                          onClick={() => handleRestore(product)}
+                          className="py-2 px-3 rounded-lg text-sm font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-all flex items-center justify-center space-x-2"
+                        >
+                          <RefreshCcw className="w-4 h-4" /><span>Khôi phục tin đăng</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -884,7 +1008,8 @@ export default function ManageProductsPage() {
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">Xóa Sản Phẩm?</h2>
                 <p className="text-gray-600">
-                  Bạn có chắc chắn muốn xóa "{selectedProduct.title}"? Hành động này không thể hoàn tác.
+                  Bạn có chắc chắn muốn xóa "{selectedProduct.title}"? <br/>
+                  <span className="text-red-500 font-semibold mt-1 block">Bài viết sẽ tự động bị xóa vĩnh viễn sau 30 ngày.</span>
                 </p>
               </div>
 
@@ -1153,6 +1278,57 @@ export default function ManageProductsPage() {
           </div>
         </div>
       )}
+      {/* Appeal Modal */}
+      <AnimatePresence>
+        {showAppealModal && appealProduct && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
+            >
+              <div className="bg-orange-50 p-6 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4 text-orange-600">
+                  <AlertTriangle className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Kháng cáo vi phạm</h3>
+                <p className="text-sm text-gray-600 mt-2">
+                  Sản phẩm <span className="font-semibold">"{appealProduct.title}"</span> đã bị đánh dấu vi phạm. Hãy cho chúng tôi biết lý do vì sao bạn cho rằng sản phẩm này hợp lệ.
+                </p>
+              </div>
+              <div className="p-6">
+                <textarea
+                  className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 min-h-[100px] resize-none"
+                  placeholder="Nhập lý do kháng cáo của bạn..."
+                  value={appealReason}
+                  onChange={e => setAppealReason(e.target.value)}
+                />
+                <div className="flex space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowAppealModal(false)}
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleAppealSubmit}
+                    disabled={isAppealing}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-orange-600 text-white font-semibold hover:bg-orange-700 transition-colors disabled:opacity-50"
+                  >
+                    {isAppealing ? 'Đang gửi...' : 'Gửi kháng cáo'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
