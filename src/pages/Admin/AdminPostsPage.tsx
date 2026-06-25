@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Eye, Trash2, AlertTriangle, X, Check, Image, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Eye, Trash2, AlertTriangle, X, Check, Image, User, Calendar, ChevronLeft, ChevronRight, CheckCircle, RefreshCcw } from 'lucide-react';
 import AdminLayout from '../../components/common/AdminLayout';
 import { getAllProductsForAdminAPI, updateProductStatusAPI } from '../../features/admin/services/adminApi';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
-type PostStatus = 'Public' | 'Private' | 'Expired' | 'Deleted' | 'Violated';
+type PostStatus = 'Public' | 'Private' | 'Expired' | 'Deleted' | 'Violated' | 'AdminDeleted' | 'AppealPending';
 
 interface Post {
   id: string;
@@ -28,10 +29,12 @@ interface Post {
 
 const statusConfig: Record<PostStatus, { label: string; color: string; bg: string }> = {
   Public: { label: 'Đang hiển thị', color: 'text-green-700', bg: 'bg-green-100' },
-  Private: { label: 'Chờ duyệt', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  Private: { label: 'Riêng tư', color: 'text-gray-600', bg: 'bg-gray-100' },
   Expired: { label: 'Hết hạn', color: 'text-gray-700', bg: 'bg-gray-200' },
   Deleted: { label: 'Đã xóa', color: 'text-gray-600', bg: 'bg-gray-100' },
   Violated: { label: 'Vi phạm', color: 'text-red-700', bg: 'bg-red-100' },
+  AdminDeleted: { label: 'Xóa bởi Admin', color: 'text-red-800', bg: 'bg-red-200' },
+  AppealPending: { label: 'Chờ duyệt kháng cáo', color: 'text-orange-700', bg: 'bg-orange-100' },
 };
 
 function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: { isOpen: boolean, title: string, message: string, onConfirm: () => void, onCancel: () => void }) {
@@ -47,6 +50,51 @@ function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: { isOpen:
         <div className="flex space-x-3">
           <button onClick={onCancel} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Hủy</button>
           <button onClick={onConfirm} className="flex-1 py-2.5 bg-[#2D5A3D] text-white rounded-xl text-sm font-medium hover:bg-[#1E4029] transition-colors">Xác nhận</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionReasonModal({ isOpen, title, actionType, onConfirm, onCancel }: { isOpen: boolean, title: string, actionType: 'Violated' | 'AdminDeleted', onConfirm: (reason: string) => void, onCancel: () => void }) {
+  const [reason, setReason] = useState('');
+  useEffect(() => {
+    if (isOpen) setReason('');
+  }, [isOpen]);
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col p-6 border border-gray-100">
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${actionType === 'Violated' ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600'}`}>
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h3 className="font-bold text-lg text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-600 text-sm mb-2">Vui lòng nhập lý do để thông báo đến người dùng:</p>
+        {actionType === 'Violated' ? (
+          <p className="text-yellow-700 text-xs font-medium mb-4 bg-yellow-50 p-2.5 rounded-lg border border-yellow-200">
+            Lưu ý: Thao tác này sẽ ẩn bài viết, nhưng người dùng <strong>CÓ THỂ</strong> chỉnh sửa và gửi duyệt lại.
+          </p>
+        ) : (
+          <p className="text-red-700 text-xs font-medium mb-4 bg-red-50 p-2.5 rounded-lg border border-red-200">
+            Cảnh báo: Hành động này tước quyền chỉnh sửa và kháng cáo của người dùng. Chỉ áp dụng cho các vi phạm nghiêm trọng.
+          </p>
+        )}
+        <textarea
+          rows={3}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Nhập lý do..."
+          className="w-full px-3 py-2 mb-6 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm resize-none"
+        />
+        <div className="flex space-x-3">
+          <button onClick={onCancel} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Hủy</button>
+          <button onClick={() => {
+            if (!reason.trim()) {
+              toast.error('Vui lòng nhập lý do');
+              return;
+            }
+            onConfirm(reason);
+          }} className={`flex-1 py-2.5 text-white rounded-xl text-sm font-medium transition-colors ${actionType === 'Violated' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-red-600 hover:bg-red-700'}`}>Xác nhận</button>
         </div>
       </div>
     </div>
@@ -107,8 +155,12 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
                 <span>Người đăng</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  {post.owner.avatar}
+                <div className="w-8 h-8 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+                  {post.owner.avatar?.startsWith('http') ? (
+                    <img src={post.owner.avatar} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    post.owner.avatar
+                  )}
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-900">{post.owner.username}</div>
@@ -186,8 +238,7 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
         {/* Actions */}
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
           <div className="flex space-x-2">
-            {post.status !== 'Deleted' && (
-              <>
+            {post.status !== 'Deleted' && post.status !== 'AdminDeleted' && post.status !== 'AppealPending' && post.status !== 'Violated' && (
                 <button
                   onClick={() => setShowViolationForm(true)}
                   className="flex items-center space-x-1.5 px-3 py-2 bg-yellow-50 text-yellow-700 rounded-xl hover:bg-yellow-100 transition-colors text-sm font-medium"
@@ -195,22 +246,36 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
                   <AlertTriangle className="w-4 h-4" />
                   <span>Vi phạm</span>
                 </button>
+            )}
+            {post.status !== 'Deleted' && post.status !== 'AdminDeleted' && post.status !== 'AppealPending' && (
                 <button
-                  onClick={() => { onUpdateStatus(post.id, 'Deleted'); }}
+                  onClick={() => { onUpdateStatus(post.id, 'AdminDeleted'); }}
                   className="flex items-center space-x-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-sm font-medium"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Xóa mềm</span>
                 </button>
-              </>
             )}
-            {post.status === 'Deleted' && (
+            {(post.status === 'Deleted' || post.status === 'AdminDeleted') && (
               <button
                 onClick={() => { onUpdateStatus(post.id, 'Public'); }}
                 className="flex items-center space-x-1.5 px-3 py-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors text-sm font-medium"
               >
                 <Check className="w-4 h-4" />
                 <span>Khôi phục</span>
+              </button>
+            )}
+            {post.status === 'AppealPending' && (
+              <button
+                onClick={() => { 
+                   // To trigger the resolve modal, we need to pass a special status or just close this and the parent handles it.
+                   // Let's pass 'AppealResolve' as a pseudo-status to trigger it.
+                   onUpdateStatus(post.id, 'AppealPending'); 
+                }}
+                className="flex items-center space-x-1.5 px-3 py-2 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 transition-colors text-sm font-medium"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span>Duyệt kháng cáo</span>
               </button>
             )}
           </div>
@@ -226,6 +291,9 @@ function PostDetailModal({ post, onClose, onUpdateStatus }: { post: Post; onClos
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [showAppealResolveModal, setShowAppealResolveModal] = useState(false);
+  const [appealPostId, setAppealPostId] = useState<string | null>(null);
+  const [appealResolveStatus, setAppealResolveStatus] = useState<PostStatus>('Public');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PostStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -237,9 +305,14 @@ export default function AdminPostsPage() {
 
   // Modal Xác nhận
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, action: () => void }>({ isOpen: false, title: '', message: '', action: () => {} });
+  const [actionReasonModal, setActionReasonModal] = useState<{ isOpen: boolean, title: string, actionType: 'Violated' | 'AdminDeleted', action: (reason: string) => void }>({ isOpen: false, title: '', actionType: 'Violated', action: () => {} });
 
   const confirmAction = (title: string, message: string, action: () => void) => {
     setConfirmModal({ isOpen: true, title, message, action });
+  };
+
+  const confirmActionWithReason = (title: string, actionType: 'Violated' | 'AdminDeleted', action: (reason: string) => void) => {
+    setActionReasonModal({ isOpen: true, title, actionType, action });
   };
 
   useEffect(() => {
@@ -268,9 +341,9 @@ export default function AdminPostsPage() {
   });
 
   const handleUpdateStatus = async (id: string, status: PostStatus, note?: string) => {
-    const doUpdate = async () => {
+    const doUpdate = async (overrideNote?: string) => {
       try {
-        const res = await updateProductStatusAPI(id, status, note);
+        const res = await updateProductStatusAPI(id, status, overrideNote || note);
         if (res.success) {
           setPosts(posts.map(p => p.id === id ? { ...p, status } : p));
           if (selectedPost?.id === id) setSelectedPost(prev => prev ? { ...prev, status } : null);
@@ -282,13 +355,19 @@ export default function AdminPostsPage() {
         toast.error('Có lỗi xảy ra khi cập nhật trạng thái');
       } finally {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setActionReasonModal(prev => ({ ...prev, isOpen: false }));
       }
     };
 
-    if (status === 'Deleted') {
-      confirmAction('Xác nhận xóa bài đăng', 'Bạn có chắc chắn muốn xóa mềm bài đăng này? Bài đăng sẽ bị gỡ khỏi ứng dụng nhưng không mất dữ liệu gốc.', doUpdate);
+    if (status === 'AdminDeleted') {
+      confirmActionWithReason('Xác nhận xóa bài đăng', 'AdminDeleted', (reason) => doUpdate(reason));
+    } else if (status === 'Deleted') {
+      confirmAction('Xác nhận xóa bài đăng', 'Bạn có chắc chắn muốn xóa mềm bài đăng này? Bài đăng sẽ bị gỡ khỏi ứng dụng nhưng không mất dữ liệu gốc.', () => doUpdate());
+    } else if (status === 'Violated') {
+      if (note) doUpdate();
+      else confirmActionWithReason('Xác nhận báo vi phạm', 'Violated', (reason) => doUpdate(reason));
     } else if (status === 'Public') {
-      confirmAction('Xác nhận khôi phục', 'Bạn có chắc chắn muốn khôi phục bài đăng này? Người dùng sẽ xem lại được bài đăng này trên ứng dụng.', doUpdate);
+      confirmAction('Xác nhận khôi phục', 'Bạn có chắc chắn muốn khôi phục bài đăng này? Người dùng sẽ xem lại được bài đăng này trên ứng dụng.', () => doUpdate());
     } else {
       doUpdate();
     }
@@ -298,7 +377,8 @@ export default function AdminPostsPage() {
     total: posts.length,
     active: posts.filter(p => p.status === 'Public').length,
     violated: posts.filter(p => p.status === 'Violated').length,
-    deleted: posts.filter(p => p.status === 'Deleted').length,
+    deleted: posts.filter(p => p.status === 'Deleted' || p.status === 'AdminDeleted').length,
+    appeal: posts.filter(p => p.status === 'AppealPending').length,
   };
 
   // Tính toán phân trang
@@ -319,6 +399,13 @@ export default function AdminPostsPage() {
         onConfirm={confirmModal.action}
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
       />
+      <ActionReasonModal
+        isOpen={actionReasonModal.isOpen}
+        title={actionReasonModal.title}
+        actionType={actionReasonModal.actionType}
+        onConfirm={actionReasonModal.action}
+        onCancel={() => setActionReasonModal(prev => ({ ...prev, isOpen: false }))}
+      />
 
       {selectedPost && (
         <PostDetailModal
@@ -334,10 +421,11 @@ export default function AdminPostsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         {[
           { label: 'Tổng bài đăng', value: stats.total, color: 'text-gray-900' },
           { label: 'Đang hiển thị', value: stats.active, color: 'text-green-600' },
+          { label: 'Chờ duyệt kháng cáo', value: stats.appeal, color: 'text-orange-600' },
           { label: 'Vi phạm', value: stats.violated, color: 'text-red-600' },
           { label: 'Đã xóa', value: stats.deleted, color: 'text-gray-400' },
         ].map((s) => (
@@ -361,18 +449,20 @@ export default function AdminPostsPage() {
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as PostStatus | 'all')}
-            className="px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="Public">Đang hiển thị</option>
-            <option value="Private">Chờ duyệt</option>
-            <option value="Expired">Hết hạn</option>
-            <option value="Violated">Vi phạm</option>
-            <option value="Deleted">Đã xóa</option>
-          </select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as PostStatus | 'all')}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 transition-all cursor-pointer hover:border-gray-300"
+                >
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="Public">Đang hiển thị</option>
+                  <option value="Private">Riêng tư</option>
+                  <option value="Expired">Hết hạn</option>
+                  <option value="Deleted">Đã xóa (User)</option>
+                  <option value="AdminDeleted">Đã xóa (Admin)</option>
+                  <option value="Violated">Vi phạm</option>
+                  <option value="AppealPending">Chờ duyệt kháng cáo</option>
+                </select>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -388,22 +478,22 @@ export default function AdminPostsPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left py-4 px-5 text-sm text-gray-600">Sản phẩm</th>
-                <th className="text-left py-4 px-5 text-sm text-gray-600">Người đăng</th>
-                <th className="text-left py-4 px-5 text-sm text-gray-600">Giá</th>
-                <th className="text-left py-4 px-5 text-sm text-gray-600">Ngày đăng</th>
-                <th className="text-left py-4 px-5 text-sm text-gray-600">Lượt xem</th>
-                <th className="text-left py-4 px-5 text-sm text-gray-600">Trạng thái</th>
-                <th className="text-right py-4 px-5 text-sm text-gray-600">Thao tác</th>
+              <tr className="border-b border-gray-100 bg-gray-50/80 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <th className="py-5 px-6">Sản phẩm</th>
+                <th className="py-5 px-6">Người đăng</th>
+                <th className="py-5 px-6">Giá</th>
+                <th className="py-5 px-6">Ngày đăng</th>
+                <th className="py-5 px-6">Lượt xem</th>
+                <th className="py-5 px-6">Trạng thái</th>
+                <th className="py-5 px-6 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {currentItems.map((post) => {
-                const si = statusConfig[post.status] || { label: 'Không xác định', bg: 'bg-gray-100', color: 'text-gray-600' };
+                const si = statusConfig[post.status] || { label: 'Không xác định', bg: 'bg-gray-50 border-gray-200', color: 'text-gray-600' };
                 return (
-                  <tr key={post.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedPost(post)}>
-                    <td className="py-4 px-5">
+                  <tr key={post.id} className="border-b border-gray-50 hover:bg-green-50/30 transition-colors group cursor-pointer" onClick={() => setSelectedPost(post)}>
+                    <td className="py-4 px-6">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
                           <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover" />
@@ -417,39 +507,85 @@ export default function AdminPostsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-5">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-7 h-7 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                          {post.owner.avatar}
+                    <td className="py-4 px-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] rounded-xl flex items-center justify-center text-white text-sm font-bold overflow-hidden shadow-sm ring-2 ring-white group-hover:ring-green-50 transition-all">
+                          {post.owner.avatar?.startsWith('http') ? (
+                            <img src={post.owner.avatar} alt="avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            post.owner.avatar
+                          )}
                         </div>
-                        <span className="text-sm text-gray-700">{post.owner.username}</span>
+                        <div>
+                          <div className="text-sm font-bold text-gray-900">{post.owner.username}</div>
+                          <div className="text-xs text-gray-500 font-medium mt-0.5">@{post.owner.username}</div>
+                        </div>
                       </div>
                     </td>
-                    <td className="py-4 px-5 text-sm font-bold text-[#C4603A]">{post.price.toLocaleString('vi-VN')}đ</td>
-                    <td className="py-4 px-5 text-sm text-gray-500">{post.createdAt}</td>
-                    <td className="py-4 px-5 text-sm text-gray-700">{post.views}</td>
-                    <td className="py-4 px-5">
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${si.bg} ${si.color}`}>{si.label}</span>
+                    <td className="py-4 px-6 text-sm font-bold text-[#C4603A]">{post.price.toLocaleString('vi-VN')}đ</td>
+                    <td className="py-4 px-6 text-sm text-gray-500 font-medium">{post.createdAt}</td>
+                    <td className="py-4 px-6 text-sm font-bold text-[#2D5A3D] bg-green-50/30">
+                      {post.views} <span className="text-xs font-normal text-gray-400">lượt</span>
                     </td>
-                    <td className="py-4 px-5">
-                      <div className="flex items-center justify-end space-x-1">
+                    <td className="py-4 px-6">
+                      <span className={`text-xs px-3 py-1.5 rounded-xl font-bold flex items-center w-fit shadow-sm border ${si.bg.replace('bg-', 'border-').replace('100', '200')} ${si.bg} ${si.color}`}>
+                        {si.label}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={(e) => { e.stopPropagation(); setSelectedPost(post); }}
-                          className="p-2 text-[#2D5A3D] hover:bg-[#2D5A3D]/10 rounded-lg transition-colors"
+                          className="flex items-center space-x-1 text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
                           title="Xem chi tiết"
                         >
                           <Eye className="w-4 h-4" />
+                          <span>Xem</span>
                         </button>
-                        {post.status !== 'Deleted' && (
-                          <>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(post.id, 'Deleted'); }}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Xóa mềm"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
+                        {post.status === 'AppealPending' && (
+                          <button
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              setAppealPostId(post.id);
+                              setAppealResolveStatus('Public');
+                              setShowAppealResolveModal(true);
+                            }}
+                            className="flex items-center space-x-1.5 text-orange-600 bg-white border border-orange-100 hover:bg-orange-50 hover:border-orange-200 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
+                            title="Xử lý kháng cáo"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Duyệt</span>
+                          </button>
+                        )}
+                        {post.status === 'AdminDeleted' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(post.id, 'Public'); }}
+                            className="flex items-center space-x-1.5 text-[#2D5A3D] bg-white border border-green-100 hover:bg-green-50 hover:border-green-200 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
+                            title="Khôi phục bài viết"
+                          >
+                            <RefreshCcw className="w-4 h-4" />
+                            <span>Khôi phục</span>
+                          </button>
+                        )}
+                        {post.status !== 'Deleted' && post.status !== 'AdminDeleted' && post.status !== 'AppealPending' && post.status !== 'Violated' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(post.id, 'Violated'); }}
+                            className="flex items-center space-x-1.5 text-yellow-700 bg-yellow-50 border border-yellow-200 hover:bg-yellow-100 hover:border-yellow-300 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
+                            title="Báo vi phạm"
+                          >
+                            <AlertTriangle className="w-4 h-4" />
+                            <span>Vi phạm</span>
+                          </button>
+                        )}
+                        {post.status !== 'Deleted' && post.status !== 'AdminDeleted' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(post.id, 'AdminDeleted'); }}
+                            className="flex items-center space-x-1.5 text-red-600 bg-white border border-red-100 hover:bg-red-50 hover:border-red-200 px-3 py-1.5 rounded-lg transition-all text-sm font-bold shadow-sm"
+                            title="Xóa bài viết"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Xóa</span>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -523,6 +659,51 @@ export default function AdminPostsPage() {
           </div>
         )}
       </div>
+
+      {/* Appeal Resolve Modal */}
+      <AnimatePresence>
+        {showAppealResolveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          >
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col p-6 border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Xử lý kháng cáo</h3>
+              <p className="text-sm text-gray-600 mb-4">Chọn trạng thái để áp dụng cho bài viết này sau khi duyệt kháng cáo:</p>
+              
+              <select
+                value={appealResolveStatus}
+                onChange={(e) => setAppealResolveStatus(e.target.value as PostStatus)}
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/20 mb-6"
+              >
+                <option value="Public">Công khai</option>
+                <option value="Private">Riêng tư</option>
+                <option value="Violated">Từ chối (Giữ Vi phạm)</option>
+              </select>
+
+              <div className="flex space-x-3 mt-auto">
+                <button
+                  onClick={() => setShowAppealResolveModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => {
+                    if (appealPostId) handleUpdateStatus(appealPostId, appealResolveStatus);
+                    setShowAppealResolveModal(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-[#2D5A3D] text-white font-semibold hover:bg-[#2D5A3D]/90 transition-colors"
+                >
+                  Xác nhận
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AdminLayout>
   );
 }

@@ -161,6 +161,7 @@ export default function SellProductPage() {
   // Thêm state lưu thời gian tạo sản phẩm và phút còn lại để sửa
   const [productCreatedAt, setProductCreatedAt] = useState<string | null>(null);
   const [editTimeLeft, setEditTimeLeft] = useState<number | null>(null);
+  const [productStatus, setProductStatus] = useState<string>('');
 
   const totalFeaturedCreditsUsed = (enableVideoUpload ? 1 : 0) + (enableBannerBoost ? 1 : 0);
 
@@ -281,6 +282,9 @@ export default function SellProductPage() {
             
             if (prod.createdAt) {
               setProductCreatedAt(prod.createdAt);
+            }
+            if (prod.productStatus) {
+              setProductStatus(prod.productStatus);
             }
           }
         }
@@ -493,7 +497,11 @@ export default function SellProductPage() {
       if (result.success) {
         window.dispatchEvent(new Event('revora_credit_updated'));
         toast.success(isEditMode ? 'Sản phẩm đã được cập nhật thành công!' : 'Sản phẩm của bạn đã được đăng thành công!', { id: toastId, duration: 3000 });
-        setTimeout(() => navigate('/'), 2000);
+        if (productStatus === 'Violated') {
+          setTimeout(() => navigate('/manage-products?tab=violated'), 2000);
+        } else {
+          setTimeout(() => navigate('/'), 2000);
+        }
       }
     } catch (error: any) {
       toast.dismiss();
@@ -608,7 +616,17 @@ export default function SellProductPage() {
             {/* THÔNG TIN SẢN PHẨM */}
             <SpotlightCard className="bg-white shadow-sm border border-gray-100 p-8">
               
-              {isEditMode && editTimeLeft !== null && (
+              {isEditMode && productStatus === 'Violated' ? (
+                <div className="mb-6 p-4 rounded-xl border flex items-start gap-3 bg-blue-50 border-blue-200 text-blue-800">
+                  <Info className="w-5 h-5 shrink-0 text-blue-500" />
+                  <div>
+                    <h3 className="font-semibold text-sm">Sửa bài viết vi phạm</h3>
+                    <p className="text-sm mt-1">
+                      Bài viết của bạn đang trong trạng thái vi phạm. Bạn có thể sửa đổi toàn bộ thông tin (bao gồm Tên và Danh mục) để phù hợp với quy định trước khi gửi duyệt lại.
+                    </p>
+                  </div>
+                </div>
+              ) : isEditMode && editTimeLeft !== null ? (
                 <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${editTimeLeft > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                   <Info className={`w-5 h-5 shrink-0 ${editTimeLeft > 0 ? 'text-amber-500' : 'text-red-500'}`} />
                   <div>
@@ -620,7 +638,7 @@ export default function SellProductPage() {
                     </p>
                   </div>
                 </div>
-              )}
+              ) : null}
 
               <h2 className="text-xl text-gray-900 mb-6 font-semibold">Thông Tin Sản Phẩm</h2>
               <div className="space-y-6">
@@ -631,7 +649,7 @@ export default function SellProductPage() {
                     value={formData.title}
                     onChange={handleChange}
                     type="text"
-                    disabled={isEditMode && editTimeLeft === 0}
+                    disabled={isEditMode && editTimeLeft === 0 && productStatus !== 'Violated'}
                     placeholder="Ví dụ: Áo Khoác Da Vintage"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
@@ -644,7 +662,7 @@ export default function SellProductPage() {
                       name="categoryId"
                       value={formData.categoryId}
                       onChange={handleChange}
-                      disabled={isLoadingData || (isEditMode && editTimeLeft === 0)}
+                      disabled={isLoadingData || (isEditMode && editTimeLeft === 0 && productStatus !== 'Violated')}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-[#2D5A3D]/10 focus:border-[#2D5A3D] transition-all bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value={0}>{isLoadingData ? "Đang tải danh mục..." : "Chọn danh mục"}</option>
