@@ -54,6 +54,7 @@ export interface ProductResponseDto {
     bannerExpiredAt?: string;
     shortExpiredAt?: string;
     highlightExpiredAt?: string;
+    deletedAt?: string;
     sellerBadgeName?: string;
 }
 
@@ -95,6 +96,7 @@ export interface ProductDetailResponseDto {
     bannerExpiredAt?: string;
     shortExpiredAt?: string;
     highlightExpiredAt?: string;
+    productStatus?: string;
     sellerName: string;
     sellerId: number;
     sellerUsername: string;
