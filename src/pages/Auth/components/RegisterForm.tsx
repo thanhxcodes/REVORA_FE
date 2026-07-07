@@ -45,6 +45,19 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const [confirmEmail, setConfirmEmail] = useState('');
   const [city, setCity] = useState('');
   const [isWaitingForVerification, setIsWaitingForVerification] = useState(false);
+  
+  const [citiesList, setCitiesList] = useState<string[]>(VIETNAM_CITIES);
+
+  useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/p/')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCitiesList(data.map((item: any) => item.name));
+        }
+      })
+      .catch(err => console.error("Failed to fetch cities", err));
+  }, []);
 
   // Step 2 fields
   const [fullName, setFullName] = useState('');
@@ -205,7 +218,7 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 disabled={isWaitingForVerification}
               >
                 <option value="" disabled>Chọn Tỉnh/Thành phố</option>
-                {VIETNAM_CITIES.map((c) => (
+                {citiesList.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
