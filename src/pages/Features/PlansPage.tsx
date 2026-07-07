@@ -39,7 +39,8 @@ interface CreditPackageApi {
 }
 
 const formatTransactionDateTime = (isoDate: string) => {
-  const date = new Date(isoDate);
+  const utcDateStr = isoDate + (isoDate.endsWith('Z') ? '' : 'Z');
+  const date = new Date(utcDateStr);
   return {
     date: new Intl.DateTimeFormat('vi-VN').format(date),
     time: new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(date),

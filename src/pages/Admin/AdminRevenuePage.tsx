@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Download, Filter, Calendar } from 'lucide-react';
+import { DollarSign, Download, Filter, Calendar, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import AdminLayout from '../../components/common/AdminLayout';
 import { authClient } from '../../providers/authProvider/authService';
@@ -25,6 +25,12 @@ export default function AdminRevenuePage() {
 
   const [stats, setStats] = useState<RevenueStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'recent' | 'highestAmount'>('recent');
 
   // Generate years from 2023 to current year + 1
   const years = Array.from({ length: currentYear - 2023 + 2 }, (_, i) => 2023 + i);
@@ -70,7 +76,8 @@ export default function AdminRevenuePage() {
     
     const ws = xlsx.utils.json_to_sheet(stats.transactions.map(t => ({
       'Mã GD': t.id,
-      'Người Dùng': t.user,
+      'Người Dùng (Username)': t.user,
+      'Họ Tên (FullName)': t.fullName || 'N/A',
       'Gói': t.package,
       'Số Tiền': t.amount,
       'Thời Gian': t.date,
@@ -96,6 +103,33 @@ export default function AdminRevenuePage() {
 
   const postingRevenue = stats?.revenueByPackages.find(p => p.packageName === 'Posting')?.revenue || 0;
   const featuredRevenue = stats?.revenueByPackages.find(p => p.packageName === 'Featured')?.revenue || 0;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [stats]);
+
+  let filteredTransactions = stats?.transactions || [];
+  
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    filteredTransactions = filteredTransactions.filter(t => 
+      t.user.toLowerCase().includes(q) || 
+      (t.fullName && t.fullName.toLowerCase().includes(q)) ||
+      t.id.toLowerCase().includes(q)
+    );
+  }
+
+  if (sortBy === 'highestAmount') {
+    filteredTransactions = [...filteredTransactions].sort((a, b) => b.amount - a.amount);
+  }
+
+  const totalTransactions = filteredTransactions.length;
+  const totalPages = Math.ceil(totalTransactions / itemsPerPage);
+  const currentTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <AdminLayout>
@@ -272,9 +306,31 @@ export default function AdminRevenuePage() {
 
               {/* Transactions Table */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-gray-900">Chi Tiết Lịch Sử Giao Dịch</h3>
-                  <span className="text-sm text-gray-500 font-medium">{stats?.transactions.length} giao dịch</span>
+                <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex flex-col">
+                    <h3 className="text-lg font-bold text-gray-900">Chi Tiết Lịch Sử Giao Dịch</h3>
+                    <span className="text-sm text-gray-500 font-medium">{totalTransactions} giao dịch {searchQuery && '(đã lọc)'}</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        placeholder="Tìm người dùng, mã GD..." 
+                        value={searchQuery}
+                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                        className="pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/50 focus:border-[#2D5A3D] bg-gray-50 w-full sm:w-64"
+                      />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    <select 
+                      value={sortBy}
+                      onChange={(e) => { setSortBy(e.target.value as any); setCurrentPage(1); }}
+                      className="px-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/50 focus:border-[#2D5A3D] bg-gray-50 font-medium"
+                    >
+                      <option value="recent">Mới nhất</option>
+                      <option value="highestAmount">Chi tiêu nhiều nhất</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -289,7 +345,7 @@ export default function AdminRevenuePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {stats?.transactions.length === 0 ? (
+                      {currentTransactions.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="text-center py-10">
                             <div className="flex flex-col items-center justify-center text-gray-400">
@@ -299,10 +355,24 @@ export default function AdminRevenuePage() {
                           </td>
                         </tr>
                       ) : (
-                        stats?.transactions.map((txn) => (
+                        currentTransactions.map((txn) => (
                           <tr key={txn.id} className="hover:bg-gray-50/80 transition-colors">
                             <td className="py-4 px-6 text-sm font-semibold text-gray-900">{txn.id}</td>
-                            <td className="py-4 px-6 text-sm text-gray-600">{txn.user}</td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2D5A3D] to-[#3D7054] flex items-center justify-center text-white text-xs font-bold overflow-hidden shadow-sm ring-2 ring-white">
+                                  {txn.avatarUrl && txn.avatarUrl.startsWith('http') ? (
+                                    <img src={txn.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    (txn.fullName || txn.user || 'U').charAt(0).toUpperCase()
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-bold text-gray-900">{txn.fullName || txn.user}</div>
+                                  <div className="text-xs text-gray-500 font-medium">@{txn.user}</div>
+                                </div>
+                              </div>
+                            </td>
                             <td className="py-4 px-6">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${txn.package.includes('Posting') ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
                                 {txn.package}
@@ -322,6 +392,78 @@ export default function AdminRevenuePage() {
                     </tbody>
                   </table>
                 </div>
+
+                {totalPages > 0 && (
+                  <div className="p-4 border-t border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Hiển thị</span>
+                      <select 
+                        value={itemsPerPage} 
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-white border border-gray-200 text-gray-700 py-1.5 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm font-medium"
+                      >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={20}>20</option>
+                      </select>
+                      <span className="text-sm text-gray-500">bản ghi</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => handlePageChange(page)}
+                              className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                                currentPage === page
+                                  ? 'bg-[#3D7054] text-white shadow-md'
+                                  : 'border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span key={page} className="w-8 flex items-center justify-center text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

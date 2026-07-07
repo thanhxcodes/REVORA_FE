@@ -633,20 +633,38 @@ export default function AdminPostsPage() {
                 <ChevronLeft className="w-4 h-4" />
               </button>
               
-              {/* Simple page numbers */}
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                    currentPage === i + 1 
-                      ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white' 
-                      : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+              {/* Truncated page numbers */}
+              {(() => {
+                const pages = [];
+                if (totalPages <= 5) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  if (currentPage <= 3) {
+                    pages.push(1, 2, 3, '...', totalPages);
+                  } else if (currentPage >= totalPages - 2) {
+                    pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+                  } else {
+                    pages.push(1, '...', currentPage, '...', totalPages);
+                  }
+                }
+                
+                return pages.map((page, i) => (
+                  <button
+                    key={i}
+                    onClick={() => typeof page === 'number' && setCurrentPage(page)}
+                    disabled={page === '...'}
+                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === page 
+                        ? 'bg-gradient-to-r from-[#2D5A3D] to-[#3D7054] text-white border border-transparent' 
+                        : page === '...'
+                        ? 'text-gray-400 cursor-default'
+                        : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ));
+              })()}
 
               <button 
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
