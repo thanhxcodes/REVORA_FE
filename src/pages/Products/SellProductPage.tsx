@@ -11,7 +11,7 @@ import { fetchUserCreditBatches } from '../../features/credits/services/creditPa
 import { ProductDetailResponseDto } from '../../features/products/types';
 import type { CreditBatch } from '../../features/credits/types';
 
-const conditions = ['Mới 100%', 'Như Mới', 'Tuyệt Vời', 'Tốt', 'Khá'];
+const conditions = ['100%', '80%', '60%', '40%', '20%'];
 
 // --- BỘ CÔNG CỤ ĐỌC SỐ TIỀN TIẾNG VIỆT ---
 const DOCSO = {
