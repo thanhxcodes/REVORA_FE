@@ -816,15 +816,28 @@ export default function ManageProductsPage() {
                       </div>
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-red-600/90 text-white text-xs font-bold py-1.5 text-center shadow-sm">
-                      Còn {(() => {
-                        if (!product.deletedAt) return 30;
+                      {(() => {
+                        if (!product.deletedAt) return "Còn 30 ngày trước khi bị xóa vĩnh viễn";
                         const dDate = new Date(product.deletedAt + (product.deletedAt.endsWith('Z') ? '' : 'Z'));
+                        const expiryDate = new Date(dDate.getTime() + 30 * 24 * 60 * 60 * 1000);
                         const now = new Date();
-                        const diffTime = Math.abs(now.getTime() - dDate.getTime());
-                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                        const left = 30 - diffDays;
-                        return left > 0 ? left : 0;
-                      })()} ngày trước khi bị xóa vĩnh viễn
+                        const diffMs = expiryDate.getTime() - now.getTime();
+                        
+                        if (diffMs <= 0) return "Sắp bị xóa vĩnh viễn";
+                        
+                        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        if (diffDays > 0) {
+                          return `Còn ${diffDays} ngày trước khi bị xóa vĩnh viễn`;
+                        }
+                        
+                        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                        if (diffHours > 0) {
+                          return `Còn ${diffHours} giờ trước khi bị xóa vĩnh viễn`;
+                        }
+                        
+                        const diffMins = Math.floor(diffMs / (1000 * 60));
+                        return `Còn ${diffMins > 0 ? diffMins : 1} phút trước khi bị xóa vĩnh viễn`;
+                      })()}
                     </div>
                   </div>
 

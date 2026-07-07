@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Download, Filter, Calendar } from 'lucide-react';
+import { DollarSign, Download, Filter, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import AdminLayout from '../../components/common/AdminLayout';
 import { authClient } from '../../providers/authProvider/authService';
@@ -25,6 +25,10 @@ export default function AdminRevenuePage() {
 
   const [stats, setStats] = useState<RevenueStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Generate years from 2023 to current year + 1
   const years = Array.from({ length: currentYear - 2023 + 2 }, (_, i) => 2023 + i);
@@ -96,6 +100,18 @@ export default function AdminRevenuePage() {
 
   const postingRevenue = stats?.revenueByPackages.find(p => p.packageName === 'Posting')?.revenue || 0;
   const featuredRevenue = stats?.revenueByPackages.find(p => p.packageName === 'Featured')?.revenue || 0;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [stats]);
+
+  const totalTransactions = stats?.transactions.length || 0;
+  const totalPages = Math.ceil(totalTransactions / itemsPerPage);
+  const currentTransactions = stats?.transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) || [];
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <AdminLayout>
@@ -289,7 +305,7 @@ export default function AdminRevenuePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {stats?.transactions.length === 0 ? (
+                      {currentTransactions.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="text-center py-10">
                             <div className="flex flex-col items-center justify-center text-gray-400">
@@ -299,7 +315,7 @@ export default function AdminRevenuePage() {
                           </td>
                         </tr>
                       ) : (
-                        stats?.transactions.map((txn) => (
+                        currentTransactions.map((txn) => (
                           <tr key={txn.id} className="hover:bg-gray-50/80 transition-colors">
                             <td className="py-4 px-6 text-sm font-semibold text-gray-900">{txn.id}</td>
                             <td className="py-4 px-6 text-sm text-gray-600">{txn.user}</td>
@@ -322,6 +338,78 @@ export default function AdminRevenuePage() {
                     </tbody>
                   </table>
                 </div>
+
+                {totalPages > 0 && (
+                  <div className="p-4 border-t border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Hiển thị</span>
+                      <select 
+                        value={itemsPerPage} 
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-white border border-gray-200 text-gray-700 py-1.5 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A3D] text-sm font-medium"
+                      >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={20}>20</option>
+                      </select>
+                      <span className="text-sm text-gray-500">bản ghi</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => handlePageChange(page)}
+                              className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                                currentPage === page
+                                  ? 'bg-[#3D7054] text-white shadow-md'
+                                  : 'border border-gray-200 text-gray-600 hover:bg-gray-50 bg-white'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span key={page} className="w-8 flex items-center justify-center text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
