@@ -43,6 +43,19 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   errors,
   clearError,
 }) => {
+  const [cities, setCities] = React.useState<string[]>(VIETNAM_CITIES);
+
+  React.useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/p/')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCities(data.map((item: any) => item.name));
+        }
+      })
+      .catch(err => console.error("Failed to fetch cities", err));
+  }, []);
+
   return (
     <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[32px] shadow-sm p-8 md:p-10">
       <h2 className="text-lg font-bold text-gray-900 mb-7">Thông Tin Cá Nhân</h2>
@@ -163,7 +176,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               onChange={(e) => setDraft((p) => ({ ...p, city: e.target.value }))}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#2D5A3D]/30 bg-gray-50 focus:bg-white transition-colors text-gray-900"
             >
-              {VIETNAM_CITIES.map((c) => <option key={c}>{c}</option>)}
+              <option value="" disabled>Chọn Tỉnh / Thành Phố</option>
+              {cities.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
