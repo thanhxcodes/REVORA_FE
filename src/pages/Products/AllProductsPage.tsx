@@ -8,7 +8,7 @@ import { ProductResponseDto } from '../../features/products/types';
   
 const LOCATIONS = ['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng'];
 const BRANDS = ['Gucci', 'Chanel', 'Apple', 'Samsung', '5TheWay', 'First News', 'Logitech', 'No Brand'];
-const CONDITIONS = ['Mới 100%', 'Như Mới', 'Tuyệt Vời', 'Tốt', 'Khá'];
+const CONDITIONS = ['100%', '80%', '60%', '40%', '20%'];
 
 // CÁC MỐC GIÁ CHUẨN E-COMMERCE
 const PRICE_RANGES = [
